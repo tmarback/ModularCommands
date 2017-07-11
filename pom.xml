@@ -18,28 +18,28 @@
   -->
   
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-	<groupId>com.github.thiagotgm</groupId>
-	<artifactId>modular-commands</artifactId>
-	<version>0.1.0</version>
-	<packaging>jar</packaging>
+    <groupId>com.github.thiagotgm</groupId>
+    <artifactId>modular-commands</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
 
-	<name>ModularCommands</name>
-	<url>https://github.com/ThiagoTGM/ModularCommands</url>
-	<description>Framework for creating and managing chat commands for Discord bots that use Discord4J.</description>
+    <name>ModularCommands</name>
+    <url>https://github.com/ThiagoTGM/ModularCommands</url>
+    <description>Framework for creating and managing chat commands for Discord bots that use Discord4J.</description>
 
-	<properties>
-	
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>1.8</maven.compiler.source>
+    <properties>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <maven.compiler.testTarget>1.8</maven.compiler.testTarget>
         <maven.compiler.testSource>1.8</maven.compiler.testSource>
-        
-	</properties>
-	    
+
+    </properties>
+
     <licenses>
 
         <license>
@@ -49,14 +49,14 @@
         </license>
 
     </licenses>
-	
-	<repositories>
+
+    <repositories>
 
         <repository>
             <id>jcenter</id>
             <url>http://jcenter.bintray.com</url>
         </repository>
-        
+
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
@@ -64,27 +64,27 @@
 
     </repositories>
 
-	<dependencies>
-	
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.12</version>
-			<scope>test</scope>
-		</dependency>
-		
-		<dependency>
+    <dependencies>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.25</version>
         </dependency>
-		
-	</dependencies>
-	
-	<build>
-    
+
+    </dependencies>
+
+    <build>
+
         <plugins>
-    
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
@@ -105,7 +105,7 @@
 
                 </executions>
             </plugin>
-            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
@@ -123,9 +123,9 @@
 
                 </executions>
             </plugin>
-            
+
         </plugins>
-        
+
     </build>
-	
+
 </project>
