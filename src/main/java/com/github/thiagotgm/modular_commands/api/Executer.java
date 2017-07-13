@@ -23,7 +23,7 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 
 /**
- * Specification of the Consumer interface.<br>
+ * Specialization of the Consumer interface.<br>
  * Represents an operation that, given the context of a Discord command,
  * executes a task with the Discord API, with the possibility of passing in Discord-related
  * exceptions (missing permissions or a miscellaneous Discord error) to the caller.

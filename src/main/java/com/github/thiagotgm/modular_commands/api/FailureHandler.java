@@ -23,7 +23,7 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 
 /**
- * Specification of the BiConsumer interface.<br>
+ * Specialization of the BiConsumer interface.<br>
  * Represents an operation that, given the context of a Discord command that could not
  * be executed and the reason why it failed, executes a task with the Discord API, with
  * the possibility of passing in Discord-related exceptions (missing permissions or a
