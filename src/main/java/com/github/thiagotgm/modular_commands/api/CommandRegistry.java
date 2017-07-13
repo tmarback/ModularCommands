@@ -17,13 +17,16 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 import com.github.thiagotgm.modular_commands.registry.ModuleCommandRegistry;
 
+import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
 /**
@@ -49,7 +52,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     private CommandRegistry parentRegistry;
     private final Map<String, CommandRegistry> subRegistries;
-
+    private static final Map<IDiscordClient, CommandRegistry> registries = new HashMap<>();
+    
     /**
      * Creates a new registry.
      */
@@ -57,6 +61,29 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
 
         this.enabled = true;
         this.subRegistries = new TreeMap<>();
+        
+    }
+    
+    /**
+     * Retrieves the registry linked to a given client.
+     * <p>
+     * If no such registry is registered, creates one.
+     *
+     * @param client The client whose linked registry should be retrieved.
+     * @return The registry linked to the given client.
+     * @throws NullPointerException if the client passed in is null.
+     */
+    public static CommandRegistry getRegistry( IDiscordClient client ) throws NullPointerException {
+        
+        if ( client == null ) {
+            throw new NullPointerException( "Client argument cannot be null." );
+        }        
+        CommandRegistry registry = registries.get( client );
+        if ( registry == null ) { // Registry not found, create one.
+            registry = new ClientCommandRegistry( client );
+            registries.put( client, registry );
+        }
+        return registry;
         
     }
     
@@ -150,9 +177,13 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *
      * @param module The module whose linked subregistry should be retrieved.
      * @return The subregistry linked to the given module.
+     * @throws NullPointerException if the module passed in is null.
      */
-    public CommandRegistry getSubRegistry( IModule module ) {
+    public CommandRegistry getSubRegistry( IModule module ) throws NullPointerException {
         
+        if ( module == null ) {
+            throw new NullPointerException( "Module argument cannot be null." );
+        }
         String qualifiedName = qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() );
         CommandRegistry registry = subRegistries.get( qualifiedName );
         if ( registry == null ) { // Subregistry not found, create one.

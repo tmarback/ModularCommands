@@ -40,9 +40,13 @@ public class ModuleCommandRegistry extends CommandRegistry {
      * Initializes a registry linked to the given module.
      *
      * @param module The module that the registry should be linked to.
+     * @throws NullPointerException if the module received is null.
      */
-    public ModuleCommandRegistry( IModule module ) {
+    public ModuleCommandRegistry( IModule module ) throws NullPointerException {
 
+        if ( module == null ) {
+            throw new NullPointerException( "Linked module cannot be null." );
+        }
         this.module = module;
         this.essential = false;
 
@@ -51,8 +55,7 @@ public class ModuleCommandRegistry extends CommandRegistry {
     /**
      * Retrieves the module that this registry is linked to.
      *
-     * @return The module linked to this registry, or null if this registry is not
-     *         linked to a module.
+     * @return The module linked to this registry.
      */
     public IModule getModule() {
 
