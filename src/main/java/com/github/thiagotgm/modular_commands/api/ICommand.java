@@ -32,11 +32,11 @@ import sx.blah.discord.util.MissingPermissionsException;
  * <p>
  * An instance of this type should be able to be registered to only a single registry at a time.
  *
- * @version 1.0
+ * @version 1.1
  * @author ThiagoTGM
  * @since 2017-07-13
  */
-public interface ICommand extends Disableable, Comparable<ICommand> {
+public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     
     /**
      * Retrieves the name of the command.
@@ -53,31 +53,6 @@ public interface ICommand extends Disableable, Comparable<ICommand> {
      * @return The aliases of the command.
      */
     abstract SortedSet<String> getAliases();
-    
-    /**
-     * Retrieves the <i>declared</i> prefix of the command.
-     * <p>
-     * By default, returns null.
-     *
-     * @return The prefix of the command. If the command has no set prefix, returns null.
-     */
-    default String getPrefix() { return null; }
-    
-    /**
-     * Retrieves the <i>effective</i> prefix of the command.<br>
-     * If the command has no declared prefix, inherits the prefix from the registry it is registered to.
-     *
-     * @return The effective prefix used for this command.
-     * @throws IllegalStateException if called when the command is not registered to any registry.
-     */
-    default String getEffectivePrefix() throws IllegalStateException {
-        
-        if ( getRegistry() == null ) {
-            throw new IllegalStateException( "Tried to obtain command's effective prefix before registering it." );
-        }
-        return ( getPrefix() != null ) ? getPrefix() : getRegistry().getEffectivePrefix();
-        
-    }
     
     /**
      * Retrieves the signatures that can be used to call the command.
@@ -287,20 +262,6 @@ public interface ICommand extends Disableable, Comparable<ICommand> {
      * @return The priority of this command.
      */
     default int getPriority() { return 0; }
-    
-    /**
-     * Retrieves the registry that the command is registered to.
-     *
-     * @return The registry that contains this command.
-     */
-    abstract CommandRegistry getRegistry();
-    
-    /**
-     * Sets the registry that this command is registered to.
-     *
-     * @param registry The registry that this command is now registered to.
-     */
-    abstract void setRegistry( CommandRegistry registry );
     
     /**
      * Compares this ICommand with the specified ICommand for their precedence.<br>
