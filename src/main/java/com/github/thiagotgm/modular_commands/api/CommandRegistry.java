@@ -17,38 +17,231 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
+import com.github.thiagotgm.modular_commands.registry.ModuleCommandRegistry;
+
+import sx.blah.discord.modules.IModule;
+
 /**
- * A registry that allows registering of commands to be later called.
+ * A registry that allows registering of commands to be later called, or other registries
+ * as subregistries.
+ * <p>
+ * A registry can only be registered to one parent registry.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-12
  */
-public abstract class CommandRegistry implements Disableable {
+public abstract class CommandRegistry implements Disableable, Prefixed, Comparable<CommandRegistry> {
+    
+    /** Default prefix inherited when no prefix was specified in the inheritance chain. */
+    public static final String DEFAULT_PREFIX = "?";
+    
+    /** Separator used between qualifier and name in the qualified name. */
+    protected static final String QUALIFIER_SEPARATOR = ":";
+    
+    private boolean enabled;
+    private String prefix;
+    
+    private CommandRegistry parentRegistry;
+    private final Map<String, CommandRegistry> subRegistries;
 
-    public CommandRegistry() {
-        // TODO Auto-generated constructor stub
+    /**
+     * Creates a new registry.
+     */
+    protected CommandRegistry() {
+
+        this.enabled = true;
+        this.subRegistries = new TreeMap<>();
+        
+    }
+    
+    /**
+     * Given the qualifier of a registry type and the name of a registry, retrieves
+     * the qualified name.
+     *
+     * @param qualifier Qualifier of the registry type.
+     * @param name Name of the registry.
+     * @return The qualified registry name.
+     */
+    protected static String qualifiedName( String qualifier, String name ) {
+        
+        return qualifier + QUALIFIER_SEPARATOR + name;
+        
+    }
+    
+    /**
+     * Retrieves the name of the registry.
+     *
+     * @return The name that identifies the registry.
+     */
+    public abstract String getName();
+    
+    
+    /**
+     * Retrieves the qualifier that identifies the registry type.
+     *
+     * @return The qualifier of caller's registry type.
+     */
+    public abstract String getQualifier();
+    
+    /**
+     * Retrieves the fully qualified name of the registry.
+     *
+     * @return The qualified name.
+     */
+    public String getQualifiedName() {
+        
+        return qualifiedName( getQualifier(), getName() );
+        
+    }
+    
+    /**
+     * Registers a new subregistry into this registry.
+     * <p>
+     * If the given registry was already registered into another registry, it is
+     * unregistered from it.
+     * <p>
+     * If the registry is already registered as a subregistry, does nothing.
+     *
+     * @param registry The subregistry to register.
+     * @throws IllegalArgumentException if the registry given is the calling registry (attempted to register
+     *                                  a registry into itself).
+     */
+    protected void registerSubRegistry( CommandRegistry registry ) throws IllegalArgumentException {
+        
+        if ( registry == this ) {
+            throw new IllegalArgumentException( "Attempted to register a registry into itself." );
+        }
+        String qualifiedName = registry.getQualifiedName();
+        if ( subRegistries.containsKey( qualifiedName ) ) {
+            return; // If already registered, do nothing.
+        }
+        subRegistries.put( qualifiedName, registry );
+        if ( registry.getRegistry() != null ) { // Unregister from previous registry if any.
+            registry.getRegistry().unregisterSubRegistry( registry );
+        }
+        registry.setRegistry( this );
+        
+    }
+    
+    /**
+     * Unregisters the given registry from this registry. If the given registry was not a
+     * subregistry of the calling registry, nothing is changed.
+     *
+     * @param registry The subregistry to be unregistered.
+     */
+    protected void unregisterSubRegistry( CommandRegistry registry ) {
+        
+        if ( subRegistries.remove( registry.getQualifiedName() ) != null ) {
+            registry.setRegistry( null );
+        }
+        
+    }
+    
+    /**
+     * Retrieves the subregistry linked to a given module.
+     * <p>
+     * If no such subregistry is registered, creates one.
+     *
+     * @param module The module whose linked subregistry should be retrieved.
+     * @return The subregistry linked to the given module.
+     */
+    public CommandRegistry getSubRegistry( IModule module ) {
+        
+        String qualifiedName = qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() );
+        CommandRegistry registry = subRegistries.get( qualifiedName );
+        if ( registry == null ) { // Subregistry not found, create one.
+            registry = new ModuleCommandRegistry( module );
+            registerSubRegistry( registry );
+        }
+        return registry;
+        
+    }
+    
+    /**
+     * Retrieves the subregistries registered in this registry.
+     *
+     * @return The registered subregistries.
+     */
+    public SortedSet<CommandRegistry> getRegistries() {
+        
+        return new TreeSet<>( subRegistries.values() );
+        
+    }
+    
+    @Override
+    public CommandRegistry getRegistry() {
+        
+        return parentRegistry;
+        
+    }
+    
+    @Override
+    public void setRegistry( CommandRegistry registry ) {
+        
+        this.parentRegistry = registry;
+        
+    }
+    
+    /**
+     * Sets the prefix of this registry.
+     *
+     * @param prefix The prefix to use for this registry.
+     */
+    public void setPrefix( String prefix ) {
+        
+        this.prefix = prefix;
+        
+    }
+    
+    @Override
+    public String getPrefix() {
+        
+        return prefix;
+        
     }
 
     @Override
     public boolean isEnabled() {
 
-        // TODO Auto-generated method stub
-        return false;
+        return enabled;
+        
     }
 
     @Override
     public void setEnabled( boolean enabled ) throws IllegalStateException {
 
-        // TODO Auto-generated method stub
+        if ( isEssential() && !enabled ) {
+            throw new IllegalStateException( "Attempted to disabled an essential registry." );
+        }
+        this.enabled = enabled;
 
     }
     
-    public String getEffectivePrefix() {
+    /**
+     * Compares two CommandRegistries.
+     * <p>
+     * Registries are compared using their names. In case of ties, their qualifiers are compared.
+     * <p>
+     * Used to sort their display order.
+     *
+     * @param cr The registry to compare to.
+     * @return A negative value if this registry is lesser than the given registry (comes first).
+     *         A positive value if this registry is greater than the given registry (comes after).
+     *         Zero if both are equal (either can come first).
+     * @see String#compareTo(String)
+     */
+    @Override
+    public int compareTo( CommandRegistry cr ) {
         
-        // TODO
-        return null;
+        int compare = this.getName().compareTo( cr.getName() );
+        return ( compare != 0 ) ? compare : this.getQualifier().compareTo( cr.getQualifier() );
         
     }
-
+    
 }

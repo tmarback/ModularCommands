@@ -15,30 +15,11 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands.api;
-
 /**
- * Defines an object that can be registered into a command registry.
+ * Specific types of registries used by the framework.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-13
  */
-public interface Registerable {
-    
-    /**
-     * Retrieves the registry that the calling instance is registered to.
-     *
-     * @return The registry that contains this instance, or null if not registered to any.
-     */
-    abstract CommandRegistry getRegistry();
-    
-    /**
-     * Sets the registry that the calling instance is registered to.<br>
-     * Can be set as unregistered by passing in null.
-     *
-     * @param registry The registry that this instance is now registered to.
-     */
-    abstract void setRegistry( CommandRegistry registry );
-
-}
+package com.github.thiagotgm.modular_commands.registry;

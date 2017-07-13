@@ -31,6 +31,8 @@ import sx.blah.discord.util.MissingPermissionsException;
  * A command that can be invoked in a text channel and executed by the bot.
  * <p>
  * An instance of this type should be able to be registered to only a single registry at a time.
+ * <p>
+ * It is recommended to override {@link Object#hashCode()} to use {@link String#hashCode() the name's hash code}.
  *
  * @version 1.1
  * @author ThiagoTGM
