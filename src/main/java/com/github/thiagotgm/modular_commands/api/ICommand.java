@@ -18,9 +18,10 @@
 package com.github.thiagotgm.modular_commands.api;
 
 import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.DiscordException;
@@ -35,7 +36,7 @@ import sx.blah.discord.util.MissingPermissionsException;
  * @author ThiagoTGM
  * @since 2017-07-13
  */
-public interface ICommand extends Disableable {
+public interface ICommand extends Disableable, Comparable<ICommand> {
     
     /**
      * Retrieves the name of the command.
@@ -67,7 +68,7 @@ public interface ICommand extends Disableable {
      * If the command has no declared prefix, inherits the prefix from the registry it is registered to.
      *
      * @return The effective prefix used for this command.
-     * @throws IllegalStateException if this is called when the command is not registered to any registry.
+     * @throws IllegalStateException if called when the command is not registered to any registry.
      */
     default String getEffectivePrefix() throws IllegalStateException {
         
@@ -75,6 +76,28 @@ public interface ICommand extends Disableable {
             throw new IllegalStateException( "Tried to obtain command's effective prefix before registering it." );
         }
         return ( getPrefix() != null ) ? getPrefix() : getRegistry().getEffectivePrefix();
+        
+    }
+    
+    /**
+     * Retrieves the signatures that can be used to call the command.
+     * <p>
+     * The prefix used is given by {@link #getEffectivePrefix()}, so if the command does not declare a
+     * specific prefix and the inherited prefix changes, the signatures change as well.
+     *
+     * @return The signatures of the command, in sorted order.
+     * @throws IllegalStateException if called when the command is not registered to any registry.
+     */
+    default List<String> getSignatures() throws IllegalStateException {
+        
+        String prefix = getEffectivePrefix();
+        List<String> signatures = new LinkedList<>();
+        for ( String alias : getAliases() ) {
+            
+            signatures.add( prefix + alias );
+            
+        }
+        return signatures;
         
     }
     
@@ -238,7 +261,7 @@ public interface ICommand extends Disableable {
      *
      * @return The subcommands of this command.
      */
-    default Set<ICommand> getSubCommands() { return new HashSet<ICommand>(); }
+    default SortedSet<ICommand> getSubCommands() { return new TreeSet<ICommand>(); }
     
     /**
      * Adds a subcommand to this command, if supported.
@@ -278,5 +301,30 @@ public interface ICommand extends Disableable {
      * @param registry The registry that this command is now registered to.
      */
     abstract void setRegistry( CommandRegistry registry );
+    
+    /**
+     * Compares this ICommand with the specified ICommand for their precedence.<br>
+     * A command having a higher precedence means it should be the one to be executed
+     * in case both have the same signature and that signature is invoked.
+     * <p>
+     * Comparison is first made using their {@link #getPriority() priorities} (higher
+     * priority gets higher precedence). If both have the same priority, compares their
+     * names lexicographically (the one with the name that comes first lexicographically
+     * has higher precedence).
+     *
+     * @param c The command to compare this to.
+     * @return A negative number if this has a higher precedence than the given command;<br>
+     *         A positive number if this has a lower precedence than the given command;<br>
+     *         Zero if both have the same precedence.
+     */
+    @Override
+    default int compareTo( ICommand c ) {
+        
+        if ( getPriority() != c.getPriority() ) {
+            return c.getPriority() - getPriority();
+        }
+        return getName().compareTo( c.getName() );
+        
+    }
 
 }
