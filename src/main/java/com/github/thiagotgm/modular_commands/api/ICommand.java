@@ -81,6 +81,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     
     /**
      * Identifies if the command is a subcommand.
+     * <p>
+     * When the command is a subcommand, the prefix is not used.
      *
      * @return If the calling instance is a subcommand, returns true.<br>
      *         If it is a main command, returns false.

@@ -313,12 +313,18 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * <p>
      * If the command was already registered to another registry (that is not part of the
      * hierarchy of the calling registry), it is unregistered from it first.
+     * <p>
+     * Only main commands can be registered. Subcommands will simply fail to be added.
      *
      * @param command The command to be registered.
      * @return true if the command was registered successfully, false if it could not be registered.
+     * @throws NullPointerException if the command passed in is null.
      */
-    public boolean registerCommand( ICommand command ) {
+    public boolean registerCommand( ICommand command ) throws NullPointerException {
         
+        if ( command.isSubCommand() ) {
+            return false; // Sub commands cannot be registered directly.
+        }
         if ( getRoot().getCommand( command.getName() ) != null ) {
             return false; // Check if there is a command in the chain with the same name.
         }
