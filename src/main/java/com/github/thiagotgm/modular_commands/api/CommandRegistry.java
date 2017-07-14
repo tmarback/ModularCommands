@@ -53,11 +53,11 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private String prefix;
     
     /** Table of commands, stored by name. */
-    private Map<String, ICommand> commands;
+    private final Map<String, ICommand> commands;
     /** Table of commands with specified prefix, stored by (each) signature. */
-    private Map<String, PriorityQueue<ICommand>> withPrefix;
+    private final Map<String, PriorityQueue<ICommand>> withPrefix;
     /** Table of commands with no specified prefix, stored by (each) signature. */
-    private Map<String, PriorityQueue<ICommand>> noPrefix;
+    private final Map<String, PriorityQueue<ICommand>> noPrefix;
     
     private CommandRegistry parentRegistry;
     private final Map<String, CommandRegistry> subRegistries;
@@ -471,6 +471,50 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         return commands;
         
+    }
+    
+    /**
+     * Retrieves the command, in this registry or one of its subregistries (recursively),
+     * whose signature matches the signature given.
+     *
+     * @param signature Signature to be matched.
+     * @return The command with the given signature, or null if none found in this registry or
+     *         one of its subregistries.
+     */
+    public ICommand parseCommand( String signature ) {
+        
+        ICommand command = null;
+        /* Check if a subregistry has the command */
+        for ( CommandRegistry subRegistry : getSubRegistries() ) {
+
+            ICommand candidate = subRegistry.parseCommand( signature );
+            if ( ( candidate != null ) && ( ( command == null ) || ( candidate.compareTo( command ) < 0 ) ) ) {
+                command = candidate; // Keeps it if it has higher precedence than the current command.
+            }
+            
+        }
+        if ( command != null ) {
+            return command; // A command from a subregistry always has higher precedence than the current registry.
+        }
+        
+        /* Not found in subregistries. Search this registry */
+        PriorityQueue<ICommand> commandQueue = withPrefix.get( signature );
+        if ( commandQueue != null ) { // Found a queue of commands with the given signature.
+            command = commandQueue.peek(); // Get the first one.
+        }
+        String registryPrefix = getEffectivePrefix();
+        if ( signature.startsWith( registryPrefix ) ) { // Command has the same prefix as the registry.
+            signature = signature.substring( registryPrefix.length() ); // Remove the prefix.
+            commandQueue = noPrefix.get( signature ); // Check the commands with no specified prefix.
+            if ( commandQueue != null ) { // Found commands with same alias.
+                ICommand candidate = commandQueue.peek(); // Get the first one.
+                if ( ( candidate != null ) && ( ( command == null ) || ( candidate.compareTo( command ) < 0 ) ) ) {
+                    command = candidate; // Keeps it if it has higher precedence than the current command.
+                }
+            }
+        }
+        return command; // Returns what was found in this registry. Will be null if not found in this
+                        // registry.        
     }
     
 }

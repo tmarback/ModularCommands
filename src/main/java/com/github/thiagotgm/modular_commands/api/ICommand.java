@@ -283,9 +283,10 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * @return A negative number if this has a higher precedence than the given command;<br>
      *         A positive number if this has a lower precedence than the given command;<br>
      *         Zero if both have the same precedence.
+     * @throws NullPointerException if the command given is null.
      */
     @Override
-    default int compareTo( ICommand c ) {
+    default int compareTo( ICommand c ) throws NullPointerException {
         
         if ( getPriority() != c.getPriority() ) {
             return c.getPriority() - getPriority();
