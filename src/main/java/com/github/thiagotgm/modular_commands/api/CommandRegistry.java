@@ -319,7 +319,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      */
     public boolean registerCommand( ICommand command ) {
         
-        // TODO Check if name exists
+        if ( getRoot().getCommand( command.getName() ) != null ) {
+            return false; // Check if there is a command in the chain with the same name.
+        }
         if ( command.getRegistry() != null ) { // Unregister from current registry if any.
             command.getRegistry().unregisterCommand( command );
         }
