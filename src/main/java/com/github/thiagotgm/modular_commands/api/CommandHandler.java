@@ -61,8 +61,20 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         
     }
 
+    /**
+     * When a message is received, parses it to determine if it has the signature of a registered
+     * command.<br>
+     * If it does, checks if the command should be executed (based on context and the command's settings)
+     * and executes it if so.
+     * 
+     * @param event Event fired by a message being received.
+     */
     @Override
     public void handle( MessageReceivedEvent event ) {
+        
+        if ( event.getAuthor().equals( event.getClient().getOurUser() ) ) {
+            return; // Ignores own messages.
+        }
 
         /* Get command and args */
         String message = event.getMessage().getContent();
