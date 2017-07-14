@@ -19,14 +19,20 @@ package com.github.thiagotgm.modular_commands.api;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import sx.blah.discord.api.events.IListener;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
+import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.RequestBuilder;
 
 /**
@@ -37,6 +43,10 @@ import sx.blah.discord.util.RequestBuilder;
  * @since 2017-07-14
  */
 public class CommandHandler implements IListener<MessageReceivedEvent> {
+    
+    private static final Logger LOG = LoggerFactory.getLogger( CommandHandler.class );
+    private static final String COMMAND_FORMAT = "\"%s\" (\"%s\")";
+    private static final String COMMAND_TRACE_FORMAT = "\"%s\" called by \"%s\" in channel \"%s\" on server \"%s\"";
     
     private final CommandRegistry registry;
     
@@ -62,20 +72,112 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         }
         
         /* Identify command */
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Parsing command " + args );
+        }
         List<String> argsCopy = new LinkedList<>( args );
-        final ICommand command = registry.parseCommand( argsCopy.remove( 0 ) );
-        if ( command == null ) {
+        ICommand mainCommand = registry.parseCommand( argsCopy.remove( 0 ) );
+        if ( mainCommand == null ) {
+            LOG.trace( "No command found." );
             return; // No recognized command.
+        }
+        if ( LOG.isTraceEnabled() ) {
+            LOG.trace( "Identified main command " +
+                    String.format( COMMAND_FORMAT, args.get( 0 ), mainCommand.getName() ) + "." );
+        }
+        
+        /* Get command chain */
+        List<ICommand> commands = new ArrayList<>();
+        commands.add( mainCommand );
+        commands.addAll( getSubcommands( mainCommand, argsCopy ) ); // Identify subcommands.
+        List<String> actualArgs = args.subList( commands.size(), args.size() );
+        final ICommand command = commands.remove( commands.size() - 1 ); // Actual command is the last
+        final CommandContext context = new CommandContext( event, command, actualArgs ); // subcommand.
+        if ( LOG.isTraceEnabled() ) {
+            LOG.trace( "Identified command " +
+                    String.format( COMMAND_FORMAT, getCommandSignature( args, commands.size() ),
+                            command.getName() ) );
+                    
+        }
+        
+        /* Check if the command should be executed */
+        if ( !command.isEnabled() ) {
+            LOG.trace( "Command was disabled." );
+            return; // Command is disabled.
+        }
+        if ( command.ignorePublic() && !event.getChannel().isPrivate() ) {
+            LOG.trace( "Ignoring public execution." );
+            return; // Ignore public command.
+        }
+        if ( command.ignorePrivate() && event.getChannel().isPrivate() ) {
+            LOG.trace( "Ignoring private execution." );
+            return; // Ignore private command.
+        }
+        if ( command.ignoreBots() && event.getAuthor().isBot() ) {
+            LOG.trace( "Ignoring bot caller." );
+            return; // Ignore bot.
+        }
+        
+        /* Check if the caller is allowed to call the command. */
+        if ( LOG.isTraceEnabled() ) {
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace( "Command " + getCommandTrace( command, event ) + " - checking permission" );
+                        
+            }
+        }
+        RequestBuilder errorBuilder = new RequestBuilder( event.getClient() ); // Builds request for
+        errorBuilder.shouldBufferRequests( true ).setAsync( true );            // error handler.
+        errorBuilder.onMissingPermissionsError( ( exception ) -> {
+            // In case error handler hits a MissingPermissions error.
+            LOG.info( "Lacking permissions to execute operation.", exception );
+            
+        });
+        errorBuilder.onDiscordError( ( exception ) -> {
+            // In case error handler hits a Discord error.
+            LOG.info( "Discord error encountered while performing operation.", exception );
+        
+        });
+        if ( command.requiresOwner() && !event.getClient().getApplicationOwner().equals( event.getAuthor() ) ) {
+            LOG.debug( "Caller is not the owner of the bot." );
+            errorBuilder.doAction( () -> { // Command can only be called by bot owner.
+                
+                command.onFailure( context, FailureReason.USER_NOT_OWNER );
+                return true;
+                
+            }).execute();
+            return;
+        }
+        EnumSet<Permissions> channelPermissions = event.getChannel().getModifiedPermissions( event.getAuthor() );
+        if ( !channelPermissions.containsAll( command.getRequiredPermissions() ) ) {
+            LOG.debug( "Caller does not have the required permissions in the channel." );
+            errorBuilder.doAction( () -> { // User does not have required channel-overriden permissions.
+                
+                command.onFailure( context, FailureReason.USER_MISSING_PERMISSIONS );
+                return true;
+                
+            }).execute();
+            return;
+        }
+        EnumSet<Permissions> guildPermissions = event.getAuthor().getPermissionsForGuild( event.getGuild() );
+        if ( !guildPermissions.containsAll( command.getRequiredGuildPermissions() ) ) {
+            LOG.debug( "Caller does not have the required permissions in the server." );
+            errorBuilder.doAction( () -> { // User does not have required server-wide permissions.
+                
+                command.onFailure( context, FailureReason.USER_MISSING_GUILD_PERMISSIONS );
+                return true;
+                
+            }).execute();
+            return;
         }
         
         /* Get execution chain */
-        List<ICommand> commands = new ArrayList<>();
-        commands.add( command );
-        commands.addAll( getSubcommands( command, argsCopy ) );
+        LOG.trace( "Permission check passed. Preparing to execute." );
         Stack<ICommand> executionChain = new Stack<>();
         Stack<CommandContext> contextChain = new Stack<>();
-        buildExecutionChain( executionChain, contextChain, commands, args, event );
-        
+        executionChain.add( command );
+        contextChain.add( context );
+        buildExecutionChain( executionChain, contextChain, commands, args, event ); // Get the commands that
+                                                                                    // should be executed.
         /* Build request */
         RequestBuilder builder = new RequestBuilder( event.getClient() );
         builder.shouldBufferRequests( true ).setAsync( true );
@@ -83,12 +185,14 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         builder.onMissingPermissionsError( ( exception ) -> {
             
             permissionsError.set( true ); // Mark that a permission error occurred.
+            LOG.info( "Lacking permissions to execute operation.", exception );
             
         });
         final AtomicBoolean discordError = new AtomicBoolean();
         builder.onDiscordError( ( exception ) -> {
             
             discordError.set( true ); // Mark that a Discord error occurred.
+            LOG.info( "Discord error encountered while performing operation.", exception );
         
         });
         final ICommand firstCommand = executionChain.pop();
@@ -99,7 +203,6 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             return true;
             
         });
-        CommandContext lastContext = firstContext;
         while ( !executionChain.isEmpty() ) {
             // Execute each subsequent command in the chain.
             final ICommand nextCommand = executionChain.pop();
@@ -110,12 +213,11 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
                 return true;
                 
             });
-            lastContext = nextContext;
             
         }
-        final CommandContext context = lastContext; // Mark context of last command.
         builder.elseDo( () -> { // In case command fails.
             
+            LOG.debug( "Command failed. Executing failure handler." );
             if ( permissionsError.get() ) { // Failed due to missing permissions.
                 command.onFailure( context, FailureReason.BOT_MISSING_PERMISSIONS );
             } else if ( discordError.get() ) { // Failed due to miscellaneous error.
@@ -126,11 +228,25 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         });
         builder.andThen( () -> { // In case command succeeds.
             
+            LOG.debug( "Command succeeded." );
             Thread.sleep( command.getOnSuccessDelay() ); // Wait specified time.
+            LOG.debug( "Executing success handler." );
             command.onSuccess( context ); // Execute success operation.
             return true;
             
         });
+        if ( command.deleteCommand() ) { // Command message should be deleted after
+            builder.andThen( () -> {     // successful execution.
+                LOG.debug( "Successful execution. Deleting command message." );
+                event.getMessage().delete();
+                return true;
+            });
+        }
+        
+        /* Execute command */
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Executing command " + getCommandTrace( command, event ) );
+        }
         builder.execute(); // Execute the command.
         
     }
@@ -160,6 +276,9 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             
         }
         if ( !possible.isEmpty() ) { // At least one subcommand matched.
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace( "Identified subcommand \"" + possible.peek().getName() + "\"" );
+            }
             chain.add( possible.peek() ); // Gets the matching command with highest precedence.
             chain.addAll( getSubcommands( possible.peek(), args ) ); // Adds the chain for the found subcommand.
         }
@@ -195,6 +314,45 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         if ( curCommand.executeParent() ) { // If specified, add the command before it to the chain.
             buildExecutionChain( executionChain, contextChain, commands, args, event );
         }
+        
+    }
+    
+    /**
+     * Rebuilds the signature of a command given the split args in the message and the
+     * amount of commands that were parsed from it.
+     *
+     * @param args The args from the message received.
+     * @param commandAmount How many commands (main command + subcommands) are in the args.
+     * @return The signature of the command.
+     */
+    private static String getCommandSignature( List<String> args, int commandAmount ) {
+        
+        Iterator<String> commands = args.iterator();
+        StringBuilder signature = new StringBuilder( commands.next() );
+        commandAmount--;
+        while ( commandAmount > 0 ) {
+            
+            signature.append( ' ' );
+            signature.append( commands.next() );
+            commandAmount--;
+            
+        }
+        return signature.toString();
+        
+    }
+    
+    /**
+     * Buils a trace message for a command that includes the command  name, who called it,
+     * and where it was called from.
+     *
+     * @param command Command called.
+     * @param event Event that triggered the command.
+     * @return A trace message for the command.
+     */
+    private static String getCommandTrace( ICommand command, MessageReceivedEvent event ) {
+        
+        return String.format( COMMAND_TRACE_FORMAT, command.getName(), event.getAuthor().getName(),
+                event.getChannel().getName(), event.getGuild().getName() );
         
     }
 

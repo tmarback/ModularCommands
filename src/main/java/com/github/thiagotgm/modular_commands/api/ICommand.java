@@ -200,7 +200,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * <p>
      * By default, returns false.
      *
-     * @return true if the invoking message should be deleted after a successfull execution.
+     * @return true if the invoking message should be deleted after a successful execution.
      *         false otherwise.
      */
     default boolean deleteCommand() { return false; }
