@@ -17,6 +17,9 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
 import sx.blah.discord.handle.obj.IChannel;
 import sx.blah.discord.handle.obj.IGuild;
@@ -39,6 +42,7 @@ public class CommandContext {
     
     private final ICommand command;
     private final MessageReceivedEvent event;
+    private final List<String> args;
     private final IMessage message;
     private final IUser author;
     private final IChannel channel;
@@ -50,11 +54,13 @@ public class CommandContext {
      *
      * @param event The event that triggered the command.
      * @param command The command being executed.
+     * @param args The arguments passed in to the command.
      */
-    public CommandContext( MessageReceivedEvent event, ICommand command ) {
+    public CommandContext( MessageReceivedEvent event, ICommand command, List<String> args ) {
 
         this.command = command;
         this.event = event;
+        this.args = new ArrayList<>( args );
         this.message = event.getMessage();
         this.author = event.getAuthor();
         this.channel = event.getChannel();
@@ -87,6 +93,17 @@ public class CommandContext {
     public MessageReceivedEvent getEvent() {
         
         return event;
+        
+    }
+    
+    /**
+     * Retrieves the arguments passed in to the command.
+     *
+     * @return The list of command arguments.
+     */
+    public List<String> getArgs() {
+        
+        return args;
         
     }
     

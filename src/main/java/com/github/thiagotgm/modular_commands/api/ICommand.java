@@ -216,6 +216,24 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     default boolean requiresOwner() { return false; }
     
     /**
+     * Retrieves whether the parent of this command should be executed before executing
+     * this command.<br>
+     * If this command is a main command, this should return false.
+     * <p>
+     * By default, returns false.
+     * <p>
+     * OBS: The parent's {@link #onSuccess(CommandContext) onSuccess} and
+     * {@link #onFailure(CommandContext, FailureReason) onFailure} operations are not called.<br>
+     * OBS 2: If the parent also specifies that its parent should be executed, it will be executed before it
+     * (eg this behaviour can be chained), until reaching the main command or the first ancestor
+     * that specifies its parent should not be executed.
+     *
+     * @return true if the parent of this command should be executed before executing this.<br>
+     *         false if it should not be executed.
+     */
+    default boolean executeParent() { return false; }
+    
+    /**
      * Retrieves the <i>post-override</i> permissions that the calling user needs to have in order to be able to invoke
      * this command.
      * <p>
