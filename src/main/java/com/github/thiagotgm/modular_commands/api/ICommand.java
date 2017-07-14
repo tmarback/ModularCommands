@@ -26,6 +26,7 @@ import java.util.TreeSet;
 import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RateLimitException;
 
 /**
  * A command that can be invoked in a text channel and executed by the bot.
@@ -108,11 +109,12 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * Executes the command on a given context.
      *
      * @param context The context where the command was called.
+     * @throws RateLimitException if the operation failed due to rate limiting.
      * @throws MissingPermissionsException If the bot does not have the required permissions.
      * @throws DiscordException If a miscellaneous error was encountered.
      */
     abstract void execute( CommandContext context )
-            throws MissingPermissionsException, DiscordException;
+            throws RateLimitException, MissingPermissionsException, DiscordException;
     
     /**
      * Retrieves the time delay to be left between a successful execution and a
@@ -131,11 +133,12 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * By default, does nothing.
      *
      * @param context Context where the command was called from.
+     * @throws RateLimitException if the operation failed due to rate limiting.
      * @throws MissingPermissionsException If the bot does not have the required permissions.
      * @throws DiscordException If a miscellaneous error was encountered.
      */
     default void onSuccess( CommandContext context )
-            throws MissingPermissionsException, DiscordException {}
+            throws RateLimitException, MissingPermissionsException, DiscordException {}
     
     /**
      * Executes a post-processing operation after a failed invocation of the command.
@@ -144,11 +147,12 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      *
      * @param context Context where the command was called from.
      * @param reason Reason why the command invocation failed.
+     * @throws RateLimitException if the operation failed due to rate limiting.
      * @throws MissingPermissionsException If the bot does not have the required permissions.
      * @throws DiscordException If a miscellaneous error was encountered.
      */
     default void onFailure( CommandContext context, FailureReason reason )
-            throws MissingPermissionsException, DiscordException {}
+            throws RateLimitException, MissingPermissionsException, DiscordException {}
     
     /**
      * Retrieves whether the command reply to the caller should be done on a private channel.
