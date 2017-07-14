@@ -213,7 +213,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *
      * @return The registered subregistries.
      */
-    public SortedSet<CommandRegistry> getRegistries() {
+    public SortedSet<CommandRegistry> getSubRegistries() {
         
         return new TreeSet<>( subRegistries.values() );
         
@@ -385,6 +385,89 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
         command.setRegistry( null );
         return true;
+        
+    }
+    
+    /**
+     * Retrieves the command registered in this registry that has the given name, if
+     * one exists.
+     *
+     * @param name The name of the command.
+     * @return The command in this registry with the given name, or null if there is no such command.
+     */
+    public ICommand getRegisteredCommand( String name ) {
+        
+        return commands.get( name );
+        
+    }
+    
+    /**
+     * Retrieves all commands registered in this registry.
+     * <p>
+     * The returned set is sorted by the lexicographical order of the command names.
+     *
+     * @return The commands registered in this registry.
+     */
+    public SortedSet<ICommand> getRegisteredCommands() {
+        
+        SortedSet<ICommand> commands = new TreeSet<>( ( c1, c2 ) -> {
+            // Compare elements by their names.
+            return c1.getName().compareTo( c2.getName() );
+            
+        });
+        commands.addAll( this.commands.values() );
+        return commands;
+        
+    }
+    
+    /**
+     * Retrieves the command registered in this registry or its subregistries that has
+     * the given name, if one exists.
+     * <p>
+     * The search on the subregistries also includes their respective subregistries
+     * (eg searches recursively).
+     *
+     * @param name The name of the command.
+     * @return The command in this registry or its subregistries with the given name,
+     *         or null if there is no such command.
+     */
+    public ICommand getCommand( String name ) {
+        
+        ICommand command = getRegisteredCommand( name );
+        if ( command != null ) {
+            return command; // Found command in this registry.
+        }
+        for ( CommandRegistry subRegistry : getSubRegistries() ) { // Check each subregistry.
+            
+            command = subRegistry.getCommand( name );
+            if ( command != null ) {
+                return command; // Found command in a subregistry.
+            }
+            
+        }
+        return null; // Command not found.
+        
+    }
+    
+    /**
+     * Retrieves all commands registered in this registry or its subregistries.
+     * <p>
+     * The returned set is sorted by the lexicographical order of the command names.
+     * <p>
+     * The search on the subregistries also includes their respective subregistries
+     * (eg searches recursively).
+     *
+     * @return The commands registered in this registry or its subregistries.
+     */
+    public SortedSet<ICommand> getCommands() {
+        
+        SortedSet<ICommand> commands = getRegisteredCommands();
+        for ( CommandRegistry subRegistry : getSubRegistries() ) {
+            // Add commands from subregistries.
+            commands.addAll( subRegistry.getCommands() );
+            
+        }
+        return commands;
         
     }
     
