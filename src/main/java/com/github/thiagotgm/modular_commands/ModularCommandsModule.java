@@ -17,6 +17,9 @@
 
 package com.github.thiagotgm.modular_commands;
 
+import com.github.thiagotgm.modular_commands.api.CommandHandler;
+import com.github.thiagotgm.modular_commands.api.CommandRegistry;
+
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
@@ -31,19 +34,26 @@ import sx.blah.discord.modules.IModule;
 public class ModularCommandsModule implements IModule {
     
     private static final String MODULE_NAME = "Modular Commands";
+    
+    private CommandHandler handler;
+    private IDiscordClient client;
 
     @Override
     public void disable() {
 
-        // TODO Auto-generated method stub
+        client.getDispatcher().unregisterListener( handler );
+        client = null; // Unregisters the handler to stop receiving events.
+        handler = null;
 
     }
 
     @Override
     public boolean enable( IDiscordClient arg0 ) {
 
-        // TODO Auto-generated method stub
-        return false;
+        handler = new CommandHandler( CommandRegistry.getRegistry( arg0 ) );
+        arg0.getDispatcher().registerListener( handler ); // Create a handler and register it.
+        client = arg0;
+        return true;
         
     }
 
