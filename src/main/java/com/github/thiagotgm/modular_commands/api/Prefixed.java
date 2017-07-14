@@ -24,7 +24,7 @@ package com.github.thiagotgm.modular_commands.api;
  * @author ThiagoTGM
  * @since 2017-07-13
  */
-public interface Prefixed extends Registerable {
+public interface Prefixed extends Registrable {
     
     /**
      * Retrieves the <i>declared</i> prefix of the calling instance.

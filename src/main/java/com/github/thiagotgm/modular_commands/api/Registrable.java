@@ -24,7 +24,7 @@ package com.github.thiagotgm.modular_commands.api;
  * @author ThiagoTGM
  * @since 2017-07-13
  */
-public interface Registerable {
+public interface Registrable {
     
     /**
      * Retrieves the registry that the calling instance is registered to.

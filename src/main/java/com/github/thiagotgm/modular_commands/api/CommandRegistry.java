@@ -17,8 +17,10 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -50,6 +52,13 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private boolean enabled;
     private String prefix;
     
+    /** Table of commands, stored by name. */
+    private Map<String, ICommand> commands;
+    /** Table of commands with specified prefix, stored by (each) signature. */
+    private Map<String, PriorityQueue<ICommand>> withPrefix;
+    /** Table of commands with no specified prefix, stored by (each) signature. */
+    private Map<String, PriorityQueue<ICommand>> noPrefix;
+    
     private CommandRegistry parentRegistry;
     private final Map<String, CommandRegistry> subRegistries;
     private static final Map<IDiscordClient, CommandRegistry> registries = new HashMap<>();
@@ -60,6 +69,11 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     protected CommandRegistry() {
 
         this.enabled = true;
+        
+        this.commands = new HashMap<>();
+        this.withPrefix = new HashMap<>();
+        this.noPrefix = new HashMap<>();
+        
         this.subRegistries = new TreeMap<>();
         
     }
@@ -212,6 +226,23 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
     }
     
+    /**
+     * Retrieves the registry that is the root of the calling registry's inheritance chain.<br>
+     * That is, retrieves this registry's farthest parent registry, the first in the chain that
+     * is not registered to any registry.
+     *
+     * @return The root of this registry's inheritance chain.
+     */
+    public CommandRegistry getRoot() {
+        
+        CommandRegistry cur = this;
+        while ( cur.getRegistry() != null ) {
+            cur = cur.getRegistry();
+        }
+        return cur;
+        
+    }
+    
     @Override
     public void setRegistry( CommandRegistry registry ) {
         
@@ -272,6 +303,88 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
         int compare = this.getName().compareTo( cr.getName() );
         return ( compare != 0 ) ? compare : this.getQualifier().compareTo( cr.getQualifier() );
+        
+    }
+    
+    /**
+     * Registers a command into the calling registry.<br>
+     * The command will fail to be added if there is already a command in the registry hierarchy
+     * (parent and sub registries) with the same name (eg the command name must be unique).
+     * <p>
+     * If the command was already registered to another registry (that is not part of the
+     * hierarchy of the calling registry), it is unregistered from it first.
+     *
+     * @param command The command to be registered.
+     * @return true if the command was registered successfully, false if it could not be registered.
+     */
+    public boolean registerCommand( ICommand command ) {
+        
+        // TODO Check if name exists
+        if ( command.getRegistry() != null ) { // Unregister from current registry if any.
+            command.getRegistry().unregisterCommand( command );
+        }
+        command.setRegistry( this );
+        commands.put( command.getName(), command ); // Add command to main table.
+        
+        /* Add identifiers to the appropriate table */
+        Collection<String> identifiers;
+        Map<String, PriorityQueue<ICommand>> commandTable;
+        if ( command.getPrefix() != null ) { // Command specifies a prefix.
+            identifiers = command.getSignatures();
+            commandTable = withPrefix; // Add signatures to table of commands with prefix.
+        } else { // Command does not specify a prefix.
+            identifiers = command.getAliases();
+            commandTable = noPrefix; // Add aliases to table of commands without prefix.
+        }
+        for ( String identifier : identifiers ) { // For each identifier (signature or alias).
+            
+            PriorityQueue<ICommand> queue = commandTable.get( identifier ); // Get queue of commands with
+            if ( queue == null ) {                                          // that identifier.
+                queue = new PriorityQueue<>(); // If none, initialize it.
+                commandTable.put( identifier, queue );
+            }
+            queue.add( command ); // Add command to list of commands with that identifier.
+            
+        }
+        return true;
+        
+    }
+    
+    /**
+     * Unregisters a command from this registry.
+     *
+     * @param command The command to be unregistered.
+     * @return true if the command was unregistered successfully;<br>
+     *         false if it was not registered in this registry.
+     */
+    public boolean unregisterCommand( ICommand command ) {
+        
+        if ( command == null ) {
+            return false; // Received null command.
+        }
+        if ( commands.get( command.getName() ) != command ) {
+            return false; // No command with this name, or the command registered with this name was not
+        }                 // the one given.
+        commands.remove( command.getName() );
+        
+        /* Remove identifiers from the appropriate table */
+        Collection<String> identifiers;
+        Map<String, PriorityQueue<ICommand>> commandTable;
+        if ( command.getPrefix() != null ) { // Command specifies a prefix.
+            identifiers = command.getSignatures();
+            commandTable = withPrefix; // Add signatures to table of commands with prefix.
+        } else { // Command does not specify a prefix.
+            identifiers = command.getAliases();
+            commandTable = noPrefix; // Add aliases to table of commands without prefix.
+        }
+        for ( String identifier : identifiers ) { // For each identifier (signature or alias).
+            
+            commandTable.get( identifier ).remove( command ); // Remove command from the queue of commands with
+                                                              // that identifier.
+        }
+        
+        command.setRegistry( null );
+        return true;
         
     }
     
