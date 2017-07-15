@@ -29,14 +29,12 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
+public class InterfaceSubCommandPlusParent implements ICommand {
 
-public class InterfaceCommand implements ICommand {
-    
     private CommandRegistry registry;
     private volatile boolean enabled;
-    private ICommand[] sub = { new InterfaceSubCommandPlusParent() }; 
 
-    public InterfaceCommand() {
+    public InterfaceSubCommandPlusParent() {
         
         this.enabled = true;
         
@@ -73,29 +71,22 @@ public class InterfaceCommand implements ICommand {
     @Override
     public String getName() {
 
-        return "Interface ping";
+        return "Interface ping nong";
         
     }
 
     @Override
     public SortedSet<String> getAliases() {
 
-        String[] alias = { "ping" };
+        String[] alias = { "long" };
         return new TreeSet<>( Arrays.asList( alias ) );
-        
-    }
-    
-    @Override
-    public SortedSet<ICommand> getSubCommands() {
-        
-        return new TreeSet<>( Arrays.asList( sub ) );
         
     }
 
     @Override
     public boolean isSubCommand() {
 
-        return false;
+        return true;
         
     }
 
@@ -103,8 +94,11 @@ public class InterfaceCommand implements ICommand {
     public void execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
-        context.getReplyBuilder().withContent( "pong!" ).build();
+        context.getReplyBuilder().withContent( "haha!" ).build();
 
     }
+    
+    @Override
+    public boolean executeParent() { return true; }
 
 }

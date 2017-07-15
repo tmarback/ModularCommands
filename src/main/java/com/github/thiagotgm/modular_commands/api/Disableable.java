@@ -21,19 +21,42 @@ package com.github.thiagotgm.modular_commands.api;
  * Interface that defines an object with functionality that can be enabled or
  * disabled during runtime.<br>
  * Can also be marked as essential, preventing it from being disabled.
+ * <p>
+ * However, if the registry an instance is registered to or one of its parent
+ * registries is disabled, the instance will be <i>effectively</i> disabled,
+ * even if marked as essential.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-12
  */
-public interface Disableable {
+public interface Disableable extends Registrable {
     
     /**
-     * Retrieves whether the calling instance is currently enabled.
+     * Determines whether the calling instance is currently enabled.
      *
      * @return true if currently enabled, false if disabled.
      */
     abstract boolean isEnabled();
+    
+    /**
+     * Determines whether the calling instance currently is <i>effectively</i>
+     * enabled.
+     * <p>
+     * An instance will only be <i>effectively enabled</i> if it is itself enabled
+     * <b>and</b>, if registered to a registry, that registry and all its parent
+     * registries are also enabled.<br>
+     * If any registry along the registry chain that the instance belongs to
+     * is set as disabled, it is <i>effectively disabled</i>, even if it is itself
+     * enabled or marked as essential.
+     *
+     * @return true if currently <i> effectively enabled</i>, false if <i>effectively disabled</i>.
+     */
+    default boolean isEffectivelyEnabled() {
+        
+        return isEnabled() && ( ( getRegistry() == null ) || getRegistry().isEffectivelyEnabled() );
+        
+    }
     
     /**
      * Sets the calling instance to be enabled or disabled.

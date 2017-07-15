@@ -21,9 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -87,8 +85,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         if ( LOG.isInfoEnabled() ) {
             LOG.info( "Parsing command " + args );
         }
-        List<String> argsCopy = new LinkedList<>( args );
-        ICommand mainCommand = registry.parseCommand( argsCopy.remove( 0 ) );
+        ICommand mainCommand = registry.parseCommand( args.get( 0 ) );
         if ( mainCommand == null ) {
             LOG.trace( "No command found." );
             return; // No recognized command.
@@ -101,21 +98,22 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         /* Get command chain */
         List<ICommand> commands = new ArrayList<>();
         commands.add( mainCommand );
-        commands.addAll( getSubcommands( mainCommand, argsCopy ) ); // Identify subcommands.
-        List<String> actualArgs = args.subList( commands.size(), args.size() );
-        final ICommand command = commands.remove( commands.size() - 1 ); // Actual command is the last
-        final CommandContext context = new CommandContext( event, command, actualArgs ); // subcommand.
+        commands.addAll( getSubcommands( mainCommand, args.subList( 1, args.size() ) ) ); // Identify subcommands.
+        final ICommand command = commands.get( commands.size() - 1 ); // Actual command is the last
+        List<String> actualArgs = args.subList( commands.size(), args.size() );      // subcommand.
+        final CommandContext context = new CommandContext( event, command, actualArgs );
         if ( LOG.isTraceEnabled() ) {
             LOG.trace( "Identified command " +
-                    String.format( COMMAND_FORMAT, getCommandSignature( args, commands.size() ),
+                    String.format( COMMAND_FORMAT, getCommandSignature( args, commands.size() + 1 ),
                             command.getName() ) );
-                    
         }
         
         /* Check if the command should be executed */
-        if ( !command.isEnabled() ) {
-            LOG.trace( "Command was disabled." );
-            return; // Command is disabled.
+        for ( ICommand curCommand : commands ) { // Check that each command on the chain
+            if ( !curCommand.isEffectivelyEnabled() ) {                   // is enabled.
+                LOG.trace( "Command is disabled." );
+                return; // Command is disabled.
+            }
         }
         if ( command.ignorePublic() && !event.getChannel().isPrivate() ) {
             LOG.trace( "Ignoring public execution." );
@@ -188,8 +186,11 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         Stack<CommandContext> contextChain = new Stack<>();
         executionChain.add( command );
         contextChain.add( context );
-        buildExecutionChain( executionChain, contextChain, commands, args, event ); // Get the commands that
-                                                                                    // should be executed.
+        if ( command.executeParent() ) { // If the parent command should be executed, get all the ancestor
+            buildExecutionChain( executionChain, contextChain, // commands that should also be executed.
+                    commands.subList( 0, commands.size() - 1 ), args, event );
+        }
+        
         /* Build request */
         RequestBuilder builder = new RequestBuilder( event.getClient() );
         builder.shouldBufferRequests( true ).setAsync( true );
@@ -211,6 +212,9 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         final CommandContext firstContext = contextChain.pop();
         builder.doAction( () -> {
             // Execute the first command in the chain.
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace( "Executing \"" + firstCommand.getName() + "\"" );
+            }
             firstCommand.execute( firstContext );
             return true;
             
@@ -221,6 +225,9 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             final CommandContext nextContext = contextChain.pop();
             builder.andThen( () -> {
                 
+                if ( LOG.isTraceEnabled() ) {
+                    LOG.trace( "Executing \"" + nextCommand.getName() + "\"" );
+                }
                 nextCommand.execute( nextContext );
                 return true;
                 
@@ -249,9 +256,11 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         });
         if ( command.deleteCommand() ) { // Command message should be deleted after
             builder.andThen( () -> {     // successful execution.
+                
                 LOG.debug( "Successful execution. Deleting command message." );
                 event.getMessage().delete();
                 return true;
+                
             });
         }
         
@@ -264,12 +273,12 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     }
     
     /**
-     * Obtains the command chain of the given command with the given arguments.<br>
+     * Obtains the subcommand chain of the given command with the given arguments.<br>
      * That is, identifies the list of subcommands that matches the arguments.
      *
      * @param command Main command called.
      * @param args Arguments passed in to the command.
-     * @return The chain of the command and its subcommands that match args.
+     * @return The chain of subcommands that match the args signature.
      */
     private List<ICommand> getSubcommands( ICommand command, List<String> args ) {
         
@@ -278,23 +287,16 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             return chain; // No args left, so no more possible subcommands.
         }
         
-        String arg = args.remove( 0 ); // Get next arg.
-        PriorityQueue<ICommand> possible = new PriorityQueue<>();
-        for ( ICommand candidate : command.getSubCommands() ) { // Check each subcommand.
-            
-            if ( candidate.getAliases().contains( arg ) ) { // Subcommand has matching alias.
-                possible.add( candidate ); // Adds to possible list.
-            }
-            
-        }
-        if ( !possible.isEmpty() ) { // At least one subcommand matched.
+        String arg = args.get( 0 ); // Get next arg.
+        ICommand subCommand = command.getSubCommand( arg );
+        if ( subCommand != null ) { // Found a subcommand.
             if ( LOG.isTraceEnabled() ) {
-                LOG.trace( "Identified subcommand \"" + possible.peek().getName() + "\"" );
+                LOG.trace( "Identified subcommand \"" + subCommand.getName() + "\"" );
             }
-            chain.add( possible.peek() ); // Gets the matching command with highest precedence.
-            chain.addAll( getSubcommands( possible.peek(), args ) ); // Adds the chain for the found subcommand.
-        }
-        return chain; // Return command chain found.
+            chain.add( subCommand ); // Adds the subcommand to the command list.
+            chain.addAll( getSubcommands( subCommand, args.subList( 1, args.size() ) ) ); // Adds the subcommand's
+        }                                                                                 // subcommands.
+        return chain; // Return subcommand chain found.
         
     }
     
@@ -319,12 +321,13 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         if ( commands.isEmpty() ) {
             return; // No more commands to add.
         }
-        List<String> curArgs = args.subList( commands.size(), args.size() ); // Gets the args.
-        ICommand curCommand = commands.remove( commands.size() ); // Gets the last command.
+        ICommand curCommand = commands.get( commands.size() - 1 ); // Gets the last command.
+        List<String> curArgs = args.subList( commands.size(), args.size() ); // Gets the args for that command.
         executionChain.push( curCommand ); // Add command to chain.
         contextChain.push( new CommandContext( event, curCommand, curArgs ) ); // Make the command's context.
         if ( curCommand.executeParent() ) { // If specified, add the command before it to the chain.
-            buildExecutionChain( executionChain, contextChain, commands, args, event );
+            buildExecutionChain( executionChain, contextChain,
+                    commands.subList( 0, commands.size() - 1 ), args, event );
         }
         
     }

@@ -228,7 +228,9 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * {@link #onFailure(CommandContext, FailureReason) onFailure} operations are not called.<br>
      * OBS 2: If the parent also specifies that its parent should be executed, it will be executed before it
      * (eg this behaviour can be chained), until reaching the main command or the first ancestor
-     * that specifies its parent should not be executed.
+     * that specifies its parent should not be executed.<br>
+     * OBS 3: Each ancestor command gets its own reply builder. EG if each uses the reply builder in their
+     * respective contexts, multiple reply messages are going to be sent.
      *
      * @return true if the parent of this command should be executed before executing this.<br>
      *         false if it should not be executed.
@@ -263,6 +265,49 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * @return The subcommands of this command.
      */
     default SortedSet<ICommand> getSubCommands() { return new TreeSet<ICommand>(); }
+    
+    /**
+     * Retrieves the subcommand of this command that has the given alias.
+     * <p>
+     * If multiple subcommands have that alias, the one with the highest precedence
+     * is returned.
+     *
+     * @param alias The alias of the subcommand to be retrieved.
+     * @return The subcommand of this command with the given alias, or null if there
+     *         is no such subcommand.
+     */
+    default ICommand getSubCommand( String alias ) {
+        
+        for ( ICommand subCommand : getSubCommands() ) { // Check each subcommand.
+            
+            if ( subCommand.getAliases().contains( alias ) ) { // Subcommand has matching alias.
+                return subCommand; // Subcommands are in precedence order, so the first one
+            }                      // to be found has the highest precedence.
+            
+        }
+        return null; // None found.
+        
+    }
+    
+    /**
+     * Retrieves the subcommand of this command with the given name.
+     *
+     * @param name The name of the subcommand to be retrieved.
+     * @return The subcommand of this command with the given name, or null if there
+     *         is no such subcommand.
+     */
+    default ICommand getSubCommandByName( String name ) {
+        
+        for ( ICommand subCommand : getSubCommands() ) { // Check each subcommand.
+            
+            if ( subCommand.getName().equals( name ) ) { // Subcommand has the given name.
+                return subCommand;
+            }
+            
+        }
+        return null; // None found.
+        
+    }
     
     /**
      * Adds a subcommand to this command, if supported.
