@@ -580,7 +580,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
                 }
             }
         }
-        if ( ( command != null ) && command.isOverrideable() ) {
+        if ( ( command != null ) && !command.isOverrideable() ) {
             if ( LOG.isTraceEnabled() ) {
                 LOG.trace( "Registry \"" + getQualifiedName() + "\" found: " +
                         ( ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) ) + "." );
