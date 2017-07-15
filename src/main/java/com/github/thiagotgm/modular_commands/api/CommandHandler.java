@@ -104,7 +104,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         final CommandContext context = new CommandContext( event, command, actualArgs );
         if ( LOG.isTraceEnabled() ) {
             LOG.trace( "Identified command " +
-                    String.format( COMMAND_FORMAT, getCommandSignature( args, commands.size() + 1 ),
+                    String.format( COMMAND_FORMAT, getCommandSignature( args, commands.size() ),
                             command.getName() ) );
         }
         

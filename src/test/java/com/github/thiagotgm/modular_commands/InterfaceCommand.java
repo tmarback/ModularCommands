@@ -34,7 +34,7 @@ public class InterfaceCommand implements ICommand {
     
     private CommandRegistry registry;
     private volatile boolean enabled;
-    private ICommand[] sub = { new InterfaceSubCommandPlusParent() }; 
+    private ICommand[] sub = { new InterfaceSubCommandPlusParent(), new InterfaceSubCommandNoParent() }; 
 
     public InterfaceCommand() {
         

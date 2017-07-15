@@ -454,7 +454,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         builder.append( '"' );
         builder.append( command.getName() );
         builder.append( "\"::(" );
-        builder.append( command.getPrefix() );
+        builder.append( ( command.getPrefix() != null ) ? command.getPrefix() : "" );
         builder.append( ')' );
         builder.append( command.getAliases() );
         builder.append( "::<\"" );
