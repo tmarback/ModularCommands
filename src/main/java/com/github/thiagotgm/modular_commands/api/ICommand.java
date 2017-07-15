@@ -218,6 +218,21 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     default boolean requiresOwner() { return false; }
     
     /**
+     * Retrieves whether this command can be overriden.
+     * <p>
+     * If the command can be overriden, whenever there is a conflict between this command
+     * and a command in a subregistry of the registry this is registered to (both have an
+     * equal alias and that alias is called), the command in the subregistry will be given
+     * precedence. If it cannot be overriden, this will be retrieved even if there is another
+     * command down the registry hierarchy with the same alias declared.
+     * <p>
+     * By default this returns true.
+     *
+     * @return true if this command can be overriden, false otherwise.
+     */
+    default boolean isOverrideable() { return true; }
+    
+    /**
      * Retrieves whether the parent of this command should be executed before executing
      * this command.<br>
      * If this command is a main command, this should return false.

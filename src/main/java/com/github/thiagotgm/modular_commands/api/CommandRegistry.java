@@ -563,20 +563,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             LOG.trace( "Parsing \"" + signature + "\" in registry \"" + getQualifiedName() + "\"." );
         }
         ICommand command = null;
-        /* Check if a subregistry has the command */
-        for ( CommandRegistry subRegistry : getSubRegistries() ) {
-
-            ICommand candidate = subRegistry.parseCommand( signature );
-            if ( ( candidate != null ) && ( ( command == null ) || ( candidate.compareTo( command ) < 0 ) ) ) {
-                command = candidate; // Keeps it if it has higher precedence than the current command.
-            }
-            
-        }
-        if ( command != null ) {
-            return command; // A command from a subregistry always has higher precedence than the current registry.
-        }
         
-        /* Not found in subregistries. Search this registry */
+        /* Search this registry */
         PriorityQueue<ICommand> commandQueue = withPrefix.get( signature );
         if ( commandQueue != null ) { // Found a queue of commands with the given signature.
             command = commandQueue.peek(); // Get the first one.
@@ -592,6 +580,28 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
                 }
             }
         }
+        if ( ( command != null ) && command.isOverrideable() ) {
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace( "Registry \"" + getQualifiedName() + "\" found: " +
+                        ( ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) ) + "." );
+            }
+            return command; // Found a command and it can't be overriden.
+        }
+        
+        /* Check if a subregistry has the command */
+        ICommand subCommand = null;
+        for ( CommandRegistry subRegistry : getSubRegistries() ) {
+
+            ICommand candidate = subRegistry.parseCommand( signature );
+            if ( ( candidate != null ) && ( ( subCommand == null ) || ( candidate.compareTo( subCommand ) < 0 ) ) ) {
+                subCommand = candidate; // Keeps it if it has higher precedence than the current command.
+            }
+            
+        }
+        if ( subCommand != null ) {
+            command = subCommand; // A command from a subregistry always has higher precedence than
+        }                         // the current registry.
+        
         if ( LOG.isTraceEnabled() ) {
             LOG.trace( "Registry \"" + getQualifiedName() + "\" found: " +
                     ( ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) ) + "." );
