@@ -315,13 +315,36 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * By default, this operation is not supported and throws an exception.
      *
      * @param subCommand The subcommand to be added.
+     * @return true if the subcommand was successfully added.<br>
+     *         false if there is already a subcommand for this command with the
+     *         name of the given command.
      * @throws UnsupportedOperationException if the calling ICommand does not support adding new subcommands.
      * @throws IllegalArgumentException if given ICommand is not a subcommand.
      * @see #isSubCommand()
      */
-    default void addSubCommand( ICommand subCommand ) throws UnsupportedOperationException, IllegalArgumentException {
+    default boolean addSubCommand( ICommand subCommand )
+            throws UnsupportedOperationException, IllegalArgumentException {
         
         throw new UnsupportedOperationException( "This ICommand does not support adding subcommands." );
+        
+    }
+    
+    /**
+     * Removes a subcommand from this command, if supported.
+     * <p>
+     * By default, this operation is not supported and throws an exception.
+     *
+     * @param subCommand The subcommand to be removed.
+     * @return true if the subcommand was successfully removed.<br>
+     *         false if the given command is not a subcommand of this command.
+     * @throws UnsupportedOperationException if the calling ICommand does not support removing subcommands.
+     * @throws IllegalArgumentException if given ICommand is not a subcommand.
+     * @see #isSubCommand()
+     */
+    default boolean removeSubCommand( ICommand subCommand )
+            throws UnsupportedOperationException, IllegalArgumentException {
+        
+        throw new UnsupportedOperationException( "This ICommand does not support removing subcommands." );
         
     }
     
