@@ -25,6 +25,9 @@ import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 import com.github.thiagotgm.modular_commands.registry.ModuleCommandRegistry;
 
@@ -48,6 +51,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     /** Separator used between qualifier and name in the qualified name. */
     protected static final String QUALIFIER_SEPARATOR = ":";
+    
+    private static final Logger LOG = LoggerFactory.getLogger( CommandRegistry.class );
     
     private boolean enabled;
     private String prefix;
@@ -167,6 +172,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             registry.getRegistry().unregisterSubRegistry( registry );
         }
         registry.setRegistry( this );
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Adding subregistry \"" + qualifiedName + "\" to \"" + getQualifiedName() + "\"." );
+        }
         
     }
     
@@ -180,6 +188,10 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
         if ( subRegistries.remove( registry.getQualifiedName() ) != null ) {
             registry.setRegistry( null );
+            if ( LOG.isInfoEnabled() ) {
+                LOG.info( "Removing subregistry \"" + registry.getQualifiedName() +
+                        "\" from \"" + getQualifiedName() + "\"." );
+            }
         }
         
     }
@@ -258,6 +270,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     public void setPrefix( String prefix ) {
         
         this.prefix = prefix;
+        if ( LOG.isDebugEnabled() ) {
+            LOG.debug( "Setting prefix of " + getQualifiedName() + " to " + prefix + "." );
+        }
         
     }
     
@@ -280,6 +295,10 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
 
         if ( isEssential() && !enabled ) {
             throw new IllegalStateException( "Attempted to disabled an essential registry." );
+        }
+        if ( LOG.isDebugEnabled() ) {
+            LOG.debug( "Setting " + getQualifiedName() + " to " +
+                    ( ( enabled ) ? "enabled" : "disabled" ) + "." );
         }
         this.enabled = enabled;
 
@@ -322,12 +341,25 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      */
     public boolean registerCommand( ICommand command ) throws NullPointerException {
         
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Attempting to register command " + getCommandString( command ) + " to \"" +
+                    getQualifiedName() + "\"." );
+        }
+        /* Check for fail cases */
+        boolean fail = false;
         if ( command.isSubCommand() ) {
-            return false; // Sub commands cannot be registered directly.
+            fail = true; // Sub commands cannot be registered directly.
+        } else if ( getRoot().getCommand( command.getName() ) != null ) {
+            fail = true; // Check if there is a command in the chain with the same name.
         }
-        if ( getRoot().getCommand( command.getName() ) != null ) {
-            return false; // Check if there is a command in the chain with the same name.
+        if ( fail ) {
+            if ( LOG.isInfoEnabled() ) {
+                LOG.info( "Failed to register command \"" + command.getName() + "\"." );
+            }
+            return false; // Error found.
         }
+        
+        /* Add to main table */
         if ( command.getRegistry() != null ) { // Unregister from current registry if any.
             command.getRegistry().unregisterCommand( command );
         }
@@ -354,6 +386,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             queue.add( command ); // Add command to list of commands with that identifier.
             
         }
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Registered command \"" + command.getName() + "\"." );
+        }
         return true;
         
     }
@@ -370,7 +405,14 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( command == null ) {
             return false; // Received null command.
         }
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Attempting to deregister command " + getCommandString( command ) + " from \"" +
+                    getQualifiedName() + "\"." );
+        }
         if ( commands.get( command.getName() ) != command ) {
+            if ( LOG.isInfoEnabled() ) {
+                LOG.info( "Failed to deregister command \"" + command.getName() + "\"." );
+            }
             return false; // No command with this name, or the command registered with this name was not
         }                 // the one given.
         commands.remove( command.getName() );
@@ -392,7 +434,35 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         
         command.setRegistry( null );
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Deregistered command \"" + command.getName() + "\"." );
+        }
         return true;
+        
+    }
+    
+    /**
+     * Creates a string that describes the essential information of a given command.
+     * Includes name, prefix, aliases, description, and usage.
+     *
+     * @param command The command to be described.
+     * @return A string that describes the main info of the command.
+     */
+    private static String getCommandString( ICommand command ) {
+        
+        StringBuilder builder = new StringBuilder();
+        builder.append( '"' );
+        builder.append( command.getName() );
+        builder.append( "\"::(" );
+        builder.append( command.getPrefix() );
+        builder.append( ')' );
+        builder.append( command.getAliases() );
+        builder.append( "::<\"" );
+        builder.append( command.getDescription() );
+        builder.append( "\">::<\"" );
+        builder.append( command.getUsage() );
+        builder.append( "\">" );
+        return builder.toString();
         
     }
     
@@ -489,6 +559,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      */
     public ICommand parseCommand( String signature ) {
         
+        if ( LOG.isTraceEnabled() ) {
+            LOG.trace( "Parsing \"" + signature + "\" in registry \"" + getQualifiedName() + "\"." );
+        }
         ICommand command = null;
         /* Check if a subregistry has the command */
         for ( CommandRegistry subRegistry : getSubRegistries() ) {
@@ -518,6 +591,10 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
                     command = candidate; // Keeps it if it has higher precedence than the current command.
                 }
             }
+        }
+        if ( LOG.isTraceEnabled() ) {
+            LOG.trace( "Registry \"" + getQualifiedName() + "\" found: " +
+                    ( ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) ) + "." );
         }
         return command; // Returns what was found in this registry. Will be null if not found in this
                         // registry.        
