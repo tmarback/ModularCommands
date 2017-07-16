@@ -30,6 +30,8 @@ public class TestModuleModule implements IModule {
 
         CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
         reg.registerCommand( new ModuleCommand() );
+        reg.registerCommand( new SuccessfulOverrideCommand() );
+        reg.registerCommand( new FailedOverrideCommand() );
         return true;
         
     }

@@ -39,12 +39,15 @@ public class TestBot {
         loader.loadModule( new TestModuleModule() );
         CommandRegistry reg = CommandRegistry.getRegistry( client );
         reg.registerCommand( new InterfaceCommand() );
+        reg.registerCommand( new OverrideableCommand() );
+        reg.registerCommand( new NonOverrideableCommand() );
         client.login();
         for ( ICommand c : reg.getCommands() ) {
             
             System.out.println( c.getSignatures() );
             
         }
+        reg.registerCommand( new InterfaceCommand() );
         
     }
 
