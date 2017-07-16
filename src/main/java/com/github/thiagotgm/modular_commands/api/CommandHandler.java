@@ -179,14 +179,8 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         
         /* Get execution chain */
         LOG.trace( "Permission check passed. Preparing to execute." );
-        Stack<ICommand> executionChain = new Stack<>();
-        Stack<CommandContext> contextChain = new Stack<>();
-        executionChain.add( command );
-        contextChain.add( context );
-        if ( command.executeParent() ) { // If the parent command should be executed, get all the ancestor
-            buildExecutionChain( executionChain, contextChain, // commands that should also be executed.
-                    commands.subList( 0, commands.size() - 1 ), args, event );
-        }
+        Stack<ICommand> executionChain = new Stack<>(); // Gets all the parent commands that should also
+        buildExecutionChain( executionChain, commands.subList( 0, commands.size() - 1 ) ); // be executed.
         
         /* Build request */
         RequestBuilder builder = new RequestBuilder( event.getClient() );
@@ -206,26 +200,24 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         
         });
         final ICommand firstCommand = executionChain.pop();
-        final CommandContext firstContext = contextChain.pop();
         builder.doAction( () -> {
             // Execute the first command in the chain.
             if ( LOG.isTraceEnabled() ) {
                 LOG.trace( "Executing \"" + firstCommand.getName() + "\"" );
             }
-            firstCommand.execute( firstContext );
+            firstCommand.execute( context );
             return true;
             
         });
         while ( !executionChain.isEmpty() ) {
             // Execute each subsequent command in the chain.
             final ICommand nextCommand = executionChain.pop();
-            final CommandContext nextContext = contextChain.pop();
             builder.andThen( () -> {
                 
                 if ( LOG.isTraceEnabled() ) {
                     LOG.trace( "Executing \"" + nextCommand.getName() + "\"" );
                 }
-                nextCommand.execute( nextContext );
+                nextCommand.execute( context );
                 return true;
                 
             });
@@ -298,33 +290,26 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     }
     
     /**
-     * Builds the execution chain for the given commands with the given arguments.<br>
+     * Builds the execution chain for the given commands.<br>
      * That is, gets the commands that should be executed according to the {@link ICommand#executeParent()}
-     * setting of the commands, and the context for each of these commands.
+     * setting of the commands.
      * <p>
      * After this method returns, the command on top of the stack is the first one that should be
      * executed, with the other commands in the stack also being retrieved in the order that
-     * they should be executed. The context chain has the matching order for the contexts.
+     * they should be executed.
      *
      * @param executionChain Where the commands to be executed should be added.
-     * @param contextChain Where the context of the commands to be executed should be added.
      * @param commands The commands that were triggered.
-     * @param args The args received in the message, including the main command signature.
-     * @param event The event that triggered the command.
      */
-    private void buildExecutionChain( Stack<ICommand> executionChain, Stack<CommandContext> contextChain,
-            List<ICommand> commands, List<String> args, MessageReceivedEvent event ) {
+    private void buildExecutionChain( Stack<ICommand> executionChain, List<ICommand> commands ) {
         
         if ( commands.isEmpty() ) {
             return; // No more commands to add.
         }
         ICommand curCommand = commands.get( commands.size() - 1 ); // Gets the last command.
-        List<String> curArgs = args.subList( commands.size(), args.size() ); // Gets the args for that command.
         executionChain.push( curCommand ); // Add command to chain.
-        contextChain.push( new CommandContext( event, curCommand, curArgs ) ); // Make the command's context.
         if ( curCommand.executeParent() ) { // If specified, add the command before it to the chain.
-            buildExecutionChain( executionChain, contextChain,
-                    commands.subList( 0, commands.size() - 1 ), args, event );
+            buildExecutionChain( executionChain, commands.subList( 0, commands.size() - 1 ) );
         }
         
     }

@@ -244,8 +244,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * OBS 2: If the parent also specifies that its parent should be executed, it will be executed before it
      * (eg this behaviour can be chained), until reaching the main command or the first ancestor
      * that specifies its parent should not be executed.<br>
-     * OBS 3: Each ancestor command gets its own reply builder. EG if each uses the reply builder in their
-     * respective contexts, multiple reply messages are going to be sent.
+     * OBS 3: Each ancestor command gets the same context as the most specific subcommand. This also
+     * means the reply builder is the same.
      *
      * @return true if the parent of this command should be executed before executing this.<br>
      *         false if it should not be executed.
