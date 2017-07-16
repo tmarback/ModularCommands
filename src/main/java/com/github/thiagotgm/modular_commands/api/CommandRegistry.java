@@ -221,6 +221,44 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Determines if there is a subregistry registered in this registry that is linked
+     * to the given module.
+     *
+     * @param module The module to check for.
+     * @return true if there is a given subregistry linked to the given module. false otherwise.
+     * @throws NullPointerException if the module passed in is null.
+     */
+    public boolean hasSubRegistry( IModule module ) throws NullPointerException {
+        
+        if ( module == null ) {
+            throw new NullPointerException( "Module argument cannot be null." );
+        }
+        return subRegistries.containsKey( qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() ) );
+        
+    }
+    
+    /**
+     * Removes the subregistry that is linked to the given module from this registry, if there
+     * is one.
+     * <p>
+     * After removing the subregistry, a call using the same module to {@link #getSubRegistry(IModule)}
+     * will create a new subregistry.
+     *
+     * @param module The module whose linked subregistry is to be removed.
+     * @return The (removed) subregistry that is linked to the given module, or null if there was no
+     *         such subregistry.
+     * @throws NullPointerException if the module passed in is null.
+     */
+    public CommandRegistry removeSubRegistry( IModule module ) throws NullPointerException {
+        
+        if ( module == null ) {
+            throw new NullPointerException( "Module argument cannot be null." );
+        }
+        return subRegistries.remove( qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() ) );
+        
+    }
+    
+    /**
      * Retrieves the subregistries registered in this registry.
      *
      * @return The registered subregistries.
