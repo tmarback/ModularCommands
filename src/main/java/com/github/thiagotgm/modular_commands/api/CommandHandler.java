@@ -139,12 +139,12 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         errorBuilder.shouldBufferRequests( true ).setAsync( true );            // error handler.
         errorBuilder.onMissingPermissionsError( ( exception ) -> {
             // In case error handler hits a MissingPermissions error.
-            LOG.info( "Lacking permissions to execute operation.", exception );
+            LOG.warn( "Lacking permissions to execute operation.", exception );
             
         });
         errorBuilder.onDiscordError( ( exception ) -> {
             // In case error handler hits a Discord error.
-            LOG.info( "Discord error encountered while performing operation.", exception );
+            LOG.warn( "Discord error encountered while performing operation.", exception );
         
         });
         if ( command.requiresOwner() && !event.getClient().getApplicationOwner().equals( event.getAuthor() ) ) {
@@ -198,14 +198,14 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         builder.onMissingPermissionsError( ( exception ) -> {
             
             permissionsError.set( true ); // Mark that a permission error occurred.
-            LOG.info( "Lacking permissions to execute operation.", exception );
+            LOG.warn( "Lacking permissions to execute operation.", exception );
             
         });
         final AtomicBoolean discordError = new AtomicBoolean();
         builder.onDiscordError( ( exception ) -> {
             
             discordError.set( true ); // Mark that a Discord error occurred.
-            LOG.info( "Discord error encountered while performing operation.", exception );
+            LOG.warn( "Discord error encountered while performing operation.", exception );
         
         });
         final ICommand firstCommand = executionChain.pop();

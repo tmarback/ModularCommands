@@ -432,7 +432,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         if ( fail ) {
             if ( LOG.isInfoEnabled() ) {
-                LOG.info( "Failed to register command \"" + command.getName() + "\"." );
+                LOG.error( "Failed to register command \"" + command.getName() + "\"." );
             }
             return false; // Error found.
         }
@@ -489,7 +489,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         if ( commands.get( command.getName() ) != command ) {
             if ( LOG.isInfoEnabled() ) {
-                LOG.info( "Failed to deregister command \"" + command.getName() + "\"." );
+                LOG.error( "Failed to deregister command \"" + command.getName() + "\"." );
             }
             return false; // No command with this name, or the command registered with this name was not
         }                 // the one given.
