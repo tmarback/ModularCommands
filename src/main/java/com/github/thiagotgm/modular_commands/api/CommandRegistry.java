@@ -107,6 +107,42 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Determines if there is a registry that is linked to the given client.
+     *
+     * @param client The client to check for.
+     * @return true if there is a registry linked to the given client. false otherwise.
+     * @throws NullPointerException if the client passed in is null.
+     */
+    public static boolean hasRegistry( IDiscordClient client ) throws NullPointerException {
+        
+        if ( client == null ) {
+            throw new NullPointerException( "Client argument cannot be null." );
+        }
+        return registries.containsKey( client );
+        
+    }
+    
+    /**
+     * Removes the registry that is linked to the given client, if there is one.
+     * <p>
+     * After removing the registry, the next to call to {@link #getRegistry(IDiscordClient)}
+     * using the given client will create a new registry.
+     *
+     * @param client The client whose linked registry is to be removed.
+     * @return The (removed) registry that is linked to the given client, or null if there was no
+     *         such registry.
+     * @throws NullPointerException if the client passed in is null.
+     */
+    public static CommandRegistry removeRegistry( IDiscordClient client ) throws NullPointerException {
+        
+        if ( client == null ) {
+            throw new NullPointerException( "Client argument cannot be null." );
+        }
+        return registries.remove( client );
+        
+    }
+    
+    /**
      * Given the qualifier of a registry type and the name of a registry, retrieves
      * the qualified name.
      *
@@ -225,7 +261,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * to the given module.
      *
      * @param module The module to check for.
-     * @return true if there is a given subregistry linked to the given module. false otherwise.
+     * @return true if there is a subregistry linked to the given module. false otherwise.
      * @throws NullPointerException if the module passed in is null.
      */
     public boolean hasSubRegistry( IModule module ) throws NullPointerException {
@@ -254,7 +290,11 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( module == null ) {
             throw new NullPointerException( "Module argument cannot be null." );
         }
-        return subRegistries.remove( qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() ) );
+        CommandRegistry subRegistry = subRegistries.get( qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() ) );
+        if ( subRegistry != null ) { // If linked subregistry found, unregister it.
+            unregisterSubRegistry( subRegistry );
+        }
+        return subRegistry;
         
     }
     
