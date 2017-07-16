@@ -42,6 +42,7 @@ public class ModularCommandsModule implements IModule {
     public void disable() {
 
         client.getDispatcher().unregisterListener( handler );
+        CommandRegistry.removeRegistry( client );
         client = null; // Unregisters the handler to stop receiving events.
         handler = null;
 
