@@ -115,6 +115,10 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
                 return; // Command is disabled.
             }
         }
+        if ( !command.getRegistry().contextCheck( context ) ) {
+            LOG.trace( "Registry context check failed." );
+            return; // Registry disabled under calling context.
+        }
         if ( command.ignorePublic() && !event.getChannel().isPrivate() ) {
             LOG.trace( "Ignoring public execution." );
             return; // Ignore public command.

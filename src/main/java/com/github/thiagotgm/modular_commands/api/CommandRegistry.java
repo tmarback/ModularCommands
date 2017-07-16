@@ -24,6 +24,7 @@ import java.util.PriorityQueue;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     private boolean enabled;
     private String prefix;
+    private Predicate<CommandContext> contextCheck;
     
     /** Table of commands, stored by name. */
     private final Map<String, ICommand> commands;
@@ -380,6 +382,78 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         this.enabled = enabled;
 
+    }
+    
+    /**
+     * Sets an operation to be ran to determine if this registry is active under
+     * the context of a command.
+     * <p>
+     * By default there is no check operation, so the registry is active for any
+     * context. This state can be restored by passing in null to this method.
+     * <p>
+     * If a registry is not active under a command context, then a command called under that
+     * context will not be executed, thus having the same effect as if it was disabled.
+     * <p>
+     * This can be used to create functionality where commands in certain registries
+     * are only available (or not available) if the context, or some other arbitrary internal
+     * state of the program, matches a certain criteria.<br>
+     * Essentially a runtime-configurable way of making a registry conditionally enabled or
+     * disabled depending on the context that its commands are called from and the state of
+     * the program.<br>
+     * However, this does <i>not</i> replace enabled/disabled functionality. If the registry
+     * was set as disabled, no commands from it will be executed, independent of any context checks.
+     * The check is only called if the registry is enabled.
+     *
+     * @param contextCheck The check to run on the context of commands. If null, removes the current
+     *                     context check.
+     * @see #contextCheck(CommandContext)
+     */
+    public void setContextCheck( Predicate<CommandContext> contextCheck ) {
+        
+        if ( LOG.isDebugEnabled() ) {
+            LOG.debug( "Setting context check for \"" + getQualifiedName() + "\"." );
+        }
+        this.contextCheck = contextCheck;
+        
+    }
+    
+    /**
+     * Retrieves the operation being used to determine if this registry is active under
+     * the context of a command.
+     *
+     * @return The check being ran on command contexts.
+     */
+    public Predicate<CommandContext> getContextCheck() {
+        
+        return contextCheck;
+        
+    }
+    
+    /**
+     * Retrieves whether this registry is active under the given context.
+     * <p>
+     * This method runs the check operation set through {@link #setContextCheck(Predicate)}.<br>
+     * If none were set, this is always true.
+     * <p>
+     * If a registry fails its context check and thus is not active, all the subregistries
+     * registered under it are not active.<br>
+     * This means that if some registry above this in the
+     * registry hierarchy is not active under the given context, this registry is also 
+     * not active, independent of the result of its own context check.
+     * <p>
+     * If a registry is not active under a command context, then a command called under that
+     * context will not be executed, thus having the same effect as if it was disabled.
+     * 
+     * @param context The context to check if the registry is active for.
+     * @return true if this registry is active under the given context (passed context check).<br>
+     *         false if it is not active (failed context check).
+     * @see #setContextCheck(Predicate)
+     */
+    public boolean contextCheck( CommandContext context ) {
+        
+        return ( ( contextCheck == null ) || contextCheck.test( context ) ) &&
+               ( ( getRegistry() == null ) || getRegistry().contextCheck( context ) );
+        
     }
     
     /**
