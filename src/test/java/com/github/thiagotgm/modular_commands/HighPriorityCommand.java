@@ -30,19 +30,18 @@ import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
 /**
- * Simple command to make sure submodule commands are accessible.<br>
- * Also for testing multiple aliases.
+ * Test command with high priority.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-16
  */
-public class ModuleCommand implements ICommand {
+public class HighPriorityCommand implements ICommand {
 
     private CommandRegistry registry;
     private volatile boolean enabled;
     
-    public ModuleCommand() {
+    public HighPriorityCommand() {
         
         this.enabled = true;
         
@@ -79,17 +78,20 @@ public class ModuleCommand implements ICommand {
     @Override
     public String getName() {
 
-        return "Module lol";
+        return "High Priority";
         
     }
 
     @Override
     public SortedSet<String> getAliases() {
 
-        String[] alias = { "lol", "lel" };
+        String[] alias = { "priority" };
         return new TreeSet<>( Arrays.asList( alias ) );
         
     }
+    
+    @Override
+    public int getPriority() { return 1000; }
 
     @Override
     public boolean isSubCommand() {
@@ -102,8 +104,15 @@ public class ModuleCommand implements ICommand {
     public void execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
-        context.getReplyBuilder().withContent( "Module works!" ).build();
+        context.getReplyBuilder().withContent( "High priority!" ).build();
 
+    }
+    
+    @Override
+    public void onSuccess( CommandContext context ) {
+        
+        context.getReplyBuilder().withContent( "Success!" ).build();
+        
     }
 
 }

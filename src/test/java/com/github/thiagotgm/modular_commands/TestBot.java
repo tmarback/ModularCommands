@@ -44,6 +44,7 @@ public class TestBot {
         ModuleLoader loader = client.getModuleLoader();
         loader.loadModule( new TestModule() );
         loader.loadModule( new TestModuleModule() );
+        loader.loadModule( new TestPrefixModule() );
         CommandRegistry reg = CommandRegistry.getRegistry( client );
         reg.registerCommand( new InterfaceCommand() );
         reg.registerCommand( new OverrideableCommand() );

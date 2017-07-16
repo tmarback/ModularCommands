@@ -349,7 +349,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
         this.prefix = prefix;
         if ( LOG.isDebugEnabled() ) {
-            LOG.debug( "Setting prefix of " + getQualifiedName() + " to " + prefix + "." );
+            LOG.debug( "Setting prefix of \"" + getQualifiedName() + "\" to \"" + prefix + "\"." );
         }
         
     }

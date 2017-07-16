@@ -38,9 +38,14 @@ public interface Prefixed extends Registrable {
     /**
      * Retrieves the <i>effective</i> prefix of the calling instance.<br>
      * If the calling instance has no declared prefix, inherits the prefix from the registry it is registered to.
+     * <p>
+     * If the instance does not specify a prefix and is not registered to a registry, either returns a default
+     * prefix or throws an exception.<br>
+     * By default, just throws an exception.
      *
      * @return The effective prefix used for this instance.
-     * @throws IllegalStateException if called when the instance is not registered to any registry.
+     * @throws IllegalStateException if called when the instance is not registered to any registry and does not
+     *                               have a default prefix.
      */
     default String getEffectivePrefix() throws IllegalStateException {
         
