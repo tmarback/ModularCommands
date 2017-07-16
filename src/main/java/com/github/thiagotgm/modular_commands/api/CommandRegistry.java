@@ -241,8 +241,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * Removes the subregistry that is linked to the given module from this registry, if there
      * is one.
      * <p>
-     * After removing the subregistry, a call using the same module to {@link #getSubRegistry(IModule)}
-     * will create a new subregistry.
+     * After removing the subregistry, the next to call to {@link #getSubRegistry(IModule)}
+     * using the given module will create a new subregistry.
      *
      * @param module The module whose linked subregistry is to be removed.
      * @return The (removed) subregistry that is linked to the given module, or null if there was no
@@ -620,8 +620,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         if ( ( command != null ) && !command.isOverrideable() ) {
             if ( LOG.isTraceEnabled() ) {
-                LOG.trace( "Registry \"" + getQualifiedName() + "\" found: " +
-                        ( ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) ) + "." );
+                LOG.trace( "Registry \"" + getQualifiedName() + "\" found: \"" +
+                        command.getName() + "\" (not overrideable)." );
             }
             return command; // Found a command and it can't be overriden.
         }
