@@ -129,11 +129,8 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         }
         
         /* Check if the caller is allowed to call the command. */
-        if ( LOG.isTraceEnabled() ) {
-            if ( LOG.isTraceEnabled() ) {
-                LOG.trace( "Command " + getCommandTrace( command, event ) + " - checking permission" );
-                        
-            }
+        if ( LOG.isDebugEnabled() ) {
+            LOG.debug( "Command " + getCommandTrace( command, event ) + " - checking permission" );
         }
         RequestBuilder errorBuilder = new RequestBuilder( event.getClient() ); // Builds request for
         errorBuilder.shouldBufferRequests( true ).setAsync( true );            // error handler.
