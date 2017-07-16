@@ -26,6 +26,13 @@ import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.ModuleLoader;
 
+/**
+ * Small bot for testing commands.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-16
+ */
 public class TestBot {
     
     public static void main( String[] args ) {

@@ -29,7 +29,13 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
-
+/**
+ * Command that attempts to override a non-overrideable command in the parent registry.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-16
+ */
 public class FailedOverrideCommand implements ICommand {
 
     private CommandRegistry registry;

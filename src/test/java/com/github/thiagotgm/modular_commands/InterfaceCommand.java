@@ -29,7 +29,13 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
-
+/**
+ * Quick command using the interface that has subcommands.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-16
+ */
 public class InterfaceCommand implements ICommand {
     
     private CommandRegistry registry;

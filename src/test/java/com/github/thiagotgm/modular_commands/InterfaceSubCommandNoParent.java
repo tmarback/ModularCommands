@@ -29,6 +29,13 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
+/**
+ * Subcommand that does not execute the parent.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-16
+ */
 public class InterfaceSubCommandNoParent implements ICommand {
 
     private CommandRegistry registry;

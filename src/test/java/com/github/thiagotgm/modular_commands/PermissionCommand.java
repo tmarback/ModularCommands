@@ -32,7 +32,13 @@ import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
-
+/**
+ * Test command that needs some guild and channel permissions.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-16
+ */
 public class PermissionCommand implements ICommand {
 
     private CommandRegistry registry;

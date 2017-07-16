@@ -22,7 +22,13 @@ import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
-
+/**
+ * Module for subregistry testing.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-16
+ */
 public class TestModuleModule implements IModule {
 
     @Override
