@@ -41,6 +41,8 @@ public class TestBot {
         reg.registerCommand( new InterfaceCommand() );
         reg.registerCommand( new OverrideableCommand() );
         reg.registerCommand( new NonOverrideableCommand() );
+        reg.registerCommand( new PermissionCommand() );
+        reg.registerCommand( new NeedsOwnerCommand() );
         client.login();
         for ( ICommand c : reg.getCommands() ) {
             
