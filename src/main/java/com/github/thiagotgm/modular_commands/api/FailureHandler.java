@@ -21,15 +21,16 @@ import java.util.function.BiConsumer;
 
 import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RateLimitException;
 
 /**
  * Specialization of the BiConsumer interface.<br>
  * Represents an operation that, given the context of a Discord command that could not
  * be executed and the reason why it failed, executes a task with the Discord API, with
- * the possibility of passing in Discord-related exceptions (missing permissions or a
- * miscellaneous Discord error) to the caller.
+ * the possibility of passing in Discord-related exceptions (rate limit, missing permissions,
+ * or a miscellaneous Discord error) to the caller.
  *
- * @version 1.0
+ * @version 1.1.0
  * @author ThiagoTGM
  * @since 2017-07-12
  * @see BiConsumer
@@ -42,12 +43,14 @@ public interface FailureHandler extends BiConsumer<CommandContext, FailureReason
      *
      * @param context Context to perform the operation on.
      * @param reason Reason why the command failed to be executed.
-     * @throws MissingPermissionsException If the operation could not be completed due to the
+     * @throws RateLimitException if the operation failed due to rate limiting.
+     * @throws MissingPermissionsException if the operation could not be completed due to the
      *                                     executing client not having the required permissions.
-     * @throws DiscordException If the operation could not be completed due to a miscellaneous error.
+     * @throws DiscordException if the operation could not be completed due to a miscellaneous error.
      */
     @Override
-    void accept( CommandContext context, FailureReason reason ) throws MissingPermissionsException, DiscordException;
+    void accept( CommandContext context, FailureReason reason )
+            throws RateLimitException, MissingPermissionsException, DiscordException;
     
     /**
      * Returns a composed FailureHandler that executes this operation followed by the given

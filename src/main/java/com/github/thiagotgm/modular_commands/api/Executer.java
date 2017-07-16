@@ -21,14 +21,15 @@ import java.util.function.Consumer;
 
 import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RateLimitException;
 
 /**
  * Specialization of the Consumer interface.<br>
  * Represents an operation that, given the context of a Discord command,
  * executes a task with the Discord API, with the possibility of passing in Discord-related
- * exceptions (missing permissions or a miscellaneous Discord error) to the caller.
+ * exceptions (rate limit, missing permissions, or a miscellaneous Discord error) to the caller.
  *
- * @version 1.0
+ * @version 1.1.0
  * @author ThiagoTGM
  * @since 2017-07-12
  * @see Consumer
@@ -40,12 +41,13 @@ public interface Executer extends Consumer<CommandContext> {
      * Performs the operation on the given context.
      *
      * @param context Context to perform the operation on.
-     * @throws MissingPermissionsException If the operation could not be completed due to the
+     * @throws RateLimitException if the operation failed due to rate limiting.
+     * @throws MissingPermissionsException if the operation could not be completed due to the
      *                                     executing client not having the required permissions.
-     * @throws DiscordException If the operation could not be completed due to a miscellaneous error.
+     * @throws DiscordException if the operation could not be completed due to a miscellaneous error.
      */
     @Override
-    void accept( CommandContext context ) throws MissingPermissionsException, DiscordException;
+    void accept( CommandContext context ) throws RateLimitException, MissingPermissionsException, DiscordException;
     
     /**
      * Returns a composed Executer that executes this operation followed by the given
