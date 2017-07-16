@@ -649,8 +649,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         String registryPrefix = getEffectivePrefix();
         if ( signature.startsWith( registryPrefix ) ) { // Command has the same prefix as the registry.
-            signature = signature.substring( registryPrefix.length() ); // Remove the prefix.
-            commandQueue = noPrefix.get( signature ); // Check the commands with no specified prefix.
+            // Remove the prefix and check the commands with no specified prefix.
+            commandQueue = noPrefix.get( signature.substring( registryPrefix.length() ) );
             if ( commandQueue != null ) { // Found commands with same alias.
                 ICommand candidate = commandQueue.peek(); // Get the first one.
                 if ( ( candidate != null ) && ( ( command == null ) || ( candidate.compareTo( command ) < 0 ) ) ) {
