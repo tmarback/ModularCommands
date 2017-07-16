@@ -24,6 +24,7 @@ import com.github.thiagotgm.modular_commands.api.ICommand;
 
 import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
+import sx.blah.discord.modules.ModuleLoader;
 
 public class TestBot {
     
@@ -33,7 +34,9 @@ public class TestBot {
         String token = in.next();
         in.close();
         IDiscordClient client = new ClientBuilder().withToken( token ).build();
-        client.getModuleLoader().loadModule( new TestModule() );
+        ModuleLoader loader = client.getModuleLoader();
+        loader.loadModule( new TestModule() );
+        loader.loadModule( new TestModuleModule() );
         CommandRegistry reg = CommandRegistry.getRegistry( client );
         reg.registerCommand( new InterfaceCommand() );
         client.login();
