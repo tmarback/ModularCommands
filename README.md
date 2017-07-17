@@ -116,7 +116,7 @@ There are 3 ways of creating commands:
         public void execute( CommandContext context )
                 throws RateLimitException, MissingPermissionsException, DiscordException {
             context.getReplyBuilder().withContent( "pong!" ).build();
-	}
+        }
 
     }
     ```
