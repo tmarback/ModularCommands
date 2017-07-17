@@ -148,7 +148,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         });
         errorBuilder.onDiscordError( ( exception ) -> {
             // In case error handler hits a Discord error.
-            LOG.warn( "Discord error encountered while performing operation.", exception );
+            LOG.error( "Discord error encountered while performing operation.", exception );
         
         });
         if ( command.isNSFW() && event.getChannel().isNSFW() ) {
@@ -226,7 +226,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         builder.onDiscordError( ( exception ) -> {
             
             discordError.set( true ); // Mark that a Discord error occurred.
-            LOG.warn( "Discord error encountered while performing operation.", exception );
+            LOG.error( "Discord error encountered while performing operation.", exception );
         
         });
         final ICommand firstCommand = executionChain.pop();
