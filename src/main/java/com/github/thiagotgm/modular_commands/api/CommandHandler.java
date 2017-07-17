@@ -31,6 +31,8 @@ import org.slf4j.LoggerFactory;
 import sx.blah.discord.api.events.IListener;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
 import sx.blah.discord.handle.obj.Permissions;
+import sx.blah.discord.util.DiscordException;
+import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RequestBuilder;
 
 /**
@@ -238,6 +240,21 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             return true;
             
         });
+        if ( command.deleteCommand() ) { // Command message should be deleted after
+            builder.andThen( () -> {     // successful execution.
+                
+                LOG.debug( "Successful execution. Deleting command message." );
+                try {
+                    event.getMessage().delete();
+                } catch ( MissingPermissionsException e ) {
+                    LOG.warn( "Missing permissions to delete message.", e );
+                } catch ( DiscordException e ) {
+                    LOG.error( "Error encountered while deleting message.", e );
+                }
+                return true;
+                
+            });
+        }
         builder.andThen( () -> { // In case command succeeds.
             
             LOG.debug( "Command succeeded." );
@@ -247,15 +264,6 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             return true;
             
         });
-        if ( command.deleteCommand() ) { // Command message should be deleted after
-            builder.andThen( () -> {     // successful execution.
-                
-                LOG.debug( "Successful execution. Deleting command message." );
-                event.getMessage().delete();
-                return true;
-                
-            });
-        }
         
         /* Execute command */
         if ( LOG.isInfoEnabled() ) {
