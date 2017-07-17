@@ -1,8 +1,10 @@
-## ModularCommands [![](https://jitpack.io/v/ThiagoTGM/ModularCommands.svg)](https://jitpack.io/#ThiagoTGM/ModularCommands)
+# ModularCommands [![](https://jitpack.io/v/ThiagoTGM/ModularCommands.svg)](https://jitpack.io/#ThiagoTGM/ModularCommands)
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-# How to Use
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION` should be replaced by the desired version. [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.1.0/javadoc/)
+
+## How to Use
 There are 2 ways to include this framework in your bot:
 
 1. Download the .jar of any release and place it into the `modules` folder, so Discord4J automatically loads it;
@@ -45,14 +47,14 @@ There are 2 ways to include this framework in your bot:
 	      }
         ...
         ```
-        Where `@VERSION@ should be replaced with the desired version.
+        Where `@VERSION@` should be replaced with the desired version.
         
         After adding the dependency, make sure to load the module manually:
         ```java
         client.getModuleLoader().loadModule( new ModularCommandsModule() );
         ```
         
-# Creating commands
+## Creating commands
 
 There are 3 ways of creating commands:
 
@@ -128,7 +130,7 @@ There are 3 ways of creating commands:
 3. Using annotations:
     `// TODO: Upcoming!`
 
-# Adding Commands (and other stuff about registries)
+## Adding Commands (and other stuff about registries)
 In order to add a command, you're first going to need a `registry` to add it to.
 You can get the root registry using your `IDiscordClient`:
 ```java
@@ -173,7 +175,7 @@ registry.registerCommand( new PingCommand() );
 // TODO: Annotation way
 ```
 
-# Subcommands
+## Subcommands
 If you want your command to behave in particular ways when a certain argument is used, you can make that into a `subcommand`.
 Like normal commands, subcommands have their own aliases, but instead of being activated through `prefix`+`alias`, a subcommand will be triggered if a certain _main command_ (any command that is not a subcommand) that has the subcommand in its subcommand list is called and its first argument is an alias of that subcommand.
 
@@ -201,7 +203,7 @@ Also worth noting that subcommands can specify their own subcommands, which work
 
 By default, if a subcommand is identified, only the last subcommand is executed. So if the message was `?do stuff here right now`, and there are (sub)commands for `?do`, `?do stuff`, `?do stuff here`, `?do stuff here right`, and `?do stuff here right now` (note that the last is a subcommand of the second to last, which is a subcommand of the one before, so on so forth), only the latter one would be executed. However, a subcommand can have the `executeParent` property be true to specify that, whenever it is called, its parent is also called. This behaviour is chained, so if its parent also has this property as true, its parent would also be called, and so on so forth. In these cases, the first to be called would be the first ancestor of the last subcommand that has the `executeParent` property as false (or the main command if all subcommands have it as true). So, in the example mentioned, if both `?do stuff here right` and `?do stuff here right now` had the `executeParent` property as true, but not `?do stuff here`, the commands that would end up being executed would be `?do stuff here`, `?do stuff here right`, and `?do stuff here right now`, is that order. All the properties that would be used, however, are the ones set in the most specific subcommand (`?do stuff here right now`).
 
-# Command Execution
+## Command Execution
 Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called.
 (`// TODO: what replaces execute() in the builder and annotation ways`)
 
@@ -213,18 +215,18 @@ If the command fails for some expected reason (`MissingPermissions` or `Discord`
 
 OBS: The `onFailure` and `onSuccess` operations are only called for the most specific subcommand. So even if the command says that its parent (and maybe other ancestors) should be excuted, only its own success and failure handlers will be used.
 
-# Command Properties
+## Command Properties
 A command can specify several properties. The interface has methods that can be overriden, the builder has chainable methods, and the annotations have fields for all of them too.
 
 `// TODO`
 
-# 3rd-party Libraries Used
+## 3rd-party Libraries Used
 
 This framework uses libraries including:
-[Discord4J](https://github.com/austinv11/Discord4J), licensed under the [LGPL 3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html)
-[SLF4J](https://www.slf4j.org/), licensed under the [MIT License](https://www.slf4j.org/license.html)
+- [Discord4J](https://github.com/austinv11/Discord4J), licensed under the [LGPL 3.0](https://www.gnu.org/licenses/lgpl-3.0.en.html)
+- [SLF4J](https://www.slf4j.org/), licensed under the [MIT License](https://www.slf4j.org/license.html)
 
 For testing:
-[Logback-classic](https://logback.qos.ch/), licensed under the [LGPL 2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
+- [Logback-classic](https://logback.qos.ch/), licensed under the [LGPL 2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
 
 Inspiration for some of the features here was taken from the existing Discord4J command frameworks (all of which are great), such as [Discordinator](https://github.com/kvnxiao/Discordinator) and [Commands4J](https://github.com/Discord4J-Addons/Commands4J).
