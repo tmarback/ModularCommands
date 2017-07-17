@@ -2,7 +2,7 @@
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION` should be replaced by the desired version. [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.1.0/javadoc/)
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.1.0/javadoc/)
 
 ## How to Use
 There are 2 ways to include this framework in your bot:
@@ -11,7 +11,7 @@ There are 2 ways to include this framework in your bot:
 2. Import the framework as a dependency of your project. Again two ways of doing it:
     1. Download the .jar and add it as a dependency through the IDE you are using;
     2. Add the dependency to the project manager.
-       If using Maven, add the following to your `pom.xml` ():
+       If using Maven, add the following to your `pom.xml`:
        ```xml
        ...
        <dependencies>
@@ -49,10 +49,10 @@ There are 2 ways to include this framework in your bot:
         ```
         Where `@VERSION@` should be replaced with the desired version.
         
-        After adding the dependency, make sure to load the module manually:
-        ```java
-        client.getModuleLoader().loadModule( new ModularCommandsModule() );
-        ```
+     After adding the dependency, make sure to load the module manually:
+     ```java
+     client.getModuleLoader().loadModule( new ModularCommandsModule() );
+     ```
         
 ## Creating commands
 
@@ -130,8 +130,8 @@ There are 3 ways of creating commands:
 3. Using annotations:
     `// TODO: Upcoming!`
 
-## Adding Commands (and other stuff about registries)
-In order to add a command, you're first going to need a `registry` to add it to.
+## Command Registries
+In order to add a command, you're first going to need a `CommandRegistry` to add it to.
 You can get the root registry using your `IDiscordClient`:
 ```java
 CommandRegistry root = CommandRegistry.getRegistry( client );
@@ -164,9 +164,9 @@ CommandRegistry subSubRegistry = subRegistry.getSubRegistry( otherModule );
 
 On that note, you can use these subregistries for another use: _overriding_ commands. If a certain registry has a command with the alias `loot` and prefix `!`, but then one of its subregistries also has a command with the alias `loot` and prefix `!`, the one that would be executed whenever someone used the command `!loot` would be the one in the subregistry (unless the command in the original registry had the `overrideable` property set to false). This way, you could add functionality to commands of other modules without having a headache if you ever need to restore the original one.
 
-OBS: it is possible to have more than one subregistry have commands with the same signature. For those moments, you can specify a priority to your commands, and in those cases the one with the highest priority will be chosen (in case of priority ties, the one whose name comes first lexicographically is picked). The same applies if there are multiple commands in the same registry with the same signature (this also means that, even if a command is set as not overrideable, it might still be replaced by a command in the same registry).
+OBS: it is possible to have more than one subregistry have commands with the same signature. For those moments, you can specify a `priority` to your commands, and in those cases the one with the highest priority will be chosen (in case of priority ties, the one whose `name` comes first lexicographically is picked). The same applies if there are multiple commands in the same registry with the same signature (this also means that, even if a command is set as not overrideable, it could still be replaced by a command in the same registry).
 
-Another useful thing about subregistries is that each one can specify its own prefix. If a certain command does not specify a prefix, it will use the prefix of the registry it is registered to. If the registry does not specify a prefix, it will use the prefix of the registry it is registered to. This "prefix inheritance" can go on until the root registry, which will use the default prefix, `?`, if it does not have its own prefix. This way, if you want all your commands to have the same prefix, or set the prefix of all commands in a module at once, you just need to do one line and forget about it. And yet you can still chose to make certain commands have specific, immutable prefixes if you need to.
+Another useful thing about subregistries is that each one can specify its own prefix. If a certain command does not specify a prefix, it will use the prefix of the registry it is registered to. If the registry does not specify a prefix, it will use the prefix of the registry it is registered to. This "prefix inheritance" can go on until the root registry, which will use the default prefix, `?`, if it does not have its own prefix. This way, if you want all your commands to have the same prefix, or set the prefix of all commands in a module at once, you just need to do one line and forget about it. And yet you can still choose to make certain commands have specific, immutable prefixes if you need to.
 
 Now, once you have the registry you want to add your command to, adding the command is really simple:
 ```java
@@ -174,6 +174,10 @@ registry.registerCommand( new PingCommand() );
 // TODO: Builder way
 // TODO: Annotation way
 ```
+
+OBS: While multiple commands can have the same `alias`, the `name` of each command _must_ be unique within the registry hierarchy (the root registry and all its subregistries).
+
+OBS 2: If a command has one or more of its signatures overriden or otherwise has lower precedence than another command in a signature conflict, it effectively loses that signature (other signatures it may have that are not part of the conflict are not affected), even if the command that replaces it is disabled. It can only be restored by de-registering the command that replaces it.
 
 ## Subcommands
 If you want your command to behave in particular ways when a certain argument is used, you can make that into a `subcommand`.
@@ -197,17 +201,21 @@ public class MainCommand implements ICommand {
 2. `// TODO: Builder way`
 3. `// TODO: Annotation way`
 
-NOTE: Annotation-based subcommands can only be used in annotation-based main commands, and vice versa.
+NOTE: Annotation-based subcommands can only be used with annotation-based main commands, and vice versa.
 
 Also worth noting that subcommands can specify their own subcommands, which work in the same way, but using the subcommand's args.
 
-By default, if a subcommand is identified, only the last subcommand is executed. So if the message was `?do stuff here right now`, and there are (sub)commands for `?do`, `?do stuff`, `?do stuff here`, `?do stuff here right`, and `?do stuff here right now` (note that the last is a subcommand of the second to last, which is a subcommand of the one before, so on so forth), only the latter one would be executed. However, a subcommand can have the `executeParent` property be true to specify that, whenever it is called, its parent is also called. This behaviour is chained, so if its parent also has this property as true, its parent would also be called, and so on so forth. In these cases, the first to be called would be the first ancestor of the last subcommand that has the `executeParent` property as false (or the main command if all subcommands have it as true). So, in the example mentioned, if both `?do stuff here right` and `?do stuff here right now` had the `executeParent` property as true, but not `?do stuff here`, the commands that would end up being executed would be `?do stuff here`, `?do stuff here right`, and `?do stuff here right now`, is that order. All the properties that would be used, however, are the ones set in the most specific subcommand (`?do stuff here right now`).
+By default, if one or more subcommands are identified, only the last subcommand is executed. So if the message was `?do stuff here right now`, and there are (sub)commands for `?do`, `?do stuff`, `?do stuff here`, `?do stuff here right`, and `?do stuff here right now` (note that the last is a subcommand of the second to last, which is a subcommand of the one before, so on so forth), only the latter one would be executed. However, a subcommand can have the `executeParent` property be true to specify that, whenever it is called, its parent is also called. This behaviour is chained, so if its parent also has this property as true, its parent would also be called, and so on so forth. In these cases, the first to be called would be the first ancestor of the last subcommand that has the `executeParent` property as false (or the main command if all subcommands have it as true). So, in the example mentioned, if both `?do stuff here right` and `?do stuff here right now` had the `executeParent` property as true, but not `?do stuff here`, the commands that would end up being executed would be `?do stuff here`, `?do stuff here right`, and `?do stuff here right now`, in that order. All the properties that would be used, however, are the ones set in the most specific subcommand (`?do stuff here right now`).
+
+If there are more than one subcommand with an alias that matches the first argument, the one with the highest `priority` will be given precedence, and in case of a tie the one whose `name` comes first lexicographically is given precedence (same as how precedence is given in conflicts between main commands).
+
+OBS: Like for main commands, if a subcommand has lower precedence than another subcommand in a signature conflict, it effectively loses that signature (other signatures it may have that are not part of the conflict are not affected), even if the subcommand that replaces it is disabled.
 
 ## Command Execution
 Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called.
 (`// TODO: what replaces execute() in the builder and annotation ways`)
 
-The `CommandContext` given can provide all the important information about the command, such as who called it, where it was called from, its args, etc (it also provides the MessageReceivedEvent and corresponding IMessage that triggered the command, if you need it). It also provides a ready-made `MessageBuilder` for a reply (whether it is set to the same channel the message came from or a private channel to the message sender depends on the `replyPrivately` setting of the command that was called (more precisely, the most specific subcommand). If the parent commands of a subcommand are also executed (see last paragraph of the prior section), they will all receive the _exact same_ CommandContext as the most specific subcommand. This means that the args will not include any of their aliases, and they are all given the same `MessageBuilder`. However, the `CommandContext` also provides a way to store any `Object` inside it and retrieve it later, so if you want to do some common processing in a certain command and get the results in its subcommands, you can store that result in the `CommandContext` as a single object and retrieve it later when the subcommand (don't forget to cast it) is executed! (also don't forget to specify in the subcommands that the parent should be executed).
+The `CommandContext` given can provide all the important information about the command, such as who called it, where it was called from, its args, etc (it also provides the MessageReceivedEvent and corresponding IMessage that triggered the command, if you need it). It also provides a ready-made `MessageBuilder` for a reply (whether it is set to the same channel the message came from or a private channel to the message sender depends on the `replyPrivately` setting of the command that was called [more precisely, the most specific subcommand]). If the parent commands of a subcommand are also executed (see the `Subcommands` section), they will all receive the _exact same_ CommandContext as the most specific subcommand. This means that the args will not include any of their aliases, and they are all given the same `MessageBuilder`. However, the `CommandContext` also provides a way to store any `Object` inside it and retrieve it later, so if you want to do some common processing in a certain command and get the results in its subcommands, you can store that result in the `CommandContext` as a single object and retrieve it later (don't forget to cast it back) when the subcommand is executed! (also don't forget to specify in the subcommands that the parent should be executed).
 
 If, in your execution method, you need to call a method that throws `RateLimitException`, `MissingPermissionsException`, or `DiscordException`, you are encouraged to just let it float up (note that the `execute` method declares all those exceptions). Particularly for `RateLimitException`s, the command is called through Discord4J's request builder, if you let it float up the execution will be reattempted automatically (so seriously, don't bother catching those). The other exceptions are logged automatically.
 
@@ -218,7 +226,28 @@ OBS: The `onFailure` and `onSuccess` operations are only called for the most spe
 ## Command Properties
 A command can specify several properties. The interface has methods that can be overriden, the builder has chainable methods, and the annotations have fields for all of them too.
 
-`// TODO`
+- `name`: The name of the command. For main commands, this must be unique within the registry hierarchy. Default: none
+- `aliases`: The aliases that can be used to call the command in a text message. Default: none
+- `prefix`: Main command only. The prefix to be used before one of the aliases in order to call this command. If `null`, the prefix is inherited from the registry where this command is registered. Default: `null`
+- `description`: The description of what the command does. Default: `""`
+- `usage`: A string that shows how to call the command. For example, `"!message [user] [message]"`. Default: `""`
+- `onSuccessDelay`: How long after a successful execution of the command that the `onSuccess` handler should be called, in milliseconds. Default: `0`
+- `replyPrivately`: Whether the reply builder in the `CommandContext` should always be set to send a private message to the user that called the command. If false, it will be set to the same channel that the command was called from. Default: `false`
+- `ignorePublic`: Whether calls to the command made from  public channels should be ignored. Default: `false`
+- `ignorePrivate`: Whether calls to the command made from private channels (eg private messages) should be ignored. Default: `false`
+- `ignoreBots`: Whether calls to the command made by a bot user should be ignored. Default: `true`
+- `deleteCommand`: Whether the message that called the command should be deleted after the command is executed (only in case of successful execution. Happens right after the command executes and before the delay for the `onSuccess` call). Default: `false`
+- `requiresOwner`: Whether only the user that owns the bot account is allowed to call the command. Default: `false`
+- `NSFW`: Whether the command can only be executed in channels marked as NSFW. Default: `false`
+- `overrideable`: Whether the command can be overriden by a command in a subregistry that has the same signature. See the `Registries` section for more details. Default: `true`
+- `executeParent`: Subcommand only. Whether the immediate parent command of the subcommand should be executed before it when the subcommand is called. If the parent is also a subcommand, it may also specify this as true to chain this behavior. Default: `false`
+- `requiresParentPermissions`: Subcommand only. Whether the subcommand requires that the calling user satisfy the permission requirements for its parent command in addition to its own. If the parent is also a subcommand, it may also specify this as true to chain this behavior. Default: `true`
+- `requiredPermissions`: The (channel-overriden) permissions that the calling user must have in the channel in order to call the command. Default: `none`
+- `requiredGuildPermissions`: The (guild-wide) permissions that the calling user must have in the guild in order to call the command. Default: `none`
+- `subCommands`: The subcommands of this command. If this command is called and the first argument matches the alias of one of the subcommands, that subcommand is called instead. More info on the `Subcommands` section. Default: `none`
+- `priority`: If there is a situation where this command has the same signature/alias of another command and one does not override the other (both are in the same registry, both come from different subregistries of a registry, both are subcommands of the same command, etc), the one with the highest `priority` value will be given precedence. If both have the same priority, the one whose `name` comes first lexicographically is given precedence. Default: `0`
+
+OBS: "none" means that there is no default value (a value must _always_ be specified). "`none`" means an empty set/list/etc. "`null`" means the value `null`, literally.
 
 ## 3rd-party Libraries Used
 
@@ -229,4 +258,4 @@ This framework uses libraries including:
 For testing:
 - [Logback-classic](https://logback.qos.ch/), licensed under the [LGPL 2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
 
-Inspiration for some of the features here was taken from the existing Discord4J command frameworks (all of which are great), such as [Discordinator](https://github.com/kvnxiao/Discordinator) and [Commands4J](https://github.com/Discord4J-Addons/Commands4J).
+Inspiration for some of the features here was drawn from the existing Discord4J command frameworks (all of which are great), such as [Discordinator](https://github.com/kvnxiao/Discordinator) and [Commands4J](https://github.com/Discord4J-Addons/Commands4J).
