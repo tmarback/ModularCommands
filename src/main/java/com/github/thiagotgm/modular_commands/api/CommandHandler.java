@@ -115,10 +115,6 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
                 return; // Command is disabled.
             }
         }
-        if ( !command.getRegistry().contextCheck( context ) ) {
-            LOG.trace( "Registry context check failed." );
-            return; // Registry disabled under calling context.
-        }
         if ( command.ignorePublic() && !event.getChannel().isPrivate() ) {
             LOG.trace( "Ignoring public execution." );
             return; // Ignore public command.
@@ -130,6 +126,10 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         if ( command.ignoreBots() && event.getAuthor().isBot() ) {
             LOG.trace( "Ignoring bot caller." );
             return; // Ignore bot.
+        }
+        if ( !command.getRegistry().contextCheck( context ) ) {
+            LOG.trace( "Registry context check failed." );
+            return; // Registry disabled under calling context.
         }
         
         /* Check if the caller is allowed to call the command. */

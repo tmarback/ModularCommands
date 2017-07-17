@@ -33,6 +33,10 @@ import sx.blah.discord.util.MessageBuilder;
  * Provides convenience methods for directly obtaining relevant information about
  * how the command was invoked, as well as a pre-configured message builder for a
  * message reply configured according to the command settings.
+ * <p>
+ * Also allows storing a helper object, that can be retrieved by any subcommands that
+ * are called later in the execution chain (since all subcommands being executed share
+ * the same Context).
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -48,6 +52,7 @@ public class CommandContext {
     private final IChannel channel;
     private final IGuild guild;
     private final MessageBuilder replyBuilder;
+    private Object helper;
 
     /**
      * Builds the context for a given command triggered by the given message event.
@@ -163,6 +168,34 @@ public class CommandContext {
     public MessageBuilder getReplyBuilder() {
         
         return replyBuilder;
+        
+    }
+    
+    /**
+     * Stores a helper object in this Context.<br>
+     * It can be later retrieved by anything that has access to this
+     * Context, such as a subcommand being executed later in the execution chain
+     * or a success/failure handler.
+     * <p>
+     * If there is already a helper object stored, it is replaced by the given one.
+     *
+     * @param helper Helper object to be stored.
+     */
+    public void setHelper( Object helper ) {
+        
+        this.helper = helper;
+        
+    }
+    
+    /**
+     * Retrieves the helper object currently stored in this Context.
+     *
+     * @return The helper object currently stored.
+     * @see #setHelper(Object)
+     */
+    public Object getHelper() {
+        
+        return helper;
         
     }
 
