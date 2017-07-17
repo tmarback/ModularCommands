@@ -32,6 +32,9 @@ public class ClientCommandRegistry extends CommandRegistry {
     
     /** Qualifier for this registry type. */
     public static final String QUALIFIER = "client";
+    
+    /** Name for all instances of this class. */
+    private static final String NAME = "Core";
 
     private final IDiscordClient client;
     
@@ -65,7 +68,7 @@ public class ClientCommandRegistry extends CommandRegistry {
     @Override
     public String getName() {
 
-        return "Core";
+        return NAME;
         
     }
 
@@ -87,6 +90,13 @@ public class ClientCommandRegistry extends CommandRegistry {
     public String getEffectivePrefix() {
         
         return ( getPrefix() != null ) ? getPrefix() : CommandRegistry.DEFAULT_PREFIX;
+        
+    }
+    
+    @Override
+    public boolean isEssential() {
+        
+        return true;
         
     }
 
