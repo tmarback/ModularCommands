@@ -35,7 +35,7 @@ import sx.blah.discord.util.RateLimitException;
  * @see Consumer
  */
 @FunctionalInterface
-public interface Executer extends Consumer<CommandContext> {
+public interface Executor extends Consumer<CommandContext> {
     
     /**
      * Performs the operation on the given context.
@@ -58,7 +58,7 @@ public interface Executer extends Consumer<CommandContext> {
      * @return The composed Executer.
      * @see Consumer#andThen(Consumer)
      */
-    default Executer andThen( Executer after ) {
+    default Executor andThen( Executor after ) {
         
         return ( context ) -> {
             
