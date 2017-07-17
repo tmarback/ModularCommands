@@ -210,7 +210,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         /* Get execution chain */
         LOG.trace( "Permission check passed. Preparing to execute." );
         Stack<ICommand> executionChain = new Stack<>(); // Gets all the parent commands that should also
-        buildExecutionChain( executionChain, commands.subList( 0, commands.size() - 1 ) ); // be executed.
+        buildExecutionChain( executionChain, commands ); // be executed.
         
         /* Build request */
         RequestBuilder builder = new RequestBuilder( event.getClient() );
