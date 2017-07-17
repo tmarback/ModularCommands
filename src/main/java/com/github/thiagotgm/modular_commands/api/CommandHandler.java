@@ -150,6 +150,16 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             LOG.warn( "Discord error encountered while performing operation.", exception );
         
         });
+        if ( command.isNSFW() && event.getChannel().isNSFW() ) {
+            LOG.debug( "Channel is not NSFW." );
+            errorBuilder.doAction( () -> { // Channel needs to be marked NSFW.
+                
+                command.onFailure( context, FailureReason.CHANNEL_NOT_NSFW );
+                return true;
+                
+            }).execute();
+            return;
+        }
         if ( command.requiresOwner() && !event.getClient().getApplicationOwner().equals( event.getAuthor() ) ) {
             LOG.debug( "Caller is not the owner of the bot." );
             errorBuilder.doAction( () -> { // Command can only be called by bot owner.

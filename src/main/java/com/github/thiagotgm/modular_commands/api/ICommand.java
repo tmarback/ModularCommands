@@ -218,6 +218,16 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     default boolean requiresOwner() { return false; }
     
     /**
+     * Retrieves whether this command can only be used in channels marked as NSFW.
+     * <p>
+     * By default, returns false.
+     *
+     * @return true if this command requires a NSFW-marked channel.
+     *         false otherwise.
+     */
+    default boolean isNSFW() { return false; }
+    
+    /**
      * Retrieves whether this command can be overriden.
      * <p>
      * If the command can be overriden, whenever there is a conflict between this command

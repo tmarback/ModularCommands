@@ -49,6 +49,11 @@ public enum FailureReason {
     /**
      * A miscellaneous Discord error (DiscordException) was encountered while executing the command.
      */
-    DISCORD_ERROR
+    DISCORD_ERROR,
+    
+    /**
+     * The command is marked as NSFW, but the channel isn't.
+     */
+    CHANNEL_NOT_NSFW
 
 }
