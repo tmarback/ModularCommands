@@ -108,17 +108,19 @@ There are 3 ways of creating commands:
         }
         
         @Override
-        public String getPrefix() { // Would not be necessary if this was a subcommand
-            return "?";
+        public String getPrefix() { // Would not be necessary if this was a subcommand,
+            return "?";             // or if the registry's prefix should be used.
         }
 
         @Override
         public void execute( CommandContext context )
                 throws RateLimitException, MissingPermissionsException, DiscordException {
-            context.getReplyBuilder().withContent( "pong!" ).build();        }
+            context.getReplyBuilder().withContent( "pong!" ).build();
+	}
 
     }
     ```
+    This creates a command that replies with "pong!" whenever the bot receives a message that starts with "?ping".
     
     These are the minimum methods that need to be implemented. There are a lot more default methods that can be overriden to change the settings of your command.
     
