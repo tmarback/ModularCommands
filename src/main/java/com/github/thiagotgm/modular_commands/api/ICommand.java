@@ -245,14 +245,14 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     /**
      * Retrieves whether the parent of this command should be executed before executing
      * this command.<br>
-     * If this command is a main command, this should return false.
+     * If this command is a main command, this does not matter.
      * <p>
      * By default, returns false.
      * <p>
      * OBS: The parent's {@link #onSuccess(CommandContext) onSuccess} and
      * {@link #onFailure(CommandContext, FailureReason) onFailure} operations are not called.<br>
      * OBS 2: If the parent also specifies that its parent should be executed, it will be executed before it
-     * (eg this behaviour can be chained), until reaching the main command or the first ancestor
+     * (eg this behavior is chained), until reaching the main command or the first ancestor
      * that specifies its parent should not be executed.<br>
      * OBS 3: Each ancestor command gets the same context as the most specific subcommand. This also
      * means the reply builder is the same for all, and that they can pass in objects to one another
@@ -264,8 +264,25 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     default boolean executeParent() { return false; }
     
     /**
-     * Retrieves the <i>post-override</i> permissions that the calling user needs to have in order to be able to invoke
-     * this command.
+     * Retrieves whether the caller of this command must also satisfy the permission requirements
+     * of its parent command.
+     * <p>
+     * By default, returns true.
+     * <p>
+     * OBS: If this requires the parent's permissions, but the parent also specifies that its parent's
+     * permissions are required, those also become required for this command (eg this behavior is chained),
+     * until reaching the main command or the first ancestor that specifies its parent's permissions are not
+     * required.
+     *
+     * @return true if this command requires that the permission requirements for its parent command are also
+     *         satisfied.<br>
+     *         false if only this command's requirements need to be met.
+     */
+    default boolean requiresParentPermissions() { return true; }
+    
+    /**
+     * Retrieves the <i>post-override</i> permissions that the calling user needs to have in order to be able to
+     * invoke this command.
      * <p>
      * By default, returns an empty set.
      *

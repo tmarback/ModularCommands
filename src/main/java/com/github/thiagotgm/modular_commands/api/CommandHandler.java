@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -170,8 +171,21 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             }).execute();
             return;
         }
+        EnumSet<Permissions> requiredPermissions = EnumSet.noneOf( Permissions.class );
+        EnumSet<Permissions> requiredGuildPermissions = EnumSet.noneOf( Permissions.class );
+        ListIterator<ICommand> iter = commands.listIterator( commands.size() );
+        while ( iter.hasPrevious() ) { // Get requirements for each command in the chain.
+            
+            ICommand cur = iter.previous(); // Get for the next in the chain.
+            requiredPermissions.addAll( cur.getRequiredPermissions() );
+            requiredGuildPermissions.addAll( cur.getRequiredGuildPermissions() );
+            if ( !cur.requiresParentPermissions() ) {
+                break; // Current command does not require parent's permissions.
+            }
+            
+        }
         EnumSet<Permissions> channelPermissions = event.getChannel().getModifiedPermissions( event.getAuthor() );
-        if ( !channelPermissions.containsAll( command.getRequiredPermissions() ) ) {
+        if ( !channelPermissions.containsAll( requiredPermissions ) ) {
             LOG.debug( "Caller does not have the required permissions in the channel." );
             errorBuilder.doAction( () -> { // User does not have required channel-overriden permissions.
                 
@@ -182,7 +196,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             return;
         }
         EnumSet<Permissions> guildPermissions = event.getAuthor().getPermissionsForGuild( event.getGuild() );
-        if ( !guildPermissions.containsAll( command.getRequiredGuildPermissions() ) ) {
+        if ( !guildPermissions.containsAll( requiredGuildPermissions ) ) {
             LOG.debug( "Caller does not have the required permissions in the server." );
             errorBuilder.doAction( () -> { // User does not have required server-wide permissions.
                 
