@@ -40,7 +40,7 @@ public class CommandBuilder {
      * Subcommand that does nothing, just used to test if an ICommand can support removing subcommands.
      */
     private static final ICommand SAMPLE = new CommandBuilder( "_*^Sample-Command^*_" )
-            .subCommand( true ).withAliases( Arrays.asList( new String[] { "hi" }  ) )
+            .subCommand( true ).withAliases( new String[] { "hi" } )
             .onExecute( ( context ) -> {} ).build();
     
     private final String name;
@@ -272,6 +272,26 @@ public class CommandBuilder {
     }
     
     /**
+     * Convenience method for setting aliases through an array instead of a Collection.
+     *
+     * @param aliases The aliases for the built command.
+     * @return This builder.
+     * @throws NullPointerException if the given aliases array is null.
+     * @throws IllegalArgumentException if null or the empty string was included as an alias.
+     * @see #withAliases(Collection)
+     */
+    public CommandBuilder withAliases( String[] aliases )
+            throws NullPointerException, IllegalArgumentException {
+        
+        if ( aliases == null ) {
+            throw new NullPointerException( "Aliases array cannot be null." );
+        }
+        
+        return withAliases( Arrays.asList( aliases ) );
+        
+    }
+    
+    /**
      * Sets whether the command to be built is a subcommand.
      * <p>
      * If it is set as a subcommand, the prefix is reset to <b>null</b> and the </i>overrideable</i>
@@ -318,12 +338,22 @@ public class CommandBuilder {
     
     /**
      * Builds a command with the current property values.
+     * <p>
+     * All properties that do not specify a default value must be specified one before the
+     * command can be built.
      *
      * @return The built command.
      * @throws IllegalStateException If a value was not specified for a property that does not
      *                               have a default value.
      */
     public Command build() throws IllegalStateException {
+        
+        if ( aliases == null ) {
+            throw new IllegalStateException( "Cannot build a command without specifying an alias." );
+        }
+        if ( commandOperation == null ) {
+            throw new IllegalStateException( "Cannot build a command without specifying an operation." );
+        }
         
         return new Command( essential,
                             prefix,
