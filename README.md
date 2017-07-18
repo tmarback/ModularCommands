@@ -239,7 +239,7 @@ A command can specify several properties. The interface has methods that can be 
 - `deleteCommand`: Whether the message that called the command should be deleted after the command is executed (only in case of successful execution. Happens right after the command executes and before the delay for the `onSuccess` call). Default: `false`
 - `requiresOwner`: Whether only the user that owns the bot account is allowed to call the command. Default: `false`
 - `NSFW`: Whether the command can only be executed in channels marked as NSFW. Default: `false`
-- `overrideable`: Whether the command can be overriden by a command in a subregistry that has the same signature. See the `Registries` section for more details. Default: `true`
+- `overrideable`: Main command only. Whether the command can be overriden by a command in a subregistry that has the same signature. See the `Registries` section for more details. Default: `true`
 - `executeParent`: Subcommand only. Whether the immediate parent command of the subcommand should be executed before it when the subcommand is called. If the parent is also a subcommand, it may also specify this as true to chain this behavior. Default: `false`
 - `requiresParentPermissions`: Subcommand only. Whether the subcommand requires that the calling user satisfy the permission requirements for its parent command in addition to its own. If the parent is also a subcommand, it may also specify this as true to chain this behavior. Default: `true`
 - `requiredPermissions`: The (channel-overriden) permissions that the calling user must have in the channel in order to call the command. Default: `none`
