@@ -109,7 +109,7 @@ public class LowPriorityCommand implements ICommand {
     }
     
     @Override
-    public int getOnSuccessDelay() { return 5000; }
+    public long getOnSuccessDelay() { return 5000; }
     
     @Override
     public void onSuccess( CommandContext context ) {

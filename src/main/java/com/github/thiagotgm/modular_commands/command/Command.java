@@ -20,6 +20,8 @@ package com.github.thiagotgm.modular_commands.command;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -41,7 +43,7 @@ import sx.blah.discord.util.RateLimitException;
  * <p>
  * May optionally allow adding or removing subcommands after construction (specified through
  * an argument to the constructor).<br>
- * Also allows enabling or disabling, except if marked as essential.
+ * Also may be specified as essential or non-essential in the constructor.
  * <p>
  * The set returned by {@link #getAliases()} is immutable, so attempting to modify them throws
  * an exception.<br>
@@ -73,7 +75,7 @@ public class Command implements ICommand {
     private final String description;
     private final String usage;
     private final Executor commandOperation;
-    private final int onSuccessDelay;
+    private final long onSuccessDelay;
     private final Executor onSuccessOperation;
     private final FailureHandler onFailureOperation;
     private final boolean replyPrivately;
@@ -143,6 +145,7 @@ public class Command implements ICommand {
      *           <li>No alias was specified;</li>
      *           <li>The empty string or <b>null</b> was included as an alias;</li>
      *           <li><b>null</b> was included as a subcommand;</li>
+     *           <li>There are subcommands with the same name.</li>
      *           <li>onSuccessDelay is a negative value.</li>
      *         </ul>
      */
@@ -154,7 +157,7 @@ public class Command implements ICommand {
                     String description,
                     String usage,
                     Executor commandOperation,
-                    int onSuccessDelay,
+                    long onSuccessDelay,
                     Executor onSuccessOperation,
                     FailureHandler onFailureOperation,
                     boolean replyPrivately,
@@ -214,6 +217,15 @@ public class Command implements ICommand {
             }
         } catch ( NullPointerException e ) {
             // Collection does not allow null in the first place.
+        }
+        Set<String> usedNames = new HashSet<>(); // Keeps track of already used subcommand names.
+        for ( ICommand command : subCommands ) { // Check each subcommand.
+            
+            if ( usedNames.contains( command.getName() ) ) { // Repeated name found.
+                throw new IllegalArgumentException( "Two subcommands cannot have the same name." );
+            }
+            usedNames.add( command.getName() ); // Name is not repeated. Add it to the list.
+            
         }
         
         if ( onSuccessDelay < 0 ) {
@@ -383,7 +395,7 @@ public class Command implements ICommand {
     }
 
     @Override
-    public int getOnSuccessDelay() {
+    public long getOnSuccessDelay() {
 
         return onSuccessDelay;
         

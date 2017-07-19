@@ -33,6 +33,10 @@ import sx.blah.discord.util.RateLimitException;
  * <p>
  * An instance of this type should be able to be registered to only a single registry at a time.
  * <p>
+ * It is expected that the value of all properties that do not provide methods to change them is constant.<br>
+ * That is, with the optional exception of {@link #getSubCommands()}, the return of all methods that
+ * represent a command property should be always the same.
+ * <p>
  * It is recommended to override {@link Object#hashCode()} to use {@link String#hashCode() the name's hash code}.
  *
  * @version 1.1
@@ -82,7 +86,10 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     /**
      * Identifies if the command is a subcommand.
      * <p>
-     * When the command is a subcommand, the prefix is not used.
+     * When the command is a subcommand, the prefix should be null and {@link #isOverrideable()}
+     * should be false (they are main command-only properties).<br>
+     * When it is a main command, {@link #executeParent()} and {@link #requiresParentPermissions()}
+     * should be false (they are subcommand-only properties).
      *
      * @return If the calling instance is a subcommand, returns true.<br>
      *         If it is a main command, returns false.
@@ -126,7 +133,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      *
      * @return The time delay, in milliseconds.
      */
-    default int getOnSuccessDelay() { return 0; }
+    default long getOnSuccessDelay() { return 0; }
     
     /**
      * Executes a post-processing operation after a successful execution of the command and after
@@ -143,7 +150,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
             throws RateLimitException, MissingPermissionsException, DiscordException {}
     
     /**
-     * Executes a post-processing operation after a failed invocation of the command.
+     * Executes a post-processing operation after a failed invocation of the command (for one of the
+     * reasons specified by {@link FailureReason}).
      * <p>
      * By default, does nothing.
      *
@@ -302,6 +310,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     
     /**
      * Retrieves the subcommands of this command.
+     * <p>
+     * Two different subcommands cannot have the same name, but they may have one or more equal aliases.
      * <p>
      * By default, returns an empty set.
      *

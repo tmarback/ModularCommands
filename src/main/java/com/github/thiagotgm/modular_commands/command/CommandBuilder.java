@@ -21,6 +21,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
 import com.github.thiagotgm.modular_commands.api.Executor;
 import com.github.thiagotgm.modular_commands.api.FailureHandler;
 import com.github.thiagotgm.modular_commands.api.ICommand;
@@ -52,7 +56,7 @@ public class CommandBuilder {
     private String description;
     private String usage;
     private Executor commandOperation;
-    private int onSuccessDelay;
+    private long onSuccessDelay;
     private Executor onSuccessOperation;
     private FailureHandler onFailureOperation;
     private boolean replyPrivately;
@@ -86,6 +90,7 @@ public class CommandBuilder {
      * @param name The name of the command to be built.
      * @throws NullPointerException if the name is null.
      * @throws IllegalArgumentException if the name is the empty string.
+     * @see ICommand#getName()
      */
     public CommandBuilder( String name ) throws NullPointerException, IllegalArgumentException {
         
@@ -143,6 +148,7 @@ public class CommandBuilder {
      * @param cb The builder to copy property values from.
      * @throws NullPointerException if the name is null.
      * @throws IllegalArgumentException if the name is the empty string.
+     * @see ICommand#getName()
      */
     public CommandBuilder( String name, CommandBuilder cb )
             throws NullPointerException, IllegalArgumentException {
@@ -198,6 +204,7 @@ public class CommandBuilder {
      * @param c The command to copy property values from.
      * @throws NullPointerException if the name is null.
      * @throws IllegalArgumentException if the name is the empty string.
+     * @see ICommand#getName()
      */
     public CommandBuilder( String name, ICommand c )
             throws NullPointerException, IllegalArgumentException {
@@ -238,7 +245,39 @@ public class CommandBuilder {
         
     }
     
-    // TODO essential and prefix
+    /**
+     * Sets whether the command being built is essential.
+     *
+     * @param essential Whether the command is essential.
+     * @return This builder.
+     * @see ICommand#isEssential()
+     */
+    public CommandBuilder essential( boolean essential ) {
+        
+        this.essential = essential;
+        return this;
+        
+    }
+    
+    /**
+     * Sets the prefix for the command being built.
+     * <p>
+     * Can only be used if the command being built is a main command.
+     *
+     * @param prefix The prefix to be used.
+     * @return This builder.
+     * @throws IllegalStateException if the command being built is a subcommand.
+     */
+    public CommandBuilder withPrefix( String prefix ) throws IllegalStateException {
+        
+        if ( subCommand ) {
+            throw new IllegalStateException( "A subcommand cannot specify a prefix." );
+        }
+        
+        this.prefix = prefix;
+        return this;
+        
+    }
     
     /**
      * Sets the aliases that the built command should have.
@@ -247,12 +286,13 @@ public class CommandBuilder {
      * @return This builder.
      * @throws NullPointerException if the given aliases collection is null.
      * @throws IllegalArgumentException if null or the empty string was included as an alias.
+     * @see ICommand#getAliases()
      */
     public CommandBuilder withAliases( Collection<String> aliases )
             throws NullPointerException, IllegalArgumentException {
         
         if ( aliases == null ) {
-            throw new NullPointerException( "Aliases collection cannot be null." );
+            throw new NullPointerException( "Alias collection cannot be null." );
         }
         
         if ( aliases.contains( "" ) ) {
@@ -301,6 +341,7 @@ public class CommandBuilder {
      *
      * @param subCommand Whether the command being built is a subcommand.
      * @return This builder.
+     * @see ICommand#isSubCommand()
      */
     public CommandBuilder subCommand( boolean subCommand ) {
         
@@ -316,7 +357,41 @@ public class CommandBuilder {
         
     }
     
-    // TODO description and usage
+    /**
+     * Sets the description of the command being built.
+     *
+     * @param description The description of the command.
+     * @return This builder.
+     * @throws NullPointerException If the description given is null.
+     */
+    public CommandBuilder withDescription( String description ) throws NullPointerException {
+        
+        if ( description == null ) {
+            throw new NullPointerException( "Description cannot be null." );
+        }
+        
+        this.description = description;
+        return this;
+        
+    }
+    
+    /**
+     * Sets the usage of the command being built.
+     *
+     * @param usage The usage of the command.
+     * @return This builder.
+     * @throws NullPointerException If the usage given is null.
+     */
+    public CommandBuilder withUsage( String usage ) throws NullPointerException {
+        
+        if ( usage == null ) {
+            throw new NullPointerException( "Usage cannot be null." );
+        }
+        
+        this.usage = usage;
+        return this;
+        
+    }
     
     /**
      * Sets the operation that should be performed when the command is executed.
@@ -324,6 +399,7 @@ public class CommandBuilder {
      * @param operation The operation to be performed.
      * @return This builder.
      * @throws NullPointerException if the given operation is null.
+     * @see ICommand#execute(com.github.thiagotgm.modular_commands.api.CommandContext)
      */
     public CommandBuilder onExecute( Executor operation ) throws NullPointerException {
         
@@ -332,6 +408,188 @@ public class CommandBuilder {
         }
         
         this.commandOperation = operation;
+        return this;
+        
+    }
+    
+    /**
+     * Sets the time that should be waited between a successful execution of
+     * the command and the call to the onSuccess operation.
+     *
+     * @param delay The time delay, in milliseconds.
+     * @return This builder.
+     * @throws IllegalArgumentException if the value given is negative.
+     * @see ICommand#getOnSuccessDelay()
+     */
+    public CommandBuilder withOnSuccessDelay( long delay ) throws IllegalArgumentException {
+        
+        if ( delay < 0 ) {
+            throw new IllegalArgumentException( "onSuccess delay cannot be a negative value." );
+        }
+        
+        this.onSuccessDelay = delay;
+        return this;
+        
+    }
+    
+    /**
+     * Convenience method for setting the onSuccess delay in an arbitrary time unit.
+     *
+     * @param delay The time delay.
+     * @param unit The unit that the delay is expressed in.
+     * @return This builder.
+     * @throws IllegalArgumentException if the value given is negative.
+     * @see #withOnSuccessDelay(long)
+     */
+    public CommandBuilder withOnSuccessDelay( long delay, TimeUnit unit )
+            throws IllegalArgumentException {
+        
+        return withOnSuccessDelay( TimeUnit.MILLISECONDS.convert( delay, unit ) );
+        
+    }
+    
+    /**
+     * Sets the operation that should be performed after a successful execution of the command
+     * and after the onSuccess time delay.
+     *
+     * @param operation The operation to be performed.
+     * @return This builder.
+     * @throws NullPointerException if the given operation is null.
+     * @see ICommand#onSuccess(com.github.thiagotgm.modular_commands.api.CommandContext)
+     */
+    public CommandBuilder onSuccess( Executor operation ) throws NullPointerException {
+        
+        if ( operation == null ) {
+            throw new NullPointerException( "The onSuccess operation cannot be null." );
+        }
+        
+        this.onSuccessOperation = operation;
+        return this;
+        
+    }
+    
+    /**
+     * Sets the operation that should be performed after a failed execution of the
+     * command (for one of the reasons specified on
+     * {@link com.github.thiagotgm.modular_commands.api.FailureReason}).
+     *
+     * @param operation The operation to be performed.
+     * @return This builder.
+     * @throws NullPointerException if the given operation is null.
+     * @see ICommand#onFailure(com.github.thiagotgm.modular_commands.api.CommandContext,
+     *                         com.github.thiagotgm.modular_commands.api.FailureReason)
+     */
+    public CommandBuilder onFailure( FailureHandler operation ) throws NullPointerException {
+        
+        if ( operation == null ) {
+            throw new NullPointerException( "The onFailure operation cannot be null." );
+        }
+        
+        this.onFailureOperation = operation;
+        return this;
+        
+    }
+    
+    // TODO: boolean properties
+    
+    /**
+     * Sets the (channel-overriden) permissions that a user must have on the channel in order
+     * to call the command.
+     *
+     * @param permissions The required permissions.
+     * @return This builder.
+     * @throws NullPointerException if the permission set given is null.
+     * @see ICommand#getRequiredPermissions()
+     */
+    public CommandBuilder withRequiredPermissions( EnumSet<Permissions> permissions )
+            throws NullPointerException {
+        
+        if ( permissions == null ) {
+            throw new NullPointerException( "Required permissions set cannot be null." );
+        }
+        
+        this.requiredPermissions = EnumSet.copyOf( permissions );
+        return this;
+        
+    }
+    
+    /**
+     * Sets the (guild-wide) permissions that a user must have on the guild in order
+     * to call the command.
+     *
+     * @param permissions The required permissions.
+     * @return This builder.
+     * @throws NullPointerException if the permission set given is null.
+     * @see ICommand#getRequiredGuildPermissions()
+     */
+    public CommandBuilder withRequiredGuildPermissions( EnumSet<Permissions> permissions )
+            throws NullPointerException {
+        
+        if ( permissions == null ) {
+            throw new NullPointerException( "Required guild permissions set cannot be null." );
+        }
+        
+        this.requiredGuildPermissions = EnumSet.copyOf( permissions );
+        return this;
+        
+    }
+    
+    /**
+     * Sets the subcommands of the command being built.
+     *
+     * @param subCommands The subcommands to be used.
+     * @return This builder.
+     * @throws NullPointerException if the given command collection is null.
+     * @throws IllegalArgumentException if there are two or more subcommands with the same name.
+     * @see ICommand#getSubCommands()
+     */
+    public CommandBuilder withSubCommands( Collection<ICommand> subCommands )
+            throws NullPointerException, IllegalArgumentException {
+        
+        if ( subCommands == null ) {
+            throw new NullPointerException( "Subcommand collection cannot be null." );
+        }
+        
+        Set<String> usedNames = new HashSet<>(); // Keeps tracked of already used subcommand names.
+        for ( ICommand command : subCommands ) { // Check each subcommand.
+            
+            if ( usedNames.contains( command.getName() ) ) { // Repeated name found.
+                throw new IllegalArgumentException( "Two subcommands cannot have the same name." );
+            }
+            usedNames.add( command.getName() ); // Name is not repeated. Add it to the list.
+            
+        }
+        
+        this.subCommands = new ArrayList<>( subCommands );
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command being built should allow modifying the subcommand set after
+     * being built.
+     *
+     * @param canModify Whether the subcommand set can be modified after building.
+     * @return This builder.
+     * @see Command
+     */
+    public CommandBuilder canModifySubCommands( boolean canModify ) {
+        
+        this.canModifySubCommands = canModify;
+        return this;
+        
+    }
+    
+    /**
+     * Sets the priority of the command being built.
+     *
+     * @param priority The priority of the command.
+     * @return This builder.
+     * @see ICommand#getPriority()
+     */
+    public CommandBuilder withPriority( int priority ) {
+        
+        this.priority = priority;
         return this;
         
     }
