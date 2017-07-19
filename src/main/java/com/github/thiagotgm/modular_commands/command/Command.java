@@ -51,7 +51,8 @@ import sx.blah.discord.util.RateLimitException;
  * it was specified that the subcommand set cannot be altered (the {@link #addSubCommand(ICommand)}
  * and {@link #removeSubCommand(ICommand)} methods will also throw exceptions). However, if on
  * construction it was specified that the subcommand set <i>can</i> be altered, the set returned
- * will be modifiable, and the add and remove methods can be used.<br>
+ * will be modifiable (and synchronized), and the add and remove methods can be used. Using the add
+ * and remove methods is strongly recommended over altering the set directly.<br>
  * The EnumSets returned by {@link #getRequiredPermissions()} and
  * {@link #getRequiredGuildPermissions()}, on the other hand, return copies of the permission
  * sets, so they can always be modified, with any modifications not reflecting on the internal
@@ -65,10 +66,10 @@ import sx.blah.discord.util.RateLimitException;
  */
 public class Command implements ICommand {
     
-    private boolean enabled;
+    private volatile boolean enabled;
     private final boolean essential;
     private final String prefix;
-    private CommandRegistry registry;
+    private volatile CommandRegistry registry;
     private final String name;
     private final SortedSet<String> aliases;
     private final boolean subCommand;
@@ -257,8 +258,11 @@ public class Command implements ICommand {
         this.requiredPermissions = EnumSet.copyOf( requiredPermissions );
         this.requiredGuildPermissions = EnumSet.copyOf( requiredGuildPermissions );
         SortedSet<ICommand> subCommandSet = new TreeSet<>( subCommands );
-        this.subCommands = ( canModifySubCommands ) ?
-                subCommandSet : Collections.unmodifiableSortedSet( subCommandSet );
+        if ( canModifySubCommands ) {
+            this.subCommands = Collections.synchronizedSortedSet( subCommandSet );
+        } else {
+            this.subCommands = Collections.unmodifiableSortedSet( subCommandSet );
+        }
         this.canModifySubCommands = canModifySubCommands;
         this.priority = priority;
         
@@ -299,8 +303,11 @@ public class Command implements ICommand {
         this.requiredPermissions = EnumSet.copyOf( c.requiredPermissions );
         this.requiredGuildPermissions = EnumSet.copyOf( c.requiredGuildPermissions );
         SortedSet<ICommand> subCommandSet = new TreeSet<>( c.subCommands );
-        this.subCommands = ( c.canModifySubCommands ) ?
-                subCommandSet : Collections.unmodifiableSortedSet( subCommandSet );
+        if ( c.canModifySubCommands ) {
+            this.subCommands = Collections.synchronizedSortedSet( subCommandSet );
+        } else {
+            this.subCommands = Collections.unmodifiableSortedSet( subCommandSet );
+        }
         this.canModifySubCommands = c.canModifySubCommands;
         this.priority = c.priority;
         
@@ -502,14 +509,14 @@ public class Command implements ICommand {
     }
 
     @Override
-    public SortedSet<ICommand> getSubCommands() {
+    public synchronized SortedSet<ICommand> getSubCommands() {
 
         return subCommands;
         
     }
 
     @Override
-    public boolean addSubCommand( ICommand subCommand ) 
+    public synchronized boolean addSubCommand( ICommand subCommand ) 
             throws UnsupportedOperationException, IllegalArgumentException {
 
         if ( !canModifySubCommands ) {
@@ -526,7 +533,7 @@ public class Command implements ICommand {
     }
 
     @Override
-    public boolean removeSubCommand( ICommand subCommand )
+    public synchronized boolean removeSubCommand( ICommand subCommand )
             throws UnsupportedOperationException, IllegalArgumentException {
 
         if ( !canModifySubCommands ) {

@@ -18,6 +18,7 @@
 package com.github.thiagotgm.modular_commands.api;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -55,9 +56,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     private static final Logger LOG = LoggerFactory.getLogger( CommandRegistry.class );
     
-    private boolean enabled;
-    private String prefix;
-    private Predicate<CommandContext> contextCheck;
+    private volatile boolean enabled;
+    private volatile String prefix;
+    private volatile Predicate<CommandContext> contextCheck;
     private volatile long lastChanged;
     
     /** Table of commands, stored by name. */
@@ -67,9 +68,10 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     /** Table of commands with no specified prefix, stored by (each) signature. */
     private final Map<String, PriorityQueue<ICommand>> noPrefix;
     
-    private CommandRegistry parentRegistry;
+    private volatile CommandRegistry parentRegistry;
     private final Map<String, CommandRegistry> subRegistries;
-    private static final Map<IDiscordClient, CommandRegistry> registries = new HashMap<>();
+    private static final Map<IDiscordClient, CommandRegistry> registries =
+            Collections.synchronizedMap( new HashMap<>() );
     
     /**
      * Creates a new registry.
@@ -78,11 +80,11 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
 
         this.enabled = true;
         
-        this.commands = new HashMap<>();
-        this.withPrefix = new HashMap<>();
-        this.noPrefix = new HashMap<>();
+        this.commands = Collections.synchronizedMap( new HashMap<>() );
+        this.withPrefix = Collections.synchronizedMap( new HashMap<>() );
+        this.noPrefix = Collections.synchronizedMap( new HashMap<>() );
         
-        this.subRegistries = new TreeMap<>();
+        this.subRegistries = Collections.synchronizedMap( new TreeMap<>() );
         
     }
     
