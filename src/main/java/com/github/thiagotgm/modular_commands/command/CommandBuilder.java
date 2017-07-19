@@ -357,6 +357,7 @@ public class CommandBuilder {
      * @param description The description of the command.
      * @return This builder.
      * @throws NullPointerException If the description given is null.
+     * @see ICommand#getDescription()
      */
     public CommandBuilder withDescription( String description ) throws NullPointerException {
         
@@ -375,6 +376,7 @@ public class CommandBuilder {
      * @param usage The usage of the command.
      * @return This builder.
      * @throws NullPointerException If the usage given is null.
+     * @see ICommand#getUsage()
      */
     public CommandBuilder withUsage( String usage ) throws NullPointerException {
         
