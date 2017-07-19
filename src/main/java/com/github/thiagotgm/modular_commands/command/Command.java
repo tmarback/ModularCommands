@@ -187,7 +187,7 @@ public class Command implements ICommand {
             throw new IllegalArgumentException( "Subcommand cannot specify a prefix." );
         }
         
-        if ( name.equals( "" ) ) {
+        if ( name.isEmpty() ) {
             throw new IllegalArgumentException( "The name cannot be an empty string." );
         }
         

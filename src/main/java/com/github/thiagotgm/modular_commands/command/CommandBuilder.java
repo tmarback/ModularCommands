@@ -98,7 +98,7 @@ public class CommandBuilder {
             throw new NullPointerException( "Command name cannot be null." );
         }
         
-        if ( name.equals( "" ) ) {
+        if ( name.isEmpty() ) {
             throw new IllegalArgumentException( "The name cannot be an empty string." );
         }
         

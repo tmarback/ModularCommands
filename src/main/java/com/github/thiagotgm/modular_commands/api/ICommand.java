@@ -47,6 +47,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     
     /**
      * Retrieves the name of the command.
+     * <p>
+     * Should not be an empty string.
      *
      * @return The name of the command.
      */
@@ -56,6 +58,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * Retrieves the aliases of the command.
      * <p>
      * These are used to call the command from a chat message.
+     * <p>
+     * Should not include <b>null</b> or the empty string.
      *
      * @return The aliases of the command.
      */
@@ -318,6 +322,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * Two different subcommands cannot have the same name, but they may have one or more equal aliases.
      * <p>
      * By default, returns an empty set.
+     * <p>
+     * Should not include <b>null</b>.
      *
      * @return The subcommands of this command.
      */
