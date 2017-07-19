@@ -139,9 +139,7 @@ public class Command implements ICommand {
      * @throws IllegalArgumentException if one of these cases is true:
      *         <ul>
      *           <li>The command is a subcommand, and it specifies a prefix (prefix is non-null)
-     *               or overrideable is true (main command-only properties);</li>
-     *           <li>The command is a main command and it has executeParent or
-     *               requireParentPermissions as true (subcommand-only properties);</li>
+     *               (main command-only property);</li>
      *           <li>The name is an empty string;</li>
      *           <li>No alias was specified;</li>
      *           <li>The empty string or <b>null</b> was included as an alias;</li>
@@ -185,12 +183,8 @@ public class Command implements ICommand {
             throw new NullPointerException( "No argument other than prefix can be null." );
         }
         
-        if ( subCommand && ( overrideable || ( prefix != null ) ) ) {
-            throw new IllegalArgumentException( "Subcommand cannot be overrideable or specify a prefix." );
-        }
-        
-        if ( !subCommand && ( executeParent || requiresParentPermissions ) ) {
-            throw new IllegalArgumentException( "Main commands do not have a parent command." );
+        if ( subCommand && ( prefix != null ) ) {
+            throw new IllegalArgumentException( "Subcommand cannot specify a prefix." );
         }
         
         if ( name.equals( "" ) ) {

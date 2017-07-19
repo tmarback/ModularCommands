@@ -267,6 +267,7 @@ public class CommandBuilder {
      * @param prefix The prefix to be used.
      * @return This builder.
      * @throws IllegalStateException if the command being built is a subcommand.
+     * @see ICommand#getPrefix()
      */
     public CommandBuilder withPrefix( String prefix ) throws IllegalStateException {
         
@@ -334,10 +335,7 @@ public class CommandBuilder {
     /**
      * Sets whether the command to be built is a subcommand.
      * <p>
-     * If it is set as a subcommand, the prefix is reset to <b>null</b> and the </i>overrideable</i>
-     * property is set to false.<br>
-     * If it is set as a main command, the <i>executeParent</i> and <i>requiresParentPermissions</i>
-     * properties are set to false.
+     * If it is set as a subcommand, the prefix is reset to <b>null</b>.
      *
      * @param subCommand Whether the command being built is a subcommand.
      * @return This builder.
@@ -348,10 +346,6 @@ public class CommandBuilder {
         this.subCommand = subCommand;
         if ( subCommand ) {
             this.prefix = null;
-            this.overrideable = false;
-        } else {
-            this.executeParent = false;
-            this.requiresParentPermissions = false;
         }
         return this;
         
@@ -490,7 +484,147 @@ public class CommandBuilder {
         
     }
     
-    // TODO: boolean properties
+    /**
+     * Sets whether the command should always reply to the caller on a private channel.
+     *
+     * @param replyPrivately Whether the command should always reply privately.
+     * @return This builder.
+     * @see ICommand#replyPrivately()
+     */
+    public CommandBuilder replyPrivately( boolean replyPrivately ) {
+        
+        this.replyPrivately = replyPrivately;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command should ignore calls to it from public channels.
+     *
+     * @param ignorePublic Whether the command should ignore public calls.
+     * @return This builder.
+     * @see ICommand#ignorePublic()
+     */
+    public CommandBuilder ignorePublic( boolean ignorePublic ) {
+        
+        this.ignorePublic = ignorePublic;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command should ignore calls to it from private channels.
+     *
+     * @param ignorePrivate Whether the command should ignore private calls.
+     * @return This builder.
+     * @see ICommand#ignorePrivate()
+     */
+    public CommandBuilder ignorePrivate( boolean ignorePrivate ) {
+        
+        this.ignorePrivate = ignorePrivate;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command should ignore calls to it made by bot users.
+     *
+     * @param ignoreBots Whether the command should ignore calls by bots.
+     * @return This builder.
+     * @see ICommand#ignoreBots()
+     */
+    public CommandBuilder ignoreBots( boolean ignoreBots ) {
+        
+        this.ignoreBots = ignoreBots;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command should delete the message that called it after a successful execution.
+     *
+     * @param deleteCommand Whether the calling message should be deleted.
+     * @return This builder.
+     * @see ICommand#deleteCommand()
+     */
+    public CommandBuilder deleteCommand( boolean deleteCommand ) {
+        
+        this.deleteCommand = deleteCommand;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command can only be called by the owner of the bot account.
+     *
+     * @param requiresOwner Whether the command can only be called by the bot owner.
+     * @return This builder.
+     * @see ICommand#requiresOwner()
+     */
+    public CommandBuilder requiresOwner( boolean requiresOwner ) {
+    
+        this.requiresOwner = requiresOwner;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command can only be called from a channel marked as NSFW.
+     *
+     * @param NSFW Whether the command can only be called on a NSFW-marked channel.
+     * @return This builder.
+     * @see ICommand#isNSFW()
+     */
+    public CommandBuilder NSFW( boolean NSFW ) {
+        
+        this.NSFW = NSFW;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command can be overriden by a command in a subregistry of the registry it
+     * is registered to.
+     *
+     * @param overrideable Whether the command can be overriden.
+     * @return This builder.
+     * @see ICommand#isOverrideable()
+     */
+    public CommandBuilder overrideable( boolean overrideable ) {
+        
+        this.overrideable = overrideable;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the parent of the command should be executed before it.
+     *
+     * @param executeParent Whether the parent should be executed.
+     * @return This builder.
+     * @see ICommand#executeParent()
+     */
+    public CommandBuilder executeParent( boolean executeParent ) {
+        
+        this.executeParent = executeParent;
+        return this;
+        
+    }
+    
+    /**
+     * Sets whether the command requires that the permission requirements for its parent command
+     * be also satisfied in addition to its own.
+     *
+     * @param requiresParentPermissions Whether the parent's permissions are also required.
+     * @return This builder.
+     * @see ICommand#requiresParentPermissions()
+     */
+    public CommandBuilder requiresParentPermissions( boolean requiresParentPermissions ) {
+        
+        this.requiresParentPermissions = requiresParentPermissions;
+        return this;
+        
+    }
     
     /**
      * Sets the (channel-overriden) permissions that a user must have on the channel in order

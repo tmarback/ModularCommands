@@ -66,6 +66,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * <p>
      * The prefix used is given by {@link #getEffectivePrefix()}, so if the command does not declare a
      * specific prefix and the inherited prefix changes, the signatures change as well.
+     * <p>
+     * (signature = {@link #getEffectivePrefix() effective prefix} + {@link #getAliases() alias})
      *
      * @return The signatures of the command, in sorted order.
      * @throws IllegalStateException if called when the command is not registered to any registry.
@@ -87,9 +89,9 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * Identifies if the command is a subcommand.
      * <p>
      * When the command is a subcommand, the prefix should be null and {@link #isOverrideable()}
-     * should be false (they are main command-only properties).<br>
+     * is not used (they are main command-only properties).<br>
      * When it is a main command, {@link #executeParent()} and {@link #requiresParentPermissions()}
-     * should be false (they are subcommand-only properties).
+     * are not used (they are subcommand-only properties).
      *
      * @return If the calling instance is a subcommand, returns true.<br>
      *         If it is a main command, returns false.
@@ -196,7 +198,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     default boolean ignorePrivate() { return false; }
     
     /**
-     * Retrieves whether invocations of the command from bot users should be ignored.
+     * Retrieves whether invocations of the command made by bot users should be ignored.
      * <p>
      * By default, returns true.
      *
@@ -240,9 +242,11 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * <p>
      * If the command can be overriden, whenever there is a conflict between this command
      * and a command in a subregistry of the registry this is registered to (both have an
-     * equal alias and that alias is called), the command in the subregistry will be given
+     * equal signature and that signature is called), the command in the subregistry will be given
      * precedence. If it cannot be overriden, this will be retrieved even if there is another
-     * command down the registry hierarchy with the same alias declared.
+     * command down the registry hierarchy with the same signature declared.<br>
+     * ({@link #getSignatures() signature} = {@link #getEffectivePrefix() effective prefix} +
+     * {@link #getAliases() alias})
      * <p>
      * By default this returns true.
      *
