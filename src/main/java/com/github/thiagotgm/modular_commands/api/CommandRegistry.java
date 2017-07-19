@@ -58,6 +58,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private boolean enabled;
     private String prefix;
     private Predicate<CommandContext> contextCheck;
+    private volatile long lastChanged;
     
     /** Table of commands, stored by name. */
     private final Map<String, ICommand> commands;
@@ -213,6 +214,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( LOG.isInfoEnabled() ) {
             LOG.info( "Adding subregistry \"" + qualifiedName + "\" to \"" + getQualifiedName() + "\"." );
         }
+        setLastChanged( System.currentTimeMillis() );
         
     }
     
@@ -231,6 +233,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
                         "\" from \"" + getQualifiedName() + "\"." );
             }
         }
+        setLastChanged( System.currentTimeMillis() );
         
     }
     
@@ -541,6 +544,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( LOG.isInfoEnabled() ) {
             LOG.info( "Registered command \"" + command.getName() + "\"." );
         }
+        setLastChanged( System.currentTimeMillis() );
         return true;
         
     }
@@ -589,6 +593,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( LOG.isInfoEnabled() ) {
             LOG.info( "Deregistered command \"" + command.getName() + "\"." );
         }
+        setLastChanged( System.currentTimeMillis() );
         return true;
         
     }
@@ -760,6 +765,43 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         return command; // Returns what was found in this registry. Will be null if not found in this
                         // registry.        
+    }
+    
+    /**
+     * Sets the last time when this registry or one of its subregistries was changed.
+     * <p>
+     * Automatically sets the lastChanged value on the registry it is registered to, if there is
+     * one.
+     *
+     * @param lastChanged The time, in milliseconds from epoch, that this registry or one
+     *                    of its subregistries had a change.
+     * @see #getLastChanged()
+     */
+    private void setLastChanged( long lastChanged ) {
+        
+        this.lastChanged = lastChanged;
+        if ( getRegistry() != null ) {
+            getRegistry().setLastChanged( lastChanged );
+        }
+        
+    }
+    
+    /**
+     * Gets the last time when this registry or one of its subregistries was changed.
+     * <p>
+     * Changes counted by this include:
+     * <ul>
+     *   <li>Registering or de-registering a command;</li>
+     *   <li>Registering or de-registering a subregistry.</li>
+     * </ul>
+     *
+     * @return The time of the last change, in milliseconds from epoch.
+     * @see System#currentTimeMillis()
+     */
+    public long getLastChanged() {
+        
+        return lastChanged;
+        
     }
     
 }
