@@ -15,7 +15,7 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands;
+package com.github.thiagotgm.modular_commands.interfaces;
 
 import java.util.Arrays;
 import java.util.SortedSet;
@@ -30,19 +30,18 @@ import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
 /**
- * Simple command to make sure submodule commands are accessible.<br>
- * Also for testing multiple aliases.
+ * Command that overrides another command from a parent registry.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-16
  */
-public class ModuleCommand implements ICommand {
+public class SuccessfulOverrideCommand implements ICommand {
 
     private CommandRegistry registry;
     private volatile boolean enabled;
-    
-    public ModuleCommand() {
+   
+    public SuccessfulOverrideCommand() {
         
         this.enabled = true;
         
@@ -79,14 +78,14 @@ public class ModuleCommand implements ICommand {
     @Override
     public String getName() {
 
-        return "Module lol";
+        return "Successful Override command";
         
     }
 
     @Override
     public SortedSet<String> getAliases() {
 
-        String[] alias = { "lol", "lel" };
+        String[] alias = { "overrided" };
         return new TreeSet<>( Arrays.asList( alias ) );
         
     }
@@ -102,7 +101,7 @@ public class ModuleCommand implements ICommand {
     public void execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
-        context.getReplyBuilder().withContent( "Module works!" ).build();
+        context.getReplyBuilder().withContent( "successfully overriden!" ).build();
 
     }
 

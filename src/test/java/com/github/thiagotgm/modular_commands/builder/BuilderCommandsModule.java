@@ -15,31 +15,48 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands;
+package com.github.thiagotgm.modular_commands.builder;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
+import com.github.thiagotgm.modular_commands.api.ICommand;
+import com.github.thiagotgm.modular_commands.command.CommandBuilder;
 
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
 /**
- * Module for registry prefix testing.
+ * Module for testing making commands through the CommandBuilder.
  *
  * @version 1.0
  * @author ThiagoTGM
- * @since 2017-07-16
+ * @since 2017-07-19
  */
-public class TestPrefixModule implements IModule {
+public class BuilderCommandsModule implements IModule {
 
     @Override
     public boolean enable( IDiscordClient client ) {
 
-        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
-        reg.registerCommand( new LowPriorityCommand() );
-        reg.registerCommand( new HighPriorityCommand() );
-        reg.setPrefix( "pre||" );
-        return true;
+        ICommand c1 = new CommandBuilder( "Factory Test" )
+                .withAliases( new String[] { "build" } )
+                .onExecute( ( context  ) -> {
+                    
+                    context.getReplyBuilder().withContent( "Command was built!" ).build();
+                    
+                }).build();
+        ICommand c2 = new CommandBuilder( "Factory Test (w/ prefix)" )
+                .withAliases( new String[] { "build" } )
+                .withPrefix( "build$" )
+                .onExecute( ( context  ) -> {
+                    
+                    context.getReplyBuilder().withContent( "Command was also built!" ).build();
+                    
+                }).build();
         
+        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
+        reg.registerCommand( c1 );
+        reg.registerCommand( c2 );
+        
+        return true;
     }
 
     @Override
@@ -52,25 +69,29 @@ public class TestPrefixModule implements IModule {
     @Override
     public String getName() {
 
-        return "Prefixed Module";
+        return "Factory commands";
+        
     }
 
     @Override
     public String getAuthor() {
 
         return "ThiagoTGM";
+        
     }
 
     @Override
     public String getVersion() {
 
         return "1.0.0";
+ 
     }
 
     @Override
     public String getMinimumDiscord4JVersion() {
 
         return "2.8.4";
+        
     }
 
 }

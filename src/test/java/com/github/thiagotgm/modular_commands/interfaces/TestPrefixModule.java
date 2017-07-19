@@ -15,7 +15,7 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands;
+package com.github.thiagotgm.modular_commands.interfaces;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 
@@ -23,21 +23,21 @@ import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
 /**
- * Module for subregistry testing.
+ * Module for registry prefix testing.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-16
  */
-public class TestModuleModule implements IModule {
+public class TestPrefixModule implements IModule {
 
     @Override
     public boolean enable( IDiscordClient client ) {
 
         CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
-        reg.registerCommand( new ModuleCommand() );
-        reg.registerCommand( new SuccessfulOverrideCommand() );
-        reg.registerCommand( new FailedOverrideCommand() );
+        reg.registerCommand( new LowPriorityCommand() );
+        reg.registerCommand( new HighPriorityCommand() );
+        reg.setPrefix( "pre||" );
         return true;
         
     }
@@ -52,7 +52,7 @@ public class TestModuleModule implements IModule {
     @Override
     public String getName() {
 
-        return "Test Module";
+        return "Prefixed Module";
     }
 
     @Override

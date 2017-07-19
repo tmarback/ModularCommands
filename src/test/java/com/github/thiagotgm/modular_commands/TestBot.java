@@ -21,6 +21,9 @@ import java.util.Scanner;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
+import com.github.thiagotgm.modular_commands.builder.BuilderCommandsModule;
+import com.github.thiagotgm.modular_commands.interfaces.TestModuleModule;
+import com.github.thiagotgm.modular_commands.interfaces.TestPrefixModule;
 
 import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
@@ -45,6 +48,7 @@ public class TestBot {
         loader.loadModule( new TestModule() );
         loader.loadModule( new TestModuleModule() );
         loader.loadModule( new TestPrefixModule() );
+        loader.loadModule( new BuilderCommandsModule() );
         CommandRegistry reg = CommandRegistry.getRegistry( client );
         reg.registerCommand( new InterfaceCommand() );
         reg.registerCommand( new OverrideableCommand() );

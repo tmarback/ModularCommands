@@ -15,7 +15,7 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands;
+package com.github.thiagotgm.modular_commands.interfaces;
 
 import java.util.Arrays;
 import java.util.SortedSet;

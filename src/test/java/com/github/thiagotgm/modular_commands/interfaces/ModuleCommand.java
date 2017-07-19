@@ -15,7 +15,7 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands;
+package com.github.thiagotgm.modular_commands.interfaces;
 
 import java.util.Arrays;
 import java.util.SortedSet;
@@ -30,18 +30,19 @@ import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
 /**
- * Test command with high priority.
+ * Simple command to make sure submodule commands are accessible.<br>
+ * Also for testing multiple aliases.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-16
  */
-public class HighPriorityCommand implements ICommand {
+public class ModuleCommand implements ICommand {
 
     private CommandRegistry registry;
     private volatile boolean enabled;
     
-    public HighPriorityCommand() {
+    public ModuleCommand() {
         
         this.enabled = true;
         
@@ -78,20 +79,17 @@ public class HighPriorityCommand implements ICommand {
     @Override
     public String getName() {
 
-        return "High Priority";
+        return "Module lol";
         
     }
 
     @Override
     public SortedSet<String> getAliases() {
 
-        String[] alias = { "priority" };
+        String[] alias = { "lol", "lel" };
         return new TreeSet<>( Arrays.asList( alias ) );
         
     }
-    
-    @Override
-    public int getPriority() { return 1000; }
 
     @Override
     public boolean isSubCommand() {
@@ -104,15 +102,8 @@ public class HighPriorityCommand implements ICommand {
     public void execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
-        context.getReplyBuilder().withContent( "High priority!" ).build();
+        context.getReplyBuilder().withContent( "Module works!" ).build();
 
-    }
-    
-    @Override
-    public void onSuccess( CommandContext context ) {
-        
-        context.getReplyBuilder().withContent( "Success!" ).build();
-        
     }
 
 }
