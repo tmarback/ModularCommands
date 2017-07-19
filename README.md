@@ -94,7 +94,7 @@ There are 3 ways of creating commands:
 
         @Override
         public String getName() {
-            return "Ping Command";
+            return "Ping Command (interface)";
         }
 
         @Override
@@ -127,7 +127,17 @@ There are 3 ways of creating commands:
     The downside of this way is that it takes a bit more work due to some of the basic functionality also needing to be implemented (like keeping track of enabled and registry). The upside is that if you want these operations to have side effects or any other arbitrary stuff, you're free to do so, as long as the final result still follows the contract of the interface!
 
 2. Using a `CommandBuilder`:
-    `// TODO: Upcoming!`
+    
+    ```java
+    ICommand pingCommand = new CommandBuilder( "Ping Command (builder)" )
+                               .withAliases( new String[] { "ping" } ) // A Collection<String> object can also be used!
+                               .withPrefix( "?" ) // Do not use if building a subcommand!
+                               .onExecute( (context) -> {
+                                   context.getReplyBuilder().withContent( "pong!" ).build();
+                               })
+                               .build();
+   ```
+   This creates the exact same command as the one above, except it took way less lines. This uses the default implementation of `ICommand`, `Command` (refer to the Javadocs for some specifics on what this implementation allows).
     
 3. Using annotations:
     `// TODO: Upcoming!`
@@ -170,12 +180,19 @@ OBS: it is possible to have more than one subregistry have commands with the sam
 
 Another useful thing about subregistries is that each one can specify its own prefix. If a certain command does not specify a prefix, it will use the prefix of the registry it is registered to. If the registry does not specify a prefix, it will use the prefix of the registry it is registered to. This "prefix inheritance" can go on until the root registry, which will use the default prefix, `?`, if it does not have its own prefix. This way, if you want all your commands to have the same prefix, or set the prefix of all commands in a module at once, you just need to do one line and forget about it. And yet you can still choose to make certain commands have specific, immutable prefixes if you need to.
 
-Also, if you need to run some kind of extra check to determine if the commands in a registry should really be executed, you can use the `CommandRegistry#setContextCheck(Predicate<CommandContext>)` method to add in your own checking operation. If the `Predicate` you specified returns false for the a command's context (check the `Command Execution` section for more information on `CommandContext`), it is the same as if that registry was disabled, and the command won't be executed. This way, you can run any kind of external check, such as check for specific channels/servers/users/etc, among other things.
+Also, if you need to run some kind of extra check to determine if the commands in a registry should really be executed, you can use the `CommandRegistry#setContextCheck(Predicate<CommandContext>)` method to add in your own checking operation. If the `Predicate` you specified returns false for a command's context (check the `Command Execution` section for more information on `CommandContext`), it is the same as if that registry was disabled, and the command won't be executed. This way, you can run any kind of external check, such as check for specific channels/servers/users/etc, among other things.
+```java
+// Makes the commands in the registry (and its subregistries) only callable from channels named "general".
+// For any other channel, it is as if it was disabled.
+registry.setContextCheck( (context) -> {
+    return context.getChannel().getName().equals("general");
+});
+```
 
 Now, once you have the registry you want to add your command to, adding the command is really simple:
 ```java
 registry.registerCommand( new PingCommand() );
-// TODO: Builder way
+registry.registerCommand( pingCommand );
 // TODO: Annotation way
 ```
 
@@ -195,14 +212,24 @@ public class MainCommand implements ICommand {
     ...
     private final SortedSet<ICommand> subCommands;
     public MainCommand() {
+        ...
         subCommands = new TreeSet<>();
         subCommands.add( new SubCommand() );
     }
+    ...
     @Override
     public SortedSet<ICommand> getSubCommands() { return subCommands; }
 }
 ```
-2. `// TODO: Builder way`
+2. If the main command is being done through a CommandBuilder, the subcommands must be provided before building:
+
+```java
+...
+mainCommandBuilder.withSubCommands( Arrays.asList( new ICommand[] { new SubCommand() } ) );
+...
+```
+OBS: All subcommands must be provided at once. Calling `withSubCommands` again will replace the previously given subcommands.
+
 3. `// TODO: Annotation way`
 
 NOTE: Annotation-based subcommands can only be used with annotation-based main commands, and vice versa.
@@ -216,14 +243,14 @@ If there are more than one subcommand with an alias that matches the first argum
 OBS: Like for main commands, if a subcommand has lower precedence than another subcommand in a signature conflict, it effectively loses that signature (other signatures it may have that are not part of the conflict are not affected), even if the subcommand that replaces it is disabled.
 
 ## Command Execution
-Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called.
-(`// TODO: what replaces execute() in the builder and annotation ways`)
+Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called. If the command was made through a `CommandBuilder`, this means that the `Executor` specified with `CommandBuilder#onExecute(Executor)` is called.
+(`// TODO: what replaces execute() in the annotation way`)
 
 The `CommandContext` given can provide all the important information about the command, such as who called it, where it was called from, its args, etc (it also provides the MessageReceivedEvent and corresponding IMessage that triggered the command, and the called ICommand itself, if you need it). It also provides a ready-made `MessageBuilder` for a reply (whether it is set to the same channel the message came from or a private channel to the message sender depends on the `replyPrivately` setting of the command that was called [more precisely, the most specific subcommand]). If the parent commands of a subcommand are also executed (see the `Subcommands` section), they will all receive the _exact same_ CommandContext as the most specific subcommand. This means that the args will not include any of their aliases, and they are all given the same `MessageBuilder`. However, the `CommandContext` also provides a way to store any `Object` inside it and retrieve it later, so if you want to do some common processing in a certain command and get the results in its subcommands, you can store that result in the `CommandContext` as a single object and retrieve it later (don't forget to cast it back) when the subcommand is executed! (also don't forget to specify in the subcommands that the parent should be executed).
 
 If, in your execution method, you need to call a method that throws `RateLimitException`, `MissingPermissionsException`, or `DiscordException`, you are encouraged to just let it float up (note that the `execute` method declares all those exceptions). Particularly for `RateLimitException`s, the command is called through Discord4J's request builder, if you let it float up the execution will be reattempted automatically (so seriously, don't bother catching those). The other exceptions are logged automatically.
 
-If the command fails for some expected reason (`MissingPermissions` or `Discord` exceptions, user that called the command does not have all required permissions, etc), the command's `ICommand#onFailure(CommandContext,FailureReason)` method will be called, being given the context of the command and a value of the `FailureReason` enum that identifies why exactly it failed, and you can use that if you want to do something in case of those expected failures. Oppositely, if the command is successfully executed, the `ICommand#onSuccess(CommandContext)` method will be called (after the delay given by the command's `onSuccessDelay` property), so you can use it if you need to do some post-processing when the command was successfully executed. Again, don't catch `RateLimitException`s for the same reason, and you can let `MissingPermissions` and `Discord` exceptions float up to be auto-logged.
+If the command fails for some expected reason (`MissingPermissions` or `Discord` exceptions, user that called the command does not have all required permissions, etc), the command's `ICommand#onFailure(CommandContext,FailureReason)` method will be called, being given the context of the command and a value of the `FailureReason` enum that identifies why exactly it failed, and you can use that if you want to do something in case of those expected failures. Oppositely, if the command is successfully executed, the `ICommand#onSuccess(CommandContext)` method will be called (after the delay given by the command's `onSuccessDelay` property), so you can use it if you need to do some post-processing when the command was successfully executed. Again, don't catch `RateLimitException`s for the same reason, and you can let `MissingPermissions` and `Discord` exceptions float up to be auto-logged. With the `CommandBuilder`, these operations can be specified with `CommandBuilder#onSuccess(Executor)` and `CommandBuilder#onFailure(FailureHandler)`.
 
 OBS: The `onFailure` and `onSuccess` operations are only called for the most specific subcommand. So even if the command says that its parent (and maybe other ancestors) should be excuted, only its own success and failure handlers will be used.
 
