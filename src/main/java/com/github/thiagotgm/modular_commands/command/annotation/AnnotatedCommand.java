@@ -22,9 +22,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,6 +69,8 @@ public final class AnnotatedCommand {
     private final Map<String, Executor> successHandlers;
     private final Map<String, FailureHandler> failureHandlers;
     private final Set<String> unparsedSubCommands;
+    private volatile boolean done;
+    private final List<ICommand> mainCommands;
 
     /**
      * Constructs a new instance that extracts annotated commands from the given object.
@@ -80,6 +84,8 @@ public final class AnnotatedCommand {
         this.successHandlers = new HashMap<>();
         this.failureHandlers = new HashMap<>();
         this.unparsedSubCommands = new HashSet<>();
+        this.done = false;
+        this.mainCommands = new LinkedList<>();
 
     }
     
@@ -96,9 +102,7 @@ public final class AnnotatedCommand {
     private ICommand parseMainCommand( Method method, MainCommand annotation )
             throws IllegalArgumentException {
         
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Parsing annotated main command \"" + annotation.name() + "\"." );
-        }
+        LOG.info( "Parsing annotated main command \"{}\".", annotation.name() );
         
         if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -196,9 +200,7 @@ public final class AnnotatedCommand {
     private ICommand parseSubCommand( Method method, SubCommand annotation )
             throws IllegalArgumentException {
         
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Parsing annotated subcommand \"" + annotation.name() + "\"." );
-        }
+        LOG.info( "Parsing annotated subcommand \"{}\".", annotation.name() );
         
         if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -281,6 +283,136 @@ public final class AnnotatedCommand {
         
         /* Build the command */
         return builder.build();
+        
+    }
+    
+    /**
+     * Parses a success handler from the given method and the given annotation that was present
+     * on the method.
+     *
+     * @param method The method to use as the handler operation.
+     * @param annotation The annotation that marked the method.
+     * @return An Executor that runs the given method.
+     * @throws IllegalArgumentException if there is already a parsed success handler with the specified
+     *                                  name or the method is invalid.
+     */
+    private Executor parseSuccessHandler( Method method, SuccessHandler annotation )
+            throws IllegalArgumentException {
+        
+        LOG.info( "Parsing annotated success handler \"{}\".", annotation.value() );
+        
+        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+            throw new IllegalArgumentException( "Method parameters are not valid." );
+        }
+        if ( Modifier.isStatic( method.getModifiers() ) ) {
+            throw new IllegalArgumentException( "Method is static." );
+        }
+        if ( successHandlers.containsKey( annotation.value() ) ) {
+            throw new IllegalArgumentException(
+                    "There is already a parsed success handler with this name." );
+        }
+        
+        return new MethodOperation( obj, method );
+        
+    }
+    
+    /**
+     * Registers a method as a success handler to be used while parsing ICommands.
+     * <p>
+     * After this, if an ICommand is being parsed and it specifies the name of this handler as
+     * a success handler, and there is no other success handler with the same name in the object
+     * that the command is being parsed from, this handler will then be used.
+     * <p>
+     * The method given will be called whenever the handler is invoked.
+     *
+     * @param method The method to be called by the success handler. Must be static.
+     * @param annotation The annotation that marked the method.
+     * @throws IllegalArgumentException if there is already a registered success handler with the specified
+     *                                  name or the method is invalid.
+     */
+    private static void registerSuccessHandler( Method method, SuccessHandler annotation )
+            throws IllegalArgumentException {
+        
+        LOG.info( "Registering annotated success handler \"{}\".", annotation.value() );
+        
+        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+            throw new IllegalArgumentException( "Method parameters are not valid." );
+        }
+        if ( !Modifier.isStatic( method.getModifiers() ) ) {
+            throw new IllegalArgumentException( "Method is not static." );
+        }
+        if ( registeredSuccessHandlers.containsKey( annotation.value() ) ) {
+            throw new IllegalArgumentException(
+                    "There is already a registered success handler with this name." );
+        }
+        
+        registeredSuccessHandlers.put( annotation.value(), new MethodOperation( null, method ) );
+        
+    }
+    
+    /**
+     * Parses a failure handler from the given method and the given annotation that was present
+     * on the method.
+     *
+     * @param method The method to use as the handler operation.
+     * @param annotation The annotation that marked the method.
+     * @return A FailureHandler that runs the given method.
+     * @throws IllegalArgumentException if there is already a parsed failure handler with the specified
+     *                                  name or the method is invalid.
+     */
+    private FailureHandler parseFailureHandler( Method method,
+            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
+            throws IllegalArgumentException {
+        
+        LOG.info( "Parsing annotated failure handler \"{}\".", annotation.value() );
+        
+        if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
+            throw new IllegalArgumentException( "Method parameters are not valid." );
+        }
+        if ( Modifier.isStatic( method.getModifiers() ) ) {
+            throw new IllegalArgumentException( "Method is static." );
+        }
+        if ( failureHandlers.containsKey( annotation.value() ) ) {
+            throw new IllegalArgumentException(
+                    "There is already a parsed failure handler with this name." );
+        }
+        
+        return new MethodOperation( obj, method );
+        
+    }
+    
+    /**
+     * Registers a method as a failure handler to be used while parsing ICommands.
+     * <p>
+     * After this, if an ICommand is being parsed and it specifies the name of this handler as
+     * a failure handler, and there is no other failure handler with the same name in the object
+     * that the command is being parsed from, this handler will then be used.
+     * <p>
+     * The method given will be called whenever the handler is invoked.
+     *
+     * @param method The method to be called by the failure handler. Must be static.
+     * @param annotation The annotation that marked the method.
+     * @throws IllegalArgumentException if there is already a registered failure handler with the specified
+     *                                  name or the method is invalid.
+     */
+    private static void registerFailureHandler( Method method,
+            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
+            throws IllegalArgumentException {
+        
+        LOG.info( "Registering annotated failure handler \"{}\".", annotation.value() );
+        
+        if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
+            throw new IllegalArgumentException( "Method parameters are not valid." );
+        }
+        if ( !Modifier.isStatic( method.getModifiers() ) ) {
+            throw new IllegalArgumentException( "Method is not static." );
+        }
+        if ( registeredFailureHandlers.containsKey( annotation.value() ) ) {
+            throw new IllegalArgumentException(
+                    "There is already a registered failure handler with this name." );
+        }
+        
+        registeredFailureHandlers.put( annotation.value(), new MethodOperation( null, method ) );
         
     }
     
