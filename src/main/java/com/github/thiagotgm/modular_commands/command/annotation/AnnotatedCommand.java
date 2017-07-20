@@ -615,6 +615,84 @@ public final class AnnotatedCommand {
         
     }
     
+    /**
+     * Registers all the success handlers in the given class.
+     * 
+     * @param target Class to parse handlers from.
+     */
+    private static void registerSuccessHandlers( Class<?> target ) {
+        /* Check each method */
+        for ( Method method : target.getClass().getDeclaredMethods() ) {
+            
+            if ( !Modifier.isStatic( method.getModifiers() ) ) {
+                continue; // Instance methods are used for parseable handlers.
+            }
+            
+            SuccessHandler annotation = method.getDeclaredAnnotation( SuccessHandler.class );
+            if ( annotation != null ) { // Method has the annotation.
+                
+                try { // Try to parse the handler.
+                    registerSuccessHandler( method, annotation );
+                } catch ( IllegalArgumentException e ) {
+                    LOG.error( "Could not register success handler.", e );
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    /**
+     * Registers all the failure handlers in the given class.
+     * 
+     * @param target Class to parse handlers from.
+     */
+    private static void registerFailureHandlers( Class<?> target ) {
+        /* Check each method */
+        for ( Method method : target.getClass().getDeclaredMethods() ) {
+            
+            if ( !Modifier.isStatic( method.getModifiers() ) ) {
+                continue; // Instance methods are used for parseable handlers.
+            }
+            
+            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation =
+                    method.getDeclaredAnnotation(
+                            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler.class );
+            if ( annotation != null ) { // Method has the annotation.
+                
+                try { // Try to parse the handler.
+                    registerFailureHandler( method, annotation );
+                } catch ( IllegalArgumentException e ) {
+                    LOG.error( "Could not register failure handler.", e );
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    /**
+     * Parses static methods marked as SuccessHandlers or FailureHandlers to use them when parsing
+     * methods.
+     * <p>
+     * After registering a, if an ICommand is being parsed and it specifies the name of the registered
+     * handler as a handler, and there is no other handler of the appropriate type (success or
+     * failure) with the same name in the object that the command is being parsed from, the registered
+     * handler will then be used.
+     * <p>
+     * The methods annotated as handlers will be called whenever the associated handler is invoked.
+     *
+     * @param target The class to get annotated handlers from.
+     */
+    public static void registerAnnotatedHandlers( Class<?> target ) {
+        
+        registerSuccessHandlers( target );
+        registerFailureHandlers( target );
+        
+    }
+    
     /* Support class for handling calling methods as Executor/FailureHandler */
     
     /**
