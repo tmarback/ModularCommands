@@ -67,6 +67,16 @@ public @interface SubCommand {
     String name();
     
     /**
+     * Retrieves whether the command is essential.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the command is essential.
+     * @see ICommand#isEssential()
+     */
+    boolean essential() default false;
+    
+    /**
      * Retrieves the aliases of the command.
      * <p>
      * Must be specified.
