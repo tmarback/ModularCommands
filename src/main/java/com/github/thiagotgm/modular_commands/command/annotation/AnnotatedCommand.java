@@ -24,8 +24,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +66,7 @@ public final class AnnotatedCommand {
     private final Map<String, ICommand> subCommands;
     private final Map<String, Executor> successHandlers;
     private final Map<String, FailureHandler> failureHandlers;
+    private final Set<String> unparsedSubCommands;
 
     /**
      * Constructs a new instance that extracts annotated commands from the given object.
@@ -76,21 +79,26 @@ public final class AnnotatedCommand {
         this.subCommands = new HashMap<>();
         this.successHandlers = new HashMap<>();
         this.failureHandlers = new HashMap<>();
+        this.unparsedSubCommands = new HashSet<>();
 
     }
     
     /**
-     * Parses a command from the given method and the given annotation that was present
+     * Parses a main command from the given method and the given annotation that was present
      * on the method.
      *
      * @param method The method to use as the main command operation.
      * @param annotation The annotation that marked the method.
-     * @return The command described by the given annotation that executes the given method.
+     * @return The main command described by the given annotation that executes the given method.
      * @throws IllegalArgumentException if the method given or one of the values in the annotation
      *                                  are invalid.
      */
     private ICommand parseMainCommand( Method method, MainCommand annotation )
             throws IllegalArgumentException {
+        
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Parsing annotated main command \"" + annotation.name() + "\"." );
+        }
         
         if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -158,6 +166,110 @@ public final class AnnotatedCommand {
                 
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
+                }
+                if ( LOG.isInfoEnabled() ) {
+                    LOG.info( "Registering subcommand \"" + subCommand + "\"." );
+                }
+                subCommands.add( this.subCommands.get( subCommand ) );
+                
+            }
+            builder.withSubCommands( subCommands );
+        }
+        builder.canModifySubCommands( annotation.canModifySubCommands() )
+               .withPriority( annotation.priority() );
+        
+        /* Build the command */
+        return builder.build();
+        
+    }
+    
+    /**
+     * Parses a subcommand from the given method and the given annotation that was present
+     * on the method.
+     *
+     * @param method The method to use as the main command operation.
+     * @param annotation The annotation that marked the method.
+     * @return The subcommand described by the given annotation that executes the given method.
+     * @throws IllegalArgumentException if the method given or one of the values in the annotation
+     *                                  are invalid.
+     */
+    private ICommand parseSubCommand( Method method, SubCommand annotation )
+            throws IllegalArgumentException {
+        
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Parsing annotated subcommand \"" + annotation.name() + "\"." );
+        }
+        
+        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+            throw new IllegalArgumentException( "Method parameters are not valid." );
+        }
+        if ( Modifier.isStatic( method.getModifiers() ) ) {
+            throw new IllegalArgumentException( "Method is static." );
+        }
+        
+        /* Get main command properties */
+        CommandBuilder builder = new CommandBuilder( annotation.name() ).subCommand( true );
+        builder.essential( annotation.essential() )
+               .withAliases( annotation.aliases() );
+        builder.withDescription( annotation.description() )
+               .withUsage( annotation.usage() )
+               .onExecute( new MethodOperation( obj, method ) )
+               .withOnSuccessDelay( annotation.onSuccessDelay() );
+        if ( !annotation.successHandler().isEmpty() ) {
+            /* Check if there is a SuccessHandler with the specified name */
+            if ( successHandlers.containsKey( annotation.successHandler() ) ) {
+                builder.onSuccess( successHandlers.get( annotation.successHandler() ) );
+            } else if ( registeredSuccessHandlers.containsKey( annotation.successHandler() ) ) {
+                builder.onSuccess( registeredSuccessHandlers.get( annotation.successHandler() ) );
+            } else {
+                throw new IllegalArgumentException( "Invalid success handler \"" + annotation.successHandler()
+                        + "\"." );
+            }
+        }
+        if ( !annotation.failureHandler().isEmpty() ) {
+            /* Check if there is a FailureHandler with the specified name */
+            if ( failureHandlers.containsKey( annotation.failureHandler() ) ) {
+                builder.onFailure( failureHandlers.get( annotation.failureHandler() ) );
+            } else if ( registeredFailureHandlers.containsKey( annotation.failureHandler() ) ) {
+                builder.onFailure( registeredFailureHandlers.get( annotation.failureHandler() ) );
+            } else {
+                throw new IllegalArgumentException( "Invalid failure handler \"" + annotation.failureHandler()
+                        + "\"." );
+            }
+        }
+        
+        /* Get command options */
+        builder.replyPrivately( annotation.replyPrivately() )
+               .ignorePublic( annotation.ignorePublic() )
+               .ignorePrivate( annotation.ignorePrivate() )
+               .ignoreBots( annotation.ignoreBots() )
+               .deleteCommand( annotation.deleteCommand() )
+               .requiresOwner( annotation.requiresOwner() )
+               .NSFW( annotation.NSFW() )
+               .executeParent( annotation.executeParent() )
+               .requiresParentPermissions( annotation.requiresParentPermissions() );
+        
+        /* Get required permissions */
+        EnumSet<Permissions> permissions = EnumSet.noneOf( Permissions.class );
+        permissions.addAll( Arrays.asList( annotation.requiredPermissions() ) );
+        builder.withRequiredPermissions( permissions );
+        EnumSet<Permissions> guildPermissions = EnumSet.noneOf( Permissions.class );
+        guildPermissions.addAll( Arrays.asList( annotation.requiredGuildPermissions() ) );
+        builder.withRequiredGuildPermissions( guildPermissions );
+        
+        /* Get subcommands and priority */
+        if ( annotation.subCommands().length > 0 ) { // Subcommands were specified.
+            List<ICommand> subCommands = new ArrayList<>( annotation.subCommands().length );
+            for ( String subCommand : annotation.subCommands() ) { // Parse each subcommand.
+                
+                if ( subCommand.equals( annotation.name() ) ) {
+                    throw new IllegalArgumentException( "Subcommand cannot be its own subcommand." );
+                }
+                if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
+                    throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
+                }
+                if ( LOG.isInfoEnabled() ) {
+                    LOG.info( "Registering subcommand \"" + subCommand + "\"." );
                 }
                 subCommands.add( this.subCommands.get( subCommand ) );
                 
