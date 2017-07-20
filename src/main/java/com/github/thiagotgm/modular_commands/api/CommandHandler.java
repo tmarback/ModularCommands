@@ -195,16 +195,18 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             }).execute();
             return;
         }
-        EnumSet<Permissions> guildPermissions = event.getAuthor().getPermissionsForGuild( event.getGuild() );
-        if ( !guildPermissions.containsAll( requiredGuildPermissions ) ) {
-            LOG.debug( "Caller does not have the required permissions in the server." );
-            errorBuilder.doAction( () -> { // User does not have required server-wide permissions.
-                
-                command.onFailure( context, FailureReason.USER_MISSING_GUILD_PERMISSIONS );
-                return true;
-                
-            }).execute();
-            return;
+        if ( event.getGuild() != null ) { // If message came from guild, check required permissions for it.
+            EnumSet<Permissions> guildPermissions = event.getAuthor().getPermissionsForGuild( event.getGuild() );
+            if ( !guildPermissions.containsAll( requiredGuildPermissions ) ) {
+                LOG.debug( "Caller does not have the required permissions in the server." );
+                errorBuilder.doAction( () -> { // User does not have required server-wide permissions.
+                    
+                    command.onFailure( context, FailureReason.USER_MISSING_GUILD_PERMISSIONS );
+                    return true;
+                    
+                }).execute();
+                return;
+            }
         }
         
         /* Get execution chain */
@@ -385,7 +387,8 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     private static String getCommandTrace( ICommand command, MessageReceivedEvent event ) {
         
         return String.format( COMMAND_TRACE_FORMAT, command.getName(), event.getAuthor().getName(),
-                event.getChannel().getName(), event.getGuild().getName() );
+                event.getChannel().getName(), 
+                ( event.getGuild() != null ) ? event.getGuild().getName() : "<private>" );
         
     }
 
