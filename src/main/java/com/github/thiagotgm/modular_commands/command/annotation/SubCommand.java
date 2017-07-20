@@ -32,7 +32,7 @@ import sx.blah.discord.handle.obj.Permissions;
 
 /**
  * Annotation that marks a method that can be turned into an ICommand that is
- * a main command.<br>
+ * a subcommand.<br>
  * The annotated method must take a single parameter of type {@link CommandContext}.
  * <p>
  * Command properties can be specified within the annotation.
@@ -48,8 +48,8 @@ import sx.blah.discord.handle.obj.Permissions;
  */
 @Documented
 @Target( METHOD )
-@Repeatable( MainCommands.class )
-public @interface MainCommand {
+@Repeatable( SubCommands.class )
+public @interface SubCommand {
     
     /**
      * Retrieves the name of the command.
@@ -70,19 +70,6 @@ public @interface MainCommand {
      * @see ICommand#getAliases()
      */
     String[] aliases();
-    
-    /**
-     * Retrieves the prefix of the command.
-     * <p>
-     * If none are specified, inherits the prefix of the registry it is registered to.
-     * <p>
-     * Due to limitations on the values of Annotation properties, the empty string represents
-     * no prefix (same as <b>null</b>).
-     *
-     * @return The prefix of the command, or an empty string if none are specified.
-     * @see ICommand#getPrefix()
-     */
-    String prefix() default "";
     
     /**
      * Retrieves the description of the command.
@@ -212,15 +199,26 @@ public @interface MainCommand {
     boolean NSFW() default false;
     
     /**
-     * Retrieves whether the command can be overriden by a command in a subregistry of the
-     * registry it is registered to.
+     * Retrieves whether the parent command of the command should be executed before
+     * executing the command.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the parent command should be executed.
+     * @see ICommand#executeParent()
+     */
+    boolean executeParent() default false;
+    
+    /**
+     * Retrieves whether the permission requirements for the parent command must be satisfied
+     * in addition to the command's own requirements.
      * <p>
      * By default, returns true.
      *
-     * @return Whether the command can be overriden.
-     * @see ICommand#isOverrideable()
+     * @return Whether the parent command's permissions are also required.
+     * @see ICommand#requiresParentPermissions()
      */
-    boolean overrideable() default true;
+    boolean requiresParentPermissions() default true;
     
     /**
      * Retrieves the (channel-overriden) permissions that the calling user must have in order
