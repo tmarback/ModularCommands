@@ -29,11 +29,16 @@ import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.command.CommandBuilder;
 
 import sx.blah.discord.handle.obj.Permissions;
+import sx.blah.discord.util.DiscordException;
+import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RateLimitException;
 
 /**
  * Annotation that marks a method that can be turned into an ICommand that is
  * a subcommand.<br>
- * The annotated method must take a single parameter of type {@link CommandContext}.
+ * The annotated method must take a single parameter of type {@link CommandContext}.<br>
+ * It may throw exceptions of type {@link RateLimitException},
+ * {@link MissingPermissionsException}, and {@link DiscordException}.
  * <p>
  * Command properties can be specified within the annotation.
  * <p>

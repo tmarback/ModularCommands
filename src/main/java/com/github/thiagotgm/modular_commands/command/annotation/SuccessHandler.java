@@ -25,10 +25,16 @@ import java.lang.annotation.Target;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 
+import sx.blah.discord.util.DiscordException;
+import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RateLimitException;
+
 /**
  * Annotation that marks a method that can be used as the
  * {@link ICommand#onSuccess(CommandContext) onSuccess} operation of an ICommand.<p>
- * The annotated method must take a single parameter of type {@link CommandContext}.
+ * The annotated method must take a single parameter of type {@link CommandContext}.<br>
+ * It may throw exceptions of type {@link RateLimitException},
+ * {@link MissingPermissionsException}, and {@link DiscordException}.
  *
  * @version 1.0.0
  * @author ThiagoTGM

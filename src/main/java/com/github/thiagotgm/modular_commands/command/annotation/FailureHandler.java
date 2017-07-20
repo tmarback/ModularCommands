@@ -26,11 +26,18 @@ import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.FailureReason;
 
+import sx.blah.discord.util.DiscordException;
+import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RateLimitException;
+
 /**
  * Annotation that marks a method that can be used as the
- * {@link ICommand#onFailure(CommandContext, FailureReason) onFailure} operation of an ICommand.<br>
+ * {@link ICommand#onFailure(CommandContext, FailureReason) onFailure} operation of
+ * an ICommand.<br>
  * The method must take two arguments, one of type {@link CommandContext} and one of
- * type {@link FailureReason}.
+ * type {@link FailureReason}.<br>
+ * It may throw exceptions of type {@link RateLimitException},
+ * {@link MissingPermissionsException}, and {@link DiscordException}.
  *
  * @version 1.0.0
  * @author ThiagoTGM
