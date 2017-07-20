@@ -22,16 +22,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +44,13 @@ import sx.blah.discord.util.RateLimitException;
 
 /**
  * Provides a way to parse annotated methods to obtain commands.
+ * <p>
+ * An instance of this class can parse all the annotated main commands, subcommands, success handlers,
+ * and failure handlers of a single object instance. The commands and handlers parsed will call the methods
+ * from the instance they were parsed from whenever they are invoked.
+ * <p>
+ * Handlers can be registered to be used across multiple Objects by marking static methods with the
+ * handler tags and registering them with (TODO).
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -88,6 +90,7 @@ public final class AnnotatedCommand {
         this.failureHandlers = new HashMap<>();
         this.done = false;
         this.mainCommands = new LinkedList<>();
+        
         this.toParseMethods = new HashMap<>();
         this.toParseAnnotations = new HashMap<>();
 
@@ -513,6 +516,31 @@ public final class AnnotatedCommand {
             }
             
         }
+        
+    }
+    
+    /**
+     * Parses all the commands and handlers in the object, retrieving the main commands that were
+     * parsed.
+     * <p>
+     * After the first time this is called, this can be called again without any processing required
+     * (the parsed commands and handlers are kept buffered).
+     *
+     * @return The main commands parsed from this object.
+     */
+    public synchronized List<ICommand> parse() {
+        
+        if ( done ) {
+            return new ArrayList<>( mainCommands );
+        }
+        
+        parseFailureHandlers();
+        parseSuccessHandlers();
+        parseSubCommands();
+        parseMainCommands();
+        
+        done = true;
+        return new ArrayList<>( mainCommands );
         
     }
     
