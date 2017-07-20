@@ -1,0 +1,276 @@
+/*
+ * This file is part of ModularCommands.
+ *
+ * ModularCommands is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * ModularCommands is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package com.github.thiagotgm.modular_commands.command.annotation;
+
+import static java.lang.annotation.ElementType.METHOD;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.Repeatable;
+import java.lang.annotation.Target;
+
+import com.github.thiagotgm.modular_commands.api.ICommand;
+import com.github.thiagotgm.modular_commands.api.CommandContext;
+import com.github.thiagotgm.modular_commands.api.FailureReason;
+import com.github.thiagotgm.modular_commands.command.CommandBuilder;
+
+import sx.blah.discord.handle.obj.Permissions;
+
+/**
+ * Annotation that marks a method that can be turned into an ICommand.<br>
+ * The annotated method must take a single parameter of type {@link CommandContext}.
+ * <p>
+ * Command properties can be specified within the annotation.
+ * <p>
+ * The method annotated by this will become the command's
+ * {@link ICommand#execute(CommandContext)}
+ * method.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-19
+ * @see ICommand
+ */
+@Documented
+@Target( METHOD )
+@Repeatable( MainCommands.class )
+public @interface MainCommand {
+    
+    /**
+     * Retrieves the name of the command.
+     * <p>
+     * Must be specified.
+     *
+     * @return The name of the command.
+     * @see ICommand#getName()
+     */
+    String name();
+    
+    /**
+     * Retrieves the aliases of the command.
+     * <p>
+     * Must be specified.
+     *
+     * @return The aliases of the command.
+     * @see ICommand#getAliases()
+     */
+    String[] aliases();
+    
+    /**
+     * Retrieves the prefix of the command.
+     * <p>
+     * If none are specified, inherits the prefix of the registry it is registered to.
+     * <p>
+     * Due to limitations on the values of Annotation properties, the empty string represents
+     * no prefix (same as <b>null</b>).
+     *
+     * @return The prefix of the command, or an empty string if none are specified.
+     * @see ICommand#getPrefix()
+     */
+    String prefix() default "";
+    
+    /**
+     * Retrieves the description of the command.
+     * <p>
+     * By default, returns an empty string.
+     *
+     * @return The description of the command.
+     * @see ICommand#getDescription()
+     */
+    String description() default "";
+    
+    /**
+     * Retrieves the usage of the command.
+     * <p>
+     * By default, returns an empty string.
+     *
+     * @return The usage of the command.
+     * @see ICommand#getUsage()
+     */
+    String usage() default "";
+    
+    /**
+     * Retrieves how long after a successful execution that
+     * {@link ICommand#onSuccess(CommandContext)} should be called.
+     * <p>
+     * By default, returns 0.
+     *
+     * @return The time delay before the onSuccess call, in milliseconds.
+     * @see ICommand#getOnSuccessDelay()
+     */
+    long onSuccessDelay() default 0;
+    
+    /**
+     * Retrieves the name of the operation to be performed after a successful execution
+     * of the command and the specified onSuccess time delay.
+     * <p>
+     * By default, returns the empty string (no operation).
+     *
+     * @return The name of the onSuccess operation, or an empty string if none.
+     * @see ICommand#onSuccess(CommandContext)
+     * @see SuccessHandler
+     */
+    String successHandler() default "";
+    
+    /**
+     * Retrieves the name of the operation to be performed after a failed call to the
+     * command (when failed due to expected reasons).
+     * <p>
+     * By default, returns the empty string (no operation).
+     *
+     * @return The name of the onFailure operation, or an empty string if none.
+     * @see ICommand#onFailure(CommandContext,FailureReason)
+     * @see FailureHandler
+     */
+    String failureHandler() default "";
+    
+    /**
+     * Retrieves whether the command should always reply to the caller on a private channel
+     * instead of the same channel the command was called from.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the reply should be done on a private channel.
+     * @see ICommand#replyPrivately()
+     */
+    boolean replyPrivately() default false;
+    
+    /**
+     * Retrieves whether the command should ignore calls made from public channels.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the command should ignore public calls.
+     * @see ICommand#ignorePublic()
+     */
+    boolean ignorePublic() default false;
+    
+    /**
+     * Retrieves whether the command should ignore calls made from private channels.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the command should ignore private calls.
+     * @see ICommand#ignorePrivate()
+     */
+    boolean ignorePrivate() default false;
+    
+    /**
+     * Retrieves whether calls to the command made by bot users should be ignored.
+     * <p>
+     * By default, returns true.
+     *
+     * @return Whether calls to the command made by bots should be ignored.
+     * @see ICommand#ignoreBots()
+     */
+    boolean ignoreBots() default true;
+    
+    /**
+     * Retrieves whether the message that called the command should be deleted after a
+     * successful execution.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the command message should be deleted after successfully executing.
+     * @see ICommand#deleteCommand()
+     */
+    boolean deleteCommand() default false;
+    
+    /**
+     * Retrieves whether only the owner of the bot account is allowed to call the command.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the command can only be called by the bot owner.
+     * @see ICommand#requiresOwner()
+     */
+    boolean requiresOwner() default false;
+    
+    /**
+     * Retrieves whether the command can only be executed in a channel marked as NSFW.
+     * <p>
+     * By default, returns false.
+     *
+     * @return Whether the command requires a NSFW-marked channel.
+     * @see ICommand#isNSFW()
+     */
+    boolean NSFW() default false;
+    
+    /**
+     * Retrieves whether the command can be overriden by a command in a subregistry of the
+     * registry it is registered to.
+     * <p>
+     * By default, returns true.
+     *
+     * @return Whether the command can be overriden.
+     * @see ICommand#isOverrideable()
+     */
+    boolean overrideable() default true;
+    
+    /**
+     * Retrieves the (channel-overriden) permissions that the calling user must have in order
+     * to execute the command.
+     * <p>
+     * By default, returns an empty array.
+     *
+     * @return The required permissions.
+     * @see ICommand#getRequiredPermissions()
+     */
+    Permissions[] requiredPermissions() default {};
+    
+    /**
+     * Retrieves the (guild-wide) permissions that the calling user must have in order
+     * to execute the command.
+     * <p>
+     * By default, returns an empty array.
+     *
+     * @return The required permissions.
+     * @see ICommand#getRequiredGuildPermissions()
+     */
+    Permissions[] requiredGuildPermissions() default {};
+    
+    /**
+     * Retrieves the names of the subcommands of the command.
+     * <p>
+     * By default, returns an empty array.
+     *
+     * @return The names of the subcommands.
+     * @see ICommand#getSubCommands()
+     */
+    String[] subCommands() default {};
+    
+    /**
+     * Retrieves whether the command supports altering the subcommand set.
+     * <p>
+     * By default returns true.
+     *
+     * @return Whether the subcommand set can be modified.
+     * @see CommandBuilder#canModifySubCommands(boolean)
+     */
+    boolean canModifySubCommands() default true;
+    
+    /**
+     * Retrieves the priority of the command.
+     * <p>
+     * By default, returns 0.
+     *
+     * @return The priority of the command.
+     * @see ICommand#getPriority()
+     */
+    int priority() default 0;
+
+}
