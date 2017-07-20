@@ -82,7 +82,7 @@ public final class AnnotatedCommand {
      * 
      * @param obj The object to parse commands from.
      */
-    private AnnotatedCommand( Object obj ) {
+    public AnnotatedCommand( Object obj ) {
         
         this.obj = obj;
         this.subCommands = new HashMap<>();

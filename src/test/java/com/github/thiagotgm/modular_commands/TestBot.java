@@ -19,6 +19,7 @@ package com.github.thiagotgm.modular_commands;
 
 import java.util.Scanner;
 
+import com.github.thiagotgm.modular_commands.annotation.AnnotationModule;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.builder.BuilderCommandsModule;
@@ -49,6 +50,7 @@ public class TestBot {
         loader.loadModule( new TestModuleModule() );
         loader.loadModule( new TestPrefixModule() );
         loader.loadModule( new BuilderCommandsModule() );
+        loader.loadModule( new AnnotationModule() );
         CommandRegistry reg = CommandRegistry.getRegistry( client );
         reg.registerCommand( new InterfaceCommand() );
         reg.registerCommand( new OverrideableCommand() );

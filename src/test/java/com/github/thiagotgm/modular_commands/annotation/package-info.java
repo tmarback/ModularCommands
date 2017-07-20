@@ -15,32 +15,11 @@
  * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.github.thiagotgm.modular_commands.command.annotation;
-
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
 /**
- * Container annotation for repeated SubCommand annotations.
- *
- * @version 1.0.0
+ * Test classes for making commands with annotations.
+ * 
+ * @version 1.0
  * @author ThiagoTGM
- * @since 2017-07-19
+ * @since 2017-07-20
  */
-@Documented
-@Target( METHOD )
-@Retention( RUNTIME )
-public @interface SubCommands {
-    
-    /**
-     * Retrieves the SubCommand annotations contained by this annotation.
-     * 
-     * @return The contained SubCommand annotations.
-     */
-    SubCommand[] value();
-
-}
+package com.github.thiagotgm.modular_commands.annotation;

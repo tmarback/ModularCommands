@@ -18,8 +18,10 @@
 package com.github.thiagotgm.modular_commands.command.annotation;
 
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import com.github.thiagotgm.modular_commands.api.ICommand;
@@ -45,6 +47,7 @@ import sx.blah.discord.util.RateLimitException;
  */
 @Documented
 @Target( METHOD )
+@Retention( RUNTIME )
 public @interface FailureHandler {
     
     /**
