@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -68,9 +69,11 @@ public final class AnnotatedCommand {
     private final Map<String, ICommand> subCommands;
     private final Map<String, Executor> successHandlers;
     private final Map<String, FailureHandler> failureHandlers;
-    private final Set<String> unparsedSubCommands;
     private volatile boolean done;
     private final List<ICommand> mainCommands;
+    
+    private final Map<String, Method> toParseMethods;
+    private final Map<String, SubCommand> toParseAnnotations;
 
     /**
      * Constructs a new instance that extracts annotated commands from the given object.
@@ -83,9 +86,10 @@ public final class AnnotatedCommand {
         this.subCommands = new HashMap<>();
         this.successHandlers = new HashMap<>();
         this.failureHandlers = new HashMap<>();
-        this.unparsedSubCommands = new HashSet<>();
         this.done = false;
         this.mainCommands = new LinkedList<>();
+        this.toParseMethods = new HashMap<>();
+        this.toParseAnnotations = new HashMap<>();
 
     }
     
@@ -171,9 +175,7 @@ public final class AnnotatedCommand {
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
                 }
-                if ( LOG.isInfoEnabled() ) {
-                    LOG.info( "Registering subcommand \"" + subCommand + "\"." );
-                }
+                LOG.info( "Registering subcommand \"{}\".", subCommand );
                 subCommands.add( this.subCommands.get( subCommand ) );
                 
             }
@@ -270,9 +272,7 @@ public final class AnnotatedCommand {
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
                 }
-                if ( LOG.isInfoEnabled() ) {
-                    LOG.info( "Registering subcommand \"" + subCommand + "\"." );
-                }
+                LOG.info( "Registering subcommand \"{}\".", subCommand );
                 subCommands.add( this.subCommands.get( subCommand ) );
                 
             }
@@ -293,8 +293,7 @@ public final class AnnotatedCommand {
      * @param method The method to use as the handler operation.
      * @param annotation The annotation that marked the method.
      * @return An Executor that runs the given method.
-     * @throws IllegalArgumentException if there is already a parsed success handler with the specified
-     *                                  name or the method is invalid.
+     * @throws IllegalArgumentException if the method is invalid.
      */
     private Executor parseSuccessHandler( Method method, SuccessHandler annotation )
             throws IllegalArgumentException {
@@ -307,14 +306,217 @@ public final class AnnotatedCommand {
         if ( Modifier.isStatic( method.getModifiers() ) ) {
             throw new IllegalArgumentException( "Method is static." );
         }
-        if ( successHandlers.containsKey( annotation.value() ) ) {
-            throw new IllegalArgumentException(
-                    "There is already a parsed success handler with this name." );
+        
+        return new MethodOperation( obj, method );
+        
+    }
+    
+    /**
+     * Parses a failure handler from the given method and the given annotation that was present
+     * on the method.
+     *
+     * @param method The method to use as the handler operation.
+     * @param annotation The annotation that marked the method.
+     * @return A FailureHandler that runs the given method.
+     * @throws IllegalArgumentException if the method is invalid.
+     */
+    private FailureHandler parseFailureHandler( Method method,
+            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
+            throws IllegalArgumentException {
+        
+        LOG.info( "Parsing annotated failure handler \"{}\".", annotation.value() );
+        
+        if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
+            throw new IllegalArgumentException( "Method parameters are not valid." );
+        }
+        if ( Modifier.isStatic( method.getModifiers() ) ) {
+            throw new IllegalArgumentException( "Method is static." );
         }
         
         return new MethodOperation( obj, method );
         
     }
+    
+    /**
+     * Parses all the main commands in the object.
+     */
+    private void parseMainCommands() {
+        
+        LOG.trace( "Parsing main commands." );
+        
+        for ( Method method : obj.getClass().getDeclaredMethods() ) {
+            /* Find each @MainCommand in the class and parse the commands that they declare */
+            for ( MainCommand annotation : method.getDeclaredAnnotationsByType( MainCommand.class ) ) {
+                
+                try {
+                    ICommand mainCommand = parseMainCommand( method, annotation );
+                    mainCommands.add( mainCommand ); // Add command if successfully parsed.
+                } catch ( IllegalArgumentException e ) {
+                    LOG.error( "Could not parse main command.", e );
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    /**
+     * Parses all the subcommands in the object.
+     */
+    private void parseSubCommands() {
+        
+        LOG.trace( "Parsing subcommands." );
+        
+        /* Get each subcommand that needs to be parsed */
+        for ( Method method : obj.getClass().getDeclaredMethods() ) {
+ 
+            for ( SubCommand annotation : method.getDeclaredAnnotationsByType( SubCommand.class ) ) {
+                
+                if ( toParseMethods.containsKey( annotation.name() ) ) {
+                    LOG.error( "Subcommand with repeated name :\"{}\".", annotation.name() );
+                } else {
+                    toParseMethods.put( annotation.name(),  method );
+                    toParseAnnotations.put( annotation.name(), annotation );
+                }
+                
+            }
+            
+        }
+        
+        /* Keep parsing subcommands until no more to parse */
+        while ( !toParseMethods.isEmpty() ) {
+            
+            String next = toParseMethods.keySet().iterator().next(); // Get next subcommand to parse.
+            Method method = toParseMethods.remove( next );
+            SubCommand annotation = toParseAnnotations.remove( next );
+            if ( parseDependencies( annotation ) ) { // Parse its subcommands.
+                try { // Subcommands parsed successfully, now try parsing it.
+                    ICommand command = parseSubCommand( method, annotation );
+                    subCommands.put( next, command );
+                } catch ( IllegalArgumentException e ) { // Method/annotation is invalid.
+                    LOG.error( "Could not parse subcommand.", e );
+                }
+            } else { // Could not parse subcommands.
+                LOG.error( "Could not parse \"{}\" due to not being able to parse its subcommands.",
+                        next );
+            }
+            
+        }
+        
+    }
+    
+    /**
+     * Parses all the subcommands of a subcommand, parsing their subcommands as well, recursively.
+     * <p>
+     * Eg loads all the dependencies of the given subcommand.
+     *
+     * @param annotation The annotation that specifies the subcommand.
+     * @return true if all dependencies were parsed successfully.<br>
+     *         false if there was a subcommand in the dependency hierarchy that could not be loaded.
+     */
+    private boolean parseDependencies( SubCommand annotation ) {
+        
+        if ( annotation.subCommands().length == 0 ) {
+            return true; // No dependencies to parse.
+        }
+        
+        for ( String subCommand : annotation.subCommands() ) {
+            
+            if ( subCommands.containsKey( subCommand ) ) {
+                continue; // Subcommand already parsed.
+            }
+            if ( !toParseMethods.containsKey( subCommand ) ) {
+                LOG.error( "Invalid subcommand \"{}\".", subCommand );
+                return false; // Subcommand is not in the to-parse list, thus it doesn't exist
+            }                 // or a dependency loop exists.
+            Method subCommandMethod = toParseMethods.remove( subCommand );
+            SubCommand subCommandAnnotation = toParseAnnotations.remove( subCommand );
+            if ( parseDependencies( subCommandAnnotation ) ) { // Parse subcommand's subcommands.
+                try { // Sub-subcommands parsed successfully, now try parsing subcommand.
+                    ICommand command = parseSubCommand( subCommandMethod, subCommandAnnotation );
+                    subCommands.put( subCommand, command );
+                } catch ( IllegalArgumentException e ) { // Subcommand method/annotation is invalid.
+                    LOG.error( "Could not parse subcommand.", e );
+                    return false;
+                }
+            } else { // Could not parse subcommand's subcommands.
+                LOG.error( "Could not parse \"{}\" due to not being able to parse its subcommands.",
+                        subCommand );
+                return false;
+            }
+            
+        }
+        
+        return true; // All subcommands were parsed successfully.
+        
+    }
+    
+    /**
+     * Parses all the success handlers in the object.
+     */
+    private void parseSuccessHandlers() {
+        /* Check each method */
+        for ( Method method : obj.getClass().getDeclaredMethods() ) {
+            
+            if ( Modifier.isStatic( method.getModifiers() ) ) {
+                continue; // Static methods are used for registrable handlers.
+            }
+            
+            SuccessHandler annotation = method.getDeclaredAnnotation( SuccessHandler.class );
+            if ( annotation != null ) { // Method has the annotation.
+                
+                if ( successHandlers.containsKey( annotation.value() ) ) {
+                    LOG.error( "Success handler with repeated name :\"{}\".", annotation.value() );
+                } else {
+                    try { // Try to parse the handler.
+                        Executor handler = parseSuccessHandler( method, annotation );
+                        successHandlers.put( annotation.value(), handler );
+                    } catch ( IllegalArgumentException e ) {
+                        LOG.error( "Could not parse success handler.", e );
+                    }
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    /**
+     * Parses all the failure handlers in the object.
+     */
+    private void parseFailureHandlers() {
+        /* Check each method */
+        for ( Method method : obj.getClass().getDeclaredMethods() ) {
+            
+            if ( Modifier.isStatic( method.getModifiers() ) ) {
+                continue; // Static methods are used for registrable handlers.
+            }
+            
+            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation =
+                    method.getDeclaredAnnotation(
+                            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler.class );
+            if ( annotation != null ) { // Method has the annotation.
+                
+                if ( failureHandlers.containsKey( annotation.value() ) ) {
+                    LOG.error( "Failure handler with repeated name :\"{}\".", annotation.value() );
+                } else {
+                    try { // Try to parse the handler.
+                        FailureHandler handler = parseFailureHandler( method, annotation );
+                        failureHandlers.put( annotation.value(), handler );
+                    } catch ( IllegalArgumentException e ) {
+                        LOG.error( "Could not parse failure handler.", e );
+                    }
+                }
+                
+            }
+            
+        }
+        
+    }
+    
+    /* Code for registering handlers for later use */
     
     /**
      * Registers a method as a success handler to be used while parsing ICommands.
@@ -347,37 +549,6 @@ public final class AnnotatedCommand {
         }
         
         registeredSuccessHandlers.put( annotation.value(), new MethodOperation( null, method ) );
-        
-    }
-    
-    /**
-     * Parses a failure handler from the given method and the given annotation that was present
-     * on the method.
-     *
-     * @param method The method to use as the handler operation.
-     * @param annotation The annotation that marked the method.
-     * @return A FailureHandler that runs the given method.
-     * @throws IllegalArgumentException if there is already a parsed failure handler with the specified
-     *                                  name or the method is invalid.
-     */
-    private FailureHandler parseFailureHandler( Method method,
-            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
-            throws IllegalArgumentException {
-        
-        LOG.info( "Parsing annotated failure handler \"{}\".", annotation.value() );
-        
-        if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
-            throw new IllegalArgumentException( "Method parameters are not valid." );
-        }
-        if ( Modifier.isStatic( method.getModifiers() ) ) {
-            throw new IllegalArgumentException( "Method is static." );
-        }
-        if ( failureHandlers.containsKey( annotation.value() ) ) {
-            throw new IllegalArgumentException(
-                    "There is already a parsed failure handler with this name." );
-        }
-        
-        return new MethodOperation( obj, method );
         
     }
     
@@ -415,6 +586,8 @@ public final class AnnotatedCommand {
         registeredFailureHandlers.put( annotation.value(), new MethodOperation( null, method ) );
         
     }
+    
+    /* Support class for handling calling methods as Executor/FailureHandler */
     
     /**
      * Executor/FailureHandler that uses a Method as the operation/task.
