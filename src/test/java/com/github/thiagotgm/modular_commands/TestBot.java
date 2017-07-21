@@ -46,7 +46,7 @@ public class TestBot {
         in.close();
         IDiscordClient client = new ClientBuilder().withToken( token ).build();
         ModuleLoader loader = client.getModuleLoader();
-        loader.loadModule( new TestModule() );
+        loader.loadModule( new ModularCommandsModule() );
         loader.loadModule( new TestModuleModule() );
         loader.loadModule( new TestPrefixModule() );
         loader.loadModule( new BuilderCommandsModule() );

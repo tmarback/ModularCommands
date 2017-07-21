@@ -1,22 +1,40 @@
+/*
+ * This file is part of ModularCommands.
+ *
+ * ModularCommands is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * ModularCommands is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with ModularCommands. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.github.thiagotgm.modular_commands.annotation;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
-import com.github.thiagotgm.modular_commands.api.ICommand;
-import com.github.thiagotgm.modular_commands.command.annotation.AnnotationParser;
-
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
-
+/**
+ * Module for testing annotated commands.
+ *
+ * @version 1.0
+ * @author ThiagoTGM
+ * @since 2017-07-21
+ */
 public class AnnotationModule implements IModule {
 
     @Override
     public boolean enable( IDiscordClient client ) {
 
         CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
-        for ( ICommand command : new AnnotationParser( new AnnotatedCommands() ).parse() ) {
-            reg.registerCommand( command );
-        }
+        reg.registerAnnotatedCommands( new AnnotatedCommands() );
         return true;
     }
 
