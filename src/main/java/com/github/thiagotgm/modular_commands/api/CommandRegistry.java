@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.thiagotgm.modular_commands.command.annotation.AnnotationParser;
 import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 import com.github.thiagotgm.modular_commands.registry.ModuleCommandRegistry;
 
@@ -592,6 +593,19 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     public void registerAllCommands( CommandRegistry registry ) {
         
         registerAllCommands( registry.getRegisteredCommands() );
+        
+    }
+    
+    /**
+     * Parses the annotated commands from the given object and registers the parsed main
+     * commands into this registry.
+     *
+     * @param obj The object to parse commands from.
+     */
+    public void registerAnnotatedCommands( Object obj ) {
+        
+        AnnotationParser parser = new AnnotationParser( obj );
+        registerAllCommands( parser.parse() ); // Parse an add all commands.
         
     }
     
