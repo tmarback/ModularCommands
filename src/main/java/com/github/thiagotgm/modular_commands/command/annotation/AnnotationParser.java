@@ -49,8 +49,8 @@ import sx.blah.discord.util.RateLimitException;
  * and failure handlers of a single object instance. The commands and handlers parsed will call the methods
  * from the instance they were parsed from whenever they are invoked.
  * <p>
- * Handlers can be registered to be used across multiple Objects by marking static methods with the
- * handler tags and registering them with (TODO).
+ * Handlers can be registered to be used across multiple Objects by marking their annotated methods static 
+ * and registering them with {@link #registerAnnotatedHandlers(Class)}.
  *
  * @version 1.0
  * @author ThiagoTGM

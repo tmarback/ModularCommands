@@ -488,7 +488,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * (parent and sub registries) with the same name (eg the command name must be unique).
      * <p>
      * If the command was already registered to another registry (that is not part of the
-     * hierarchy of the calling registry), it is unregistered from it first.
+     * hierarchy of the calling registry), it is unregistered from it first.<br>
+     * If it failed to be registered to this registry, it is not unregistered from the previous
+     * registry.
      * <p>
      * Only main commands can be registered. Subcommands will simply fail to be added.
      *
@@ -548,6 +550,48 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         setLastChanged( System.currentTimeMillis() );
         return true;
+        
+    }
+    
+    /**
+     * Attempts to register all the commands in the given collection to this registry.
+     * <p>
+     * After the method returns, all the commands that did not fail to be registered
+     * will be registered to this registry.<br>
+     * They will also be unregistered from their previous registry, if any.
+     * <p>
+     * Commands that fail to be registered are unchanged.
+     *
+     * @param commands The commands to be registered.
+     */
+    public void registerAllCommands( Collection<ICommand> commands ) {
+        
+        for ( ICommand command : commands ) { // Register each command.
+            
+            try {
+                registerCommand( command );
+            } catch ( NullPointerException e ) {
+                LOG.error( "Command collection included null.", e );
+            }
+            
+        }
+        
+    }
+    
+    /**
+     * Attempts to register all the commands in the given registry to this registry.
+     * <p>
+     * After the method returns, all the commands that did not fail to be registered
+     * will be registered to this registry.<br>
+     * They will also be unregistered from the given registry.
+     * <p>
+     * Commands that fail to be registered are unchanged.
+     *
+     * @param commands The commands to be registered.
+     */
+    public void registerAllCommands( CommandRegistry registry ) {
+        
+        registerAllCommands( registry.getRegisteredCommands() );
         
     }
     
