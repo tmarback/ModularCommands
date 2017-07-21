@@ -130,14 +130,14 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             LOG.trace( "Ignoring bot caller." );
             return; // Ignore bot.
         }
-        if ( !command.getRegistry().contextCheck( context ) ) {
+        if ( !mainCommand.getRegistry().contextCheck( context ) ) {
             LOG.trace( "Registry context check failed." );
             return; // Registry disabled under calling context.
         }
         
         /* Check if the caller is allowed to call the command. */
         if ( LOG.isDebugEnabled() ) {
-            LOG.debug( "Command " + getCommandTrace( command, event ) + " - checking permission" );
+            LOG.debug( "Command {} - checking permission", getCommandTrace( command, event ) );
         }
         RequestBuilder errorBuilder = new RequestBuilder( event.getClient() ); // Builds request for
         errorBuilder.shouldBufferRequests( true ).setAsync( true );            // error handler.
