@@ -2,7 +2,7 @@ package com.github.thiagotgm.modular_commands.annotation;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
-import com.github.thiagotgm.modular_commands.command.annotation.AnnotatedCommand;
+import com.github.thiagotgm.modular_commands.command.annotation.AnnotationParser;
 
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
@@ -14,7 +14,7 @@ public class AnnotationModule implements IModule {
     public boolean enable( IDiscordClient client ) {
 
         CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
-        for ( ICommand command : new AnnotatedCommand( new AnnotatedCommands() ).parse() ) {
+        for ( ICommand command : new AnnotationParser( new AnnotatedCommands() ).parse() ) {
             reg.registerCommand( command );
         }
         return true;

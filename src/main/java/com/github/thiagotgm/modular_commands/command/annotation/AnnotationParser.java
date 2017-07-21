@@ -56,9 +56,9 @@ import sx.blah.discord.util.RateLimitException;
  * @author ThiagoTGM
  * @since 2017-07-19
  */
-public final class AnnotatedCommand {
+public final class AnnotationParser {
     
-    private static final Logger LOG = LoggerFactory.getLogger( AnnotatedCommand.class );
+    private static final Logger LOG = LoggerFactory.getLogger( AnnotationParser.class );
     
     private static final Class<?>[] EXECUTOR_PARAM_TYPES = { CommandContext.class };
     private static final Class<?>[] FAILURE_HANDLER_PARAM_TYPES =
@@ -82,7 +82,7 @@ public final class AnnotatedCommand {
      * 
      * @param obj The object to parse commands from.
      */
-    public AnnotatedCommand( Object obj ) {
+    public AnnotationParser( Object obj ) {
         
         this.obj = obj;
         this.subCommands = new HashMap<>();
@@ -525,7 +525,7 @@ public final class AnnotatedCommand {
      * parsed.
      * <p>
      * After the first time this is called, this can be called again without any processing required
-     * (the parsed commands and handlers are kept buffered).
+     * (the parsed commands and handlers are buffered).
      *
      * @return The main commands parsed from this object.
      */
