@@ -1,0 +1,2 @@
+${project.version}
+${discord4J.version}

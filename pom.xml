@@ -96,10 +96,34 @@
     </dependencies>
 
     <build>
+    
+        <!-- Include the project and D4J version in a file for the module to access -->
+        <resources>
+        
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                
+                    <include>ModularCommandsVersion.txt</include>
+                    
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                
+                    <exclude>ModularCommandsVersion.txt</exclude>
+                
+                </excludes>
+            </resource>
+        
+        </resources>
 
         <plugins>
         
-            <!-- To set the module class and version, and Discord4J version being used, in the manifest -->
+            <!-- To set the module class in the manifest -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -109,8 +133,6 @@
                         <manifestEntries>
 
                             <Discord4J-ModuleClass>com.github.thiagotgm.modular_commands.ModularCommandsModule</Discord4J-ModuleClass>
-                            <Implementation-Version>${project.version}</Implementation-Version>
-                            <Specification-Version>${discord4J.version}</Specification-Version>
 
                         </manifestEntries>
                     </archive>

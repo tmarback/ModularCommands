@@ -17,6 +17,8 @@
 
 package com.github.thiagotgm.modular_commands;
 
+import java.util.Scanner;
+
 import com.github.thiagotgm.modular_commands.api.CommandHandler;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 
@@ -34,6 +36,20 @@ import sx.blah.discord.modules.IModule;
 public class ModularCommandsModule implements IModule {
     
     private static final String MODULE_NAME = "Modular Commands";
+    
+    private static final String VERSION_FILE = "ModularCommandsVersion.txt";
+    private static String moduleVersion;
+    private static String d4jVersion;
+    
+    {
+        
+        Scanner in = new Scanner( ModularCommandsModule.class.getClassLoader()
+                .getResourceAsStream( VERSION_FILE ) );
+        moduleVersion = in.nextLine(); // Read project version.
+        d4jVersion = in.nextLine(); // Read D4J version.
+        in.close();
+        
+    }
     
     private CommandHandler handler;
     private IDiscordClient client;
@@ -68,7 +84,7 @@ public class ModularCommandsModule implements IModule {
     @Override
     public String getMinimumDiscord4JVersion() {
 
-        return getClass().getPackage().getSpecificationVersion();
+        return d4jVersion;
         
     }
 
@@ -82,7 +98,7 @@ public class ModularCommandsModule implements IModule {
     @Override
     public String getVersion() {
 
-        return getClass().getPackage().getImplementationVersion();
+        return moduleVersion;
         
     }
 
