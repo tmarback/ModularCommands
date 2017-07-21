@@ -109,7 +109,7 @@ public final class AnnotatedCommand {
     private ICommand parseMainCommand( Method method, MainCommand annotation )
             throws IllegalArgumentException {
         
-        LOG.info( "Parsing annotated main command \"{}\".", annotation.name() );
+        LOG.trace( "Parsing annotated main command \"{}\".", annotation.name() );
         
         if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -178,7 +178,7 @@ public final class AnnotatedCommand {
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
                 }
-                LOG.info( "Registering subcommand \"{}\".", subCommand );
+                LOG.info( "\"{}\": Registering subcommand \"{}\".", annotation.name(), subCommand );
                 subCommands.add( this.subCommands.get( subCommand ) );
                 
             }
@@ -205,7 +205,7 @@ public final class AnnotatedCommand {
     private ICommand parseSubCommand( Method method, SubCommand annotation )
             throws IllegalArgumentException {
         
-        LOG.info( "Parsing annotated subcommand \"{}\".", annotation.name() );
+        LOG.trace( "Parsing annotated subcommand \"{}\".", annotation.name() );
         
         if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -275,7 +275,8 @@ public final class AnnotatedCommand {
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
                 }
-                LOG.info( "Registering subcommand \"{}\".", subCommand );
+                LOG.info( "\"{}\" (subcommand): Registering subcommand \"{}\".", annotation.name(),
+                        subCommand );
                 subCommands.add( this.subCommands.get( subCommand ) );
                 
             }
@@ -301,7 +302,7 @@ public final class AnnotatedCommand {
     private Executor parseSuccessHandler( Method method, SuccessHandler annotation )
             throws IllegalArgumentException {
         
-        LOG.info( "Parsing annotated success handler \"{}\".", annotation.value() );
+        LOG.trace( "Parsing annotated success handler \"{}\".", annotation.value() );
         
         if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -327,7 +328,7 @@ public final class AnnotatedCommand {
             com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
             throws IllegalArgumentException {
         
-        LOG.info( "Parsing annotated failure handler \"{}\".", annotation.value() );
+        LOG.trace( "Parsing annotated failure handler \"{}\".", annotation.value() );
         
         if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
@@ -345,7 +346,7 @@ public final class AnnotatedCommand {
      */
     private void parseMainCommands() {
         
-        LOG.trace( "Parsing main commands." );
+        LOG.trace( "Parsing annotated main commands." );
         
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
             /* Find each @MainCommand in the class and parse the commands that they declare */
@@ -369,7 +370,7 @@ public final class AnnotatedCommand {
      */
     private void parseSubCommands() {
         
-        LOG.trace( "Parsing subcommands." );
+        LOG.trace( "Parsing annotated subcommands." );
         
         /* Get each subcommand that needs to be parsed */
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
@@ -393,65 +394,57 @@ public final class AnnotatedCommand {
             String next = toParseMethods.keySet().iterator().next(); // Get next subcommand to parse.
             Method method = toParseMethods.remove( next );
             SubCommand annotation = toParseAnnotations.remove( next );
-            if ( parseDependencies( annotation ) ) { // Parse its subcommands.
-                try { // Subcommands parsed successfully, now try parsing it.
-                    ICommand command = parseSubCommand( method, annotation );
-                    subCommands.put( next, command );
-                } catch ( IllegalArgumentException e ) { // Method/annotation is invalid.
-                    LOG.error( "Could not parse subcommand.", e );
-                }
-            } else { // Could not parse subcommands.
-                LOG.error( "Could not parse \"{}\" due to not being able to parse its subcommands.",
-                        next );
-            }
+            parseWithDependencies( method, annotation );
             
         }
         
     }
     
     /**
-     * Parses all the subcommands of a subcommand, parsing their subcommands as well, recursively.
+     * Parses a subcommand, and all of its own subcommands (dependencies), recursively.
      * <p>
-     * Eg loads all the dependencies of the given subcommand.
+     * e.g., solves the dependencies of the given subcommand, and if successful, parses the
+     * subcommand.
      *
+     * @param method The method that is marked as the subcommand.
      * @param annotation The annotation that specifies the subcommand.
-     * @return true if all dependencies were parsed successfully.<br>
-     *         false if there was a subcommand in the dependency hierarchy that could not be loaded.
+     * @return true if the subcommand (and thus all of its dependencies) were parsed sucessfully.<br>
+     *         false if the subcommand could not be parsed (either due to an issue with the subcommand
+     *         itself or one of its dependencies).
      */
-    private boolean parseDependencies( SubCommand annotation ) {
+    private boolean parseWithDependencies( Method method, SubCommand annotation ) {
         
-        if ( annotation.subCommands().length == 0 ) {
-            return true; // No dependencies to parse.
-        }
-        
-        for ( String subCommand : annotation.subCommands() ) {
+        /* Parse sub-subcommands (dependencies) */
+        for ( String subCommandName : annotation.subCommands() ) {
             
-            if ( subCommands.containsKey( subCommand ) ) {
+            if ( subCommands.containsKey( subCommandName ) ) {
                 continue; // Subcommand already parsed.
             }
-            if ( !toParseMethods.containsKey( subCommand ) ) {
-                LOG.error( "Invalid subcommand \"{}\".", subCommand );
+            if ( !toParseMethods.containsKey( subCommandName ) ) {
+                LOG.error( "\"{}\": Invalid subcommand \"{}\".", annotation.name(),
+                        subCommandName );
                 return false; // Subcommand is not in the to-parse list, thus it doesn't exist
             }                 // or a dependency loop exists.
-            Method subCommandMethod = toParseMethods.remove( subCommand );
-            SubCommand subCommandAnnotation = toParseAnnotations.remove( subCommand );
-            if ( parseDependencies( subCommandAnnotation ) ) { // Parse subcommand's subcommands.
-                try { // Sub-subcommands parsed successfully, now try parsing subcommand.
-                    ICommand command = parseSubCommand( subCommandMethod, subCommandAnnotation );
-                    subCommands.put( subCommand, command );
-                } catch ( IllegalArgumentException e ) { // Subcommand method/annotation is invalid.
-                    LOG.error( "Could not parse subcommand.", e );
-                    return false;
-                }
-            } else { // Could not parse subcommand's subcommands.
-                LOG.error( "Could not parse \"{}\" due to not being able to parse its subcommands.",
-                        subCommand );
-                return false;
+            Method subCommandMethod = toParseMethods.remove( subCommandName );
+            SubCommand subCommandAnnotation = toParseAnnotations.remove( subCommandName );
+            if ( !parseWithDependencies( subCommandMethod, subCommandAnnotation ) ) { // Parse subcommand.
+                LOG.error( "\"{}\": Failed to parse subcommand \"{}\".", annotation.name(),
+                        subCommandName );
+                return false; // Could not parse sub-subcommand.
             }
             
         }
         
-        return true; // All subcommands were parsed successfully.
+        /* Sub-subcommands parsed successfully, now try parsing subcommand */
+        try {
+            ICommand command = parseSubCommand( method, annotation );
+            subCommands.put( annotation.name(), command );
+        } catch ( IllegalArgumentException e ) { // Subcommand method/annotation is invalid.
+            LOG.error( "Could not parse subcommand.", e );
+            return false;
+        }
+        
+        return true; // Parsed successfully.
         
     }
     
@@ -459,6 +452,8 @@ public final class AnnotatedCommand {
      * Parses all the success handlers in the object.
      */
     private void parseSuccessHandlers() {
+        
+        LOG.trace( "Parsing annotated success handlers." );
         /* Check each method */
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
             
@@ -490,6 +485,8 @@ public final class AnnotatedCommand {
      * Parses all the failure handlers in the object.
      */
     private void parseFailureHandlers() {
+        
+        LOG.trace( "Parsing annotated failure handlers." );
         /* Check each method */
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
             
@@ -534,10 +531,14 @@ public final class AnnotatedCommand {
             return new ArrayList<>( mainCommands );
         }
         
+        LOG.debug( "Parsing annotated members of instance of class {}.", obj.getClass().getName() );
+        
         parseFailureHandlers();
         parseSuccessHandlers();
         parseSubCommands();
         parseMainCommands();
+        
+        LOG.debug( "Finished parsing annotated members." );
         
         done = true;
         return new ArrayList<>( mainCommands );
