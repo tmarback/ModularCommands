@@ -356,7 +356,9 @@ public final class AnnotatedCommand {
                     ICommand mainCommand = parseMainCommand( method, annotation );
                     mainCommands.add( mainCommand ); // Add command if successfully parsed.
                 } catch ( IllegalArgumentException e ) {
-                    LOG.error( "Could not parse main command.", e );
+                    if ( LOG.isErrorEnabled() ) {
+                        LOG.error( "\"" + annotation.name() + "\": Could not parse main command.", e );
+                    }
                 }
                 
             }
@@ -440,7 +442,9 @@ public final class AnnotatedCommand {
             ICommand command = parseSubCommand( method, annotation );
             subCommands.put( annotation.name(), command );
         } catch ( IllegalArgumentException e ) { // Subcommand method/annotation is invalid.
-            LOG.error( "Could not parse subcommand.", e );
+            if ( LOG.isErrorEnabled() ) {
+                LOG.error( "\"" + annotation.name() + "\": Could not parse subcommand.", e );
+            }
             return false;
         }
         
