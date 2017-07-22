@@ -2,7 +2,7 @@
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.2.0/javadoc/)
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.3.0/javadoc/)
 
 ## How to Use
 There are 2 ways to include this framework in your bot:
@@ -140,7 +140,20 @@ There are 3 ways of creating commands:
    This creates the exact same command as the one above, except it took way less lines. This uses the default implementation of `ICommand`, `Command` (refer to the Javadocs for some specifics on what this implementation allows).
     
 3. Using annotations:
-    `// TODO: Upcoming!`
+    
+    ```java
+    public class AnnotatedCommand {
+        @MainCommand(
+            name = "Ping Command (annotation)",
+            aliases = { "ping" },
+            prefix = "?"
+        )
+        public void pingCommand( CommandContext context ) {
+            context.getReplyBuilder().withContent( "pong!" ).build();
+        }
+    }
+    ```
+    Again, makes the same command. Will also use the default implementation, `Command`.
 
 ## Command Registries
 In order to add a command, you're first going to need a `CommandRegistry` to add it to.
@@ -193,7 +206,7 @@ Now, once you have the registry you want to add your command to, adding the comm
 ```java
 registry.registerCommand( new PingCommand() );
 registry.registerCommand( pingCommand );
-// TODO: Annotation way
+registry.registerAnnotatedCommands( new AnnotatedCommand() );
 ```
 
 OBS: While multiple commands can have the same `alias`, the `name` of each command _must_ be unique within the registry hierarchy (the root registry and all its subregistries).
@@ -207,32 +220,45 @@ Like normal commands, subcommands have their own aliases, but instead of being a
 To create a subcommand, you just create a normal command, but specify that it is a subcommand (override `isSubCommand()` if implementing the interface, use `builder#isSubCommand(true)` if using the builder, or use `@SubCommand` instead of `@MainCommand` if using annotations). Then, to add them to a main command:
 
 1. If the main command implements the interface, include the subcommand in the return set of `ICommand#getSubCommands()`:
-```java
-public class MainCommand implements ICommand {
-    ...
-    private final SortedSet<ICommand> subCommands;
-    public MainCommand() {
-        ...
-        subCommands = new TreeSet<>();
-        subCommands.add( new SubCommand() );
-    }
-    ...
-    @Override
-    public SortedSet<ICommand> getSubCommands() { return subCommands; }
-}
-```
+   ```java
+   public class MainCommand implements ICommand {
+       ...
+       private final SortedSet<ICommand> subCommands;
+       public MainCommand() {
+           ...
+           subCommands = new TreeSet<>();
+           subCommands.add( new SubCommand() );
+       }
+       ...
+       @Override
+       public SortedSet<ICommand> getSubCommands() { return subCommands; }
+   }
+   ```
+   
 2. If the main command is being done through a CommandBuilder, the subcommands must be provided before building:
+   ```java
+   ...
+   mainCommandBuilder.withSubCommands( Arrays.asList( new ICommand[] { new SubCommand() } ) );
+   ...
+   ```
+   OBS: All subcommands must be provided at once. Calling `withSubCommands` again will replace the previously given subcommands.
 
-```java
-...
-mainCommandBuilder.withSubCommands( Arrays.asList( new ICommand[] { new SubCommand() } ) );
-...
-```
-OBS: All subcommands must be provided at once. Calling `withSubCommands` again will replace the previously given subcommands.
-
-3. `// TODO: Annotation way`
-
-NOTE: Annotation-based subcommands can only be used with annotation-based main commands, and vice versa.
+3. If the main command is specified in an annotation, just speficy the names of the subcommands in the annotation:
+   ```java
+   ...
+   @MainCommand(
+       ...
+       subCommands = { "SubCommand" }
+   )
+   public void mainCommand( CommandContext context ) { ... }
+   
+   @SubCommand(
+       name = "SubCommand",
+       aliases = { "sub" }
+   )
+   public void subCommand( CommandContext command ) { ... }
+   ```
+   NOTE: Annotation-based subcommands can only be used with annotation-based main commands, and vice versa. An annotated command can only specify subcommands declared in the same class. Subcommands in the same class _must_ have different names, and same with main commands, but there's no restriction against a main command and a subcommand with the same name.
 
 Also worth noting that subcommands can specify their own subcommands, which work in the same way, but using the subcommand's args.
 
@@ -243,14 +269,15 @@ If there are more than one subcommand with an alias that matches the first argum
 OBS: Like for main commands, if a subcommand has lower precedence than another subcommand in a signature conflict, it effectively loses that signature (other signatures it may have that are not part of the conflict are not affected), even if the subcommand that replaces it is disabled.
 
 ## Command Execution
-Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called. If the command was made through a `CommandBuilder`, this means that the `Executor` specified with `CommandBuilder#onExecute(Executor)` is called.
-(`// TODO: what replaces execute() in the annotation way`)
+Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called. If the command was made through a `CommandBuilder`, this means that the `Executor` specified with `CommandBuilder#onExecute(Executor)` is called. If made by marking a method with an annotation, the marked method is called for the instance that was given when registering the commands.
 
 The `CommandContext` given can provide all the important information about the command, such as who called it, where it was called from, its args, etc (it also provides the MessageReceivedEvent and corresponding IMessage that triggered the command, and the called ICommand itself, if you need it). It also provides a ready-made `MessageBuilder` for a reply (whether it is set to the same channel the message came from or a private channel to the message sender depends on the `replyPrivately` setting of the command that was called [more precisely, the most specific subcommand]). If the parent commands of a subcommand are also executed (see the `Subcommands` section), they will all receive the _exact same_ CommandContext as the most specific subcommand. This means that the args will not include any of their aliases, and they are all given the same `MessageBuilder`. However, the `CommandContext` also provides a way to store any `Object` inside it and retrieve it later, so if you want to do some common processing in a certain command and get the results in its subcommands, you can store that result in the `CommandContext` as a single object and retrieve it later (don't forget to cast it back) when the subcommand is executed! (also don't forget to specify in the subcommands that the parent should be executed).
 
 If, in your execution method, you need to call a method that throws `RateLimitException`, `MissingPermissionsException`, or `DiscordException`, you are encouraged to just let it float up (note that the `execute` method declares all those exceptions). Particularly for `RateLimitException`s, the command is called through Discord4J's request builder, if you let it float up the execution will be reattempted automatically (so seriously, don't bother catching those). The other exceptions are logged automatically.
 
 If the command fails for some expected reason (`MissingPermissions` or `Discord` exceptions, user that called the command does not have all required permissions, etc), the command's `ICommand#onFailure(CommandContext,FailureReason)` method will be called, being given the context of the command and a value of the `FailureReason` enum that identifies why exactly it failed, and you can use that if you want to do something in case of those expected failures. Oppositely, if the command is successfully executed, the `ICommand#onSuccess(CommandContext)` method will be called (after the delay given by the command's `onSuccessDelay` property), so you can use it if you need to do some post-processing when the command was successfully executed. Again, don't catch `RateLimitException`s for the same reason, and you can let `MissingPermissions` and `Discord` exceptions float up to be auto-logged. With the `CommandBuilder`, these operations can be specified with `CommandBuilder#onSuccess(Executor)` and `CommandBuilder#onFailure(FailureHandler)`.
+
+With annotations, a method with the appropriate arguments (`CommandContext` for success handler, `CommandContext, FailureReason` for failure handler) can be marked with the `@SuccessHandler(<name>)` or `@FailureHandler(<name>)` annotation to use it as a handler. Then, the annotated commands can just use the name of the desired handler (from the same class, unless registered as a static handler, explained later) in the `successHandler`/`failureHandler` member of the annotation (both main and sub commands support it). If you want to use a method as success/failure handler for annotated commands from more than one class, you can make the method `static`, then give the class (instead of an instance) to `AnnotationParser#registerAnnotatedHandlers(Class<?>)`. Then, those static handlers will be used whenever an annotated command in any object includes their names as handlers and there aren't any non-static handlers with the same name declared in that object.
 
 OBS: The `onFailure` and `onSuccess` operations are only called for the most specific subcommand. So even if the command says that its parent (and maybe other ancestors) should be excuted, only its own success and failure handlers will be used.
 
@@ -277,6 +304,7 @@ A command can specify several properties. The interface has methods that can be 
 - `requiredGuildPermissions`: The (guild-wide) permissions that the calling user must have in the guild in order to call the command. Default: `none`
 - `subCommands`: The subcommands of this command. If this command is called and the first argument matches the alias of one of the subcommands, that subcommand is called instead. More info on the `Subcommands` section. Default: `none`
 - `priority`: If there is a situation where this command has the same signature/alias of another command and one does not override the other (both are in the same registry, both come from different subregistries of a registry, both are subcommands of the same command, etc), the one with the highest `priority` value will be given precedence. If both have the same priority, the one whose `name` comes first lexicographically is given precedence. Default: `0`
+- `canModifySubCommands`: This only exists for the `CommandBuilder` and annotated versions, as with the interface it just depends on the implementation. If `true`, the `ICommand#addSubCommand(ICommand)` and `ICommand#removeSubCommand(ICommand)` methods of the generated command will be useable, and the set returned by `ICommand#getSubCommands()` will be modifiable. If `false`, the set is unmodifiable and the add/remove commands throw an `UnsupportedOperationException`. See the `Command` class description for details. Default: `true`
 
 OBS: "none" means that there is no default value (a value must _always_ be specified). "`none`" means an empty set/list/etc. "`null`" means the value `null`, literally.
 
