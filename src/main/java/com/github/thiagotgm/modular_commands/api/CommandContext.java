@@ -19,6 +19,7 @@ package com.github.thiagotgm.modular_commands.api;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
 import sx.blah.discord.handle.obj.IChannel;
@@ -52,7 +53,7 @@ public class CommandContext {
     private final IChannel channel;
     private final IGuild guild;
     private final MessageBuilder replyBuilder;
-    private Object helper;
+    private Optional<?> helper;
 
     /**
      * Builds the context for a given command triggered by the given message event.
@@ -179,11 +180,11 @@ public class CommandContext {
      * <p>
      * If there is already a helper object stored, it is replaced by the given one.
      *
-     * @param helper Helper object to be stored.
+     * @param helper Helper object to be stored. If null, deletes the object currently stored.
      */
-    public void setHelper( Object helper ) {
+    public void setHelper( Object helper ) throws NullPointerException {
         
-        this.helper = helper;
+        this.helper = Optional.ofNullable( helper );
         
     }
     
@@ -193,7 +194,7 @@ public class CommandContext {
      * @return The helper object currently stored.
      * @see #setHelper(Object)
      */
-    public Object getHelper() {
+    public Optional<?> getHelper() {
         
         return helper;
         
