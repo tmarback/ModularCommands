@@ -124,11 +124,13 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * Executes the command on a given context.
      *
      * @param context The context where the command was called.
+     * @return true if the command was executed successfully.<br>
+     *         false if the command could not be fully executed.
      * @throws RateLimitException if the operation failed due to rate limiting.
      * @throws MissingPermissionsException If the bot does not have the required permissions.
      * @throws DiscordException If a miscellaneous error was encountered.
      */
-    abstract void execute( CommandContext context )
+    abstract boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException;
     
     /**

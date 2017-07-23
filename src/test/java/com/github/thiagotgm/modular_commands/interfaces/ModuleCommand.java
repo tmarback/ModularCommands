@@ -99,10 +99,11 @@ public class ModuleCommand implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "Module works!" ).build();
+        return true;
 
     }
 

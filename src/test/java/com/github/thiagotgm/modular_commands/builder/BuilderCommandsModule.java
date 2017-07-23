@@ -41,6 +41,7 @@ public class BuilderCommandsModule implements IModule {
                 .onExecute( ( context  ) -> {
                     
                     context.getReplyBuilder().withContent( "Command was built!" ).build();
+                    return true;
                     
                 }).build();
         ICommand c2 = new CommandBuilder( "Factory Test (w/ prefix)" )
@@ -49,6 +50,7 @@ public class BuilderCommandsModule implements IModule {
                 .onExecute( ( context  ) -> {
                     
                     context.getReplyBuilder().withContent( "Command was also built!" ).build();
+                    return true;
                     
                 }).build();
         

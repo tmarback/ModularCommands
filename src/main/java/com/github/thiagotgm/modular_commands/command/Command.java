@@ -24,11 +24,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
-import com.github.thiagotgm.modular_commands.api.Executor;
-import com.github.thiagotgm.modular_commands.api.FailureHandler;
 import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 
@@ -75,10 +76,10 @@ public class Command implements ICommand {
     private final boolean subCommand;
     private final String description;
     private final String usage;
-    private final Executor commandOperation;
+    private final Predicate<CommandContext> commandOperation;
     private final long onSuccessDelay;
-    private final Executor onSuccessOperation;
-    private final FailureHandler onFailureOperation;
+    private final Consumer<CommandContext> onSuccessOperation;
+    private final BiConsumer<CommandContext, FailureReason> onFailureOperation;
     private final boolean replyPrivately;
     private final boolean ignorePublic;
     private final boolean ignorePrivate;
@@ -155,10 +156,10 @@ public class Command implements ICommand {
                     boolean subCommand,
                     String description,
                     String usage,
-                    Executor commandOperation,
+                    Predicate<CommandContext> commandOperation,
                     long onSuccessDelay,
-                    Executor onSuccessOperation,
-                    FailureHandler onFailureOperation,
+                    Consumer<CommandContext> onSuccessOperation,
+                    BiConsumer<CommandContext, FailureReason> onFailureOperation,
                     boolean replyPrivately,
                     boolean ignorePublic,
                     boolean ignorePrivate,
@@ -388,10 +389,10 @@ public class Command implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
-        commandOperation.accept( context );
+        return commandOperation.test( context );
         
     }
 

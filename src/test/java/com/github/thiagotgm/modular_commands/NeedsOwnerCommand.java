@@ -105,10 +105,11 @@ public class NeedsOwnerCommand implements ICommand {
     public String getPrefix() { return "per!"; }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "is owner!" ).build();
+        return true;
 
     }
     

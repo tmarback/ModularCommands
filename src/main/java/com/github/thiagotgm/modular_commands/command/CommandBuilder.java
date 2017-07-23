@@ -24,9 +24,12 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
-import com.github.thiagotgm.modular_commands.api.Executor;
-import com.github.thiagotgm.modular_commands.api.FailureHandler;
+import com.github.thiagotgm.modular_commands.api.CommandContext;
+import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 
 import sx.blah.discord.handle.obj.Permissions;
@@ -45,7 +48,7 @@ public class CommandBuilder {
      */
     private static final ICommand SAMPLE = new CommandBuilder( "_*^Sample-Command^*_" )
             .subCommand( true ).withAliases( new String[] { "hi" } )
-            .onExecute( ( context ) -> {} ).build();
+            .onExecute( ( context ) -> { return true; } ).build();
     
     private final String name;
     
@@ -55,10 +58,10 @@ public class CommandBuilder {
     private boolean subCommand;
     private String description;
     private String usage;
-    private Executor commandOperation;
+    private Predicate<CommandContext> commandOperation;
     private long onSuccessDelay;
-    private Executor onSuccessOperation;
-    private FailureHandler onFailureOperation;
+    private Consumer<CommandContext> onSuccessOperation;
+    private BiConsumer<CommandContext, FailureReason> onFailureOperation;
     private boolean replyPrivately;
     private boolean ignorePublic;
     private boolean ignorePrivate;
@@ -218,7 +221,7 @@ public class CommandBuilder {
         this.subCommand = c.isSubCommand();
         this.description = c.getDescription();
         this.usage = c.getUsage();
-        this.commandOperation = ( context ) -> { c.execute( context ); };
+        this.commandOperation = ( context ) -> { return c.execute( context ); };
         this.onSuccessDelay = c.getOnSuccessDelay();
         this.onSuccessOperation = ( context ) -> { c.onSuccess( context ); };
         this.onFailureOperation = ( context, reason ) -> { c.onFailure( context, reason ); };
@@ -397,7 +400,7 @@ public class CommandBuilder {
      * @throws NullPointerException if the given operation is null.
      * @see ICommand#execute(com.github.thiagotgm.modular_commands.api.CommandContext)
      */
-    public CommandBuilder onExecute( Executor operation ) throws NullPointerException {
+    public CommandBuilder onExecute( Predicate<CommandContext> operation ) throws NullPointerException {
         
         if ( operation == null ) {
             throw new NullPointerException( "The command operation cannot be null." );
@@ -453,7 +456,7 @@ public class CommandBuilder {
      * @throws NullPointerException if the given operation is null.
      * @see ICommand#onSuccess(com.github.thiagotgm.modular_commands.api.CommandContext)
      */
-    public CommandBuilder onSuccess( Executor operation ) throws NullPointerException {
+    public CommandBuilder onSuccess( Consumer<CommandContext> operation ) throws NullPointerException {
         
         if ( operation == null ) {
             throw new NullPointerException( "The onSuccess operation cannot be null." );
@@ -475,7 +478,8 @@ public class CommandBuilder {
      * @see ICommand#onFailure(com.github.thiagotgm.modular_commands.api.CommandContext,
      *                         com.github.thiagotgm.modular_commands.api.FailureReason)
      */
-    public CommandBuilder onFailure( FailureHandler operation ) throws NullPointerException {
+    public CommandBuilder onFailure( BiConsumer<CommandContext, FailureReason> operation )
+            throws NullPointerException {
         
         if ( operation == null ) {
             throw new NullPointerException( "The onFailure operation cannot be null." );

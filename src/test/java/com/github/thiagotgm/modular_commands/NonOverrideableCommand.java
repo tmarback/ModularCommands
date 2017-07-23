@@ -101,10 +101,11 @@ public class NonOverrideableCommand implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "successfully not overriden!" ).build();
+        return true;
 
     }
 

@@ -101,10 +101,11 @@ public class HighPriorityCommand implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "High priority!" ).build();
+        return true;
 
     }
     

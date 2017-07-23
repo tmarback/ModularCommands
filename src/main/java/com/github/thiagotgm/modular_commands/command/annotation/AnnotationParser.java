@@ -27,12 +27,13 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
-import com.github.thiagotgm.modular_commands.api.Executor;
-import com.github.thiagotgm.modular_commands.api.FailureHandler;
 import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.command.CommandBuilder;
@@ -60,17 +61,25 @@ public final class AnnotationParser {
     
     private static final Logger LOG = LoggerFactory.getLogger( AnnotationParser.class );
     
-    private static final Class<?>[] EXECUTOR_PARAM_TYPES = { CommandContext.class };
+    private static final Class<?>[] COMMAND_PARAM_TYPES = { CommandContext.class };
+    private static final Class<?>[] SUCCESS_HANDLER_PARAM_TYPES = { CommandContext.class };
     private static final Class<?>[] FAILURE_HANDLER_PARAM_TYPES =
         { CommandContext.class, FailureReason.class };
     
-    private static final Map<String, Executor> registeredSuccessHandlers = new HashMap<>();
-    private static final Map<String, FailureHandler> registeredFailureHandlers = new HashMap<>();
+    private static final Map<String, Consumer<CommandContext>> registeredSuccessHandlers;
+    private static final Map<String, BiConsumer<CommandContext, FailureReason>> registeredFailureHandlers;
+    
+    static {
+        
+        registeredSuccessHandlers = new HashMap<>();
+        registeredFailureHandlers = new HashMap<>();
+        
+    }
     
     private final Object obj;
     private final Map<String, ICommand> subCommands;
-    private final Map<String, Executor> successHandlers;
-    private final Map<String, FailureHandler> failureHandlers;
+    private final Map<String, Consumer<CommandContext>> successHandlers;
+    private final Map<String, BiConsumer<CommandContext, FailureReason>> failureHandlers;
     private volatile boolean done;
     private final List<ICommand> mainCommands;
     
@@ -111,7 +120,7 @@ public final class AnnotationParser {
         
         LOG.trace( "Parsing annotated main command \"{}\".", annotation.name() );
         
-        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+        if ( !Arrays.equals( method.getParameterTypes(), COMMAND_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
@@ -129,7 +138,7 @@ public final class AnnotationParser {
                .withUsage( annotation.usage() )
                .onExecute( ( context ) -> {
                    
-                   call( method, obj, context );
+                   return call( method, obj, context );
                    
                })
                .withOnSuccessDelay( annotation.onSuccessDelay() );
@@ -211,7 +220,7 @@ public final class AnnotationParser {
         
         LOG.trace( "Parsing annotated subcommand \"{}\".", annotation.name() );
         
-        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+        if ( !Arrays.equals( method.getParameterTypes(), COMMAND_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
@@ -226,7 +235,7 @@ public final class AnnotationParser {
                .withUsage( annotation.usage() )
                .onExecute( ( context ) -> {
                    
-                   call( method, obj, context );
+                   return call( method, obj, context );
                    
                })
                .withOnSuccessDelay( annotation.onSuccessDelay() );
@@ -304,15 +313,15 @@ public final class AnnotationParser {
      *
      * @param method The method to use as the handler operation.
      * @param annotation The annotation that marked the method.
-     * @return An Executor that runs the given method.
+     * @return A Consumer that runs the given method.
      * @throws IllegalArgumentException if the method is invalid.
      */
-    private Executor parseSuccessHandler( Method method, SuccessHandler annotation )
+    private Consumer<CommandContext> parseSuccessHandler( Method method, SuccessHandler annotation )
             throws IllegalArgumentException {
         
         LOG.trace( "Parsing annotated success handler \"{}\".", annotation.value() );
         
-        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+        if ( !Arrays.equals( method.getParameterTypes(), SUCCESS_HANDLER_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
@@ -333,11 +342,11 @@ public final class AnnotationParser {
      *
      * @param method The method to use as the handler operation.
      * @param annotation The annotation that marked the method.
-     * @return A FailureHandler that runs the given method.
+     * @return A BiConsumer that runs the given method.
      * @throws IllegalArgumentException if the method is invalid.
      */
-    private FailureHandler parseFailureHandler( Method method,
-            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
+    private BiConsumer<CommandContext, FailureReason> parseFailureHandler( Method method,
+            FailureHandler annotation )
             throws IllegalArgumentException {
         
         LOG.trace( "Parsing annotated failure handler \"{}\".", annotation.value() );
@@ -488,7 +497,7 @@ public final class AnnotationParser {
                     LOG.error( "Success handler with repeated name :\"{}\".", annotation.value() );
                 } else {
                     try { // Try to parse the handler.
-                        Executor handler = parseSuccessHandler( method, annotation );
+                        Consumer<CommandContext> handler = parseSuccessHandler( method, annotation );
                         successHandlers.put( annotation.value(), handler );
                     } catch ( IllegalArgumentException e ) {
                         LOG.error( "Could not parse success handler.", e );
@@ -514,16 +523,15 @@ public final class AnnotationParser {
                 continue; // Static methods are used for registrable handlers.
             }
             
-            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation =
-                    method.getDeclaredAnnotation(
-                            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler.class );
+            FailureHandler annotation = method.getDeclaredAnnotation( FailureHandler.class );
             if ( annotation != null ) { // Method has the annotation.
                 
                 if ( failureHandlers.containsKey( annotation.value() ) ) {
                     LOG.error( "Failure handler with repeated name :\"{}\".", annotation.value() );
                 } else {
                     try { // Try to parse the handler.
-                        FailureHandler handler = parseFailureHandler( method, annotation );
+                        BiConsumer<CommandContext, FailureReason> handler =
+                                parseFailureHandler( method, annotation );
                         failureHandlers.put( annotation.value(), handler );
                     } catch ( IllegalArgumentException e ) {
                         LOG.error( "Could not parse failure handler.", e );
@@ -586,7 +594,7 @@ public final class AnnotationParser {
         
         LOG.info( "Registering annotated success handler \"{}\".", annotation.value() );
         
-        if ( !Arrays.equals( method.getParameterTypes(), EXECUTOR_PARAM_TYPES ) ) {
+        if ( !Arrays.equals( method.getParameterTypes(), COMMAND_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( !Modifier.isStatic( method.getModifiers() ) ) {
@@ -619,8 +627,7 @@ public final class AnnotationParser {
      * @throws IllegalArgumentException if there is already a registered failure handler with the specified
      *                                  name or the method is invalid.
      */
-    private static void registerFailureHandler( Method method,
-            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation )
+    private static void registerFailureHandler( Method method, FailureHandler annotation )
             throws IllegalArgumentException {
         
         LOG.info( "Registering annotated failure handler \"{}\".", annotation.value() );
@@ -685,9 +692,7 @@ public final class AnnotationParser {
                 continue; // Instance methods are used for parseable handlers.
             }
             
-            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler annotation =
-                    method.getDeclaredAnnotation(
-                            com.github.thiagotgm.modular_commands.command.annotation.FailureHandler.class );
+            FailureHandler annotation = method.getDeclaredAnnotation( FailureHandler.class );
             if ( annotation != null ) { // Method has the annotation.
                 
                 try { // Try to parse the handler.

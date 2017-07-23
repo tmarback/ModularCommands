@@ -101,10 +101,11 @@ public class LowPriorityCommand implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "Low priority!" ).build();
+        return true;
 
     }
     

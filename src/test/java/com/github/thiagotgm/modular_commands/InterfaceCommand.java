@@ -106,10 +106,11 @@ public class InterfaceCommand implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "pong!" ).build();
+        return true;
 
     }
 

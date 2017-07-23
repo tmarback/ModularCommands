@@ -98,10 +98,11 @@ public class FailedOverrideCommand implements ICommand {
     }
 
     @Override
-    public void execute( CommandContext context )
+    public boolean execute( CommandContext context )
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         context.getReplyBuilder().withContent( "should not be overriden!" ).build();
+        return true;
 
     }
 
