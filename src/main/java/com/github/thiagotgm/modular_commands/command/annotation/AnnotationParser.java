@@ -127,7 +127,11 @@ public final class AnnotationParser {
         }
         builder.withDescription( annotation.description() )
                .withUsage( annotation.usage() )
-               .onExecute( new MethodOperation( obj, method ) )
+               .onExecute( ( context ) -> {
+                   
+                   call( method, obj, context );
+                   
+               })
                .withOnSuccessDelay( annotation.onSuccessDelay() );
         if ( !annotation.successHandler().isEmpty() ) {
             /* Check if there is a SuccessHandler with the specified name */
@@ -220,7 +224,11 @@ public final class AnnotationParser {
                .withAliases( annotation.aliases() );
         builder.withDescription( annotation.description() )
                .withUsage( annotation.usage() )
-               .onExecute( new MethodOperation( obj, method ) )
+               .onExecute( ( context ) -> {
+                   
+                   call( method, obj, context );
+                   
+               })
                .withOnSuccessDelay( annotation.onSuccessDelay() );
         if ( !annotation.successHandler().isEmpty() ) {
             /* Check if there is a SuccessHandler with the specified name */
@@ -311,7 +319,11 @@ public final class AnnotationParser {
             throw new IllegalArgumentException( "Method is static." );
         }
         
-        return new MethodOperation( obj, method );
+        return ( context ) -> {
+            
+            call( method, obj, context );
+            
+        };
         
     }
     
@@ -337,7 +349,11 @@ public final class AnnotationParser {
             throw new IllegalArgumentException( "Method is static." );
         }
         
-        return new MethodOperation( obj, method );
+        return ( context, reason ) -> {
+            
+            call( method, obj, context, reason );
+            
+        };
         
     }
     
@@ -581,7 +597,11 @@ public final class AnnotationParser {
                     "There is already a registered success handler with this name." );
         }
         
-        registeredSuccessHandlers.put( annotation.value(), new MethodOperation( null, method ) );
+        registeredSuccessHandlers.put( annotation.value(), ( context ) -> {
+            
+            call( method, null, context );
+            
+        });
         
     }
     
@@ -616,7 +636,11 @@ public final class AnnotationParser {
                     "There is already a registered failure handler with this name." );
         }
         
-        registeredFailureHandlers.put( annotation.value(), new MethodOperation( null, method ) );
+        registeredFailureHandlers.put( annotation.value(), ( context, reason ) -> {
+            
+            call( method, null, context, reason );
+            
+        });
         
     }
     
@@ -698,90 +722,58 @@ public final class AnnotationParser {
         
     }
     
-    /* Support class for handling calling methods as Executor/FailureHandler */
+    /* Support method for calling methods and specifying thrown exceptions */
     
     /**
-     * Executor/FailureHandler that uses a Method as the operation/task.
-     * <p>
-     * This class can be used as either an Executor or a FailureHandler, but the underlying method
-     * will only support one.
+     * Calls the method on the given object with the given arguments, filtering out errors beyond the
+     * expected exceptions.
      *
-     * @version 1.0
-     * @author ThiagoTGM
-     * @since 2017-07-19
-     * @see Executor
-     * @see FailureHandler
+     * @param method Method to be called.
+     * @param obj Object to call the method on.
+     * @param args Args to call the method with.
+     * @return If the method returned a boolean value, returns that value.<br>
+     *         If it had no return or any other type or return, returns true (as long as
+     *         the method was invoked successfully/without any exceptions).
+     * @throws RateLimitException if the method threw a RateLimitException.
+     * @throws MissingPermissionsException if the method threw a MissingPermissionsException.
+     * @throws DiscordException if the method threw a DiscordException.
+     * @throws RuntimeException if the method threw an unexpected unchecked exception, throws that
+     *                          exception again. If it threw an unexpected checked exception, or
+     *                          {@link Method#invoke(Object, Object...)} threw a
+     *                          {@link IllegalAccessException} or {@link IllegalArgumentException},
+     *                          throws a RuntimeException whose cause is the exception thrown by
+     *                          {@link Method#invoke(Object, Object...) invoke()}.
      */
-    private static class MethodOperation implements Executor, FailureHandler {
+    private static boolean call( Method method, Object obj, Object... args )
+            throws RateLimitException, MissingPermissionsException, DiscordException, RuntimeException {
         
-        private final Object obj;
-        private final Method method;
-        
-        /**
-         * Constructs an instace that uses the given method on the given object as the operation
-         * to be executed.
-         *
-         * @param obj The object that the method should be called on.
-         * @param method The method that should be used as the operation.
-         */
-        public MethodOperation( Object obj, Method method ) {
-            
-            this.obj = obj;
-            this.method = method;
-            
-        }
-
-        @Override
-        public void accept( CommandContext context )
-                throws RateLimitException, MissingPermissionsException, DiscordException {
-
-            call( context );
-            
-        }
-        
-        @Override
-        public void accept( CommandContext context, FailureReason reason )
-                throws RateLimitException, MissingPermissionsException, DiscordException {
-
-            call( context, reason );
-            
-        }
-        
-        /**
-         * Calls the method with the given arguments, filtering out errors beyond the expected
-         * exceptions or unchecked exceptions.
-         *
-         * @param args Args to call the method with.
-         * @throws RateLimitException if the method threw a RateLimitException.
-         * @throws MissingPermissionsException if the method threw a MissingPermissionsException.
-         * @throws DiscordException if the method threw a DiscordException.
-         * @throws RuntimeException if the method threw an unchecked exception.
-         */
-        private void call( Object... args )
-                throws RateLimitException, MissingPermissionsException, DiscordException, RuntimeException {
-            
-            try {
-                method.invoke( obj, args );
-            } catch ( InvocationTargetException e ) {
-                /* Identify the type of exception and rethrow it if possible */
-                Throwable cause = e.getCause();
-                if ( cause instanceof RateLimitException ) {
-                    throw (RateLimitException) cause;
-                }
-                if ( cause instanceof MissingPermissionsException ) {
-                    throw (MissingPermissionsException) cause;
-                }
-                if ( cause instanceof DiscordException ) {
-                    throw (DiscordException) cause;
-                }
-                if ( cause instanceof RuntimeException ) {
-                    throw (RuntimeException) cause;
-                }
-                LOG.error( "Unexpected checked exception.", e );
-            } catch ( IllegalAccessException | IllegalArgumentException e ) {
-                 LOG.error( "Could not call execution method.", e );
+        Object returnValue;
+        try { // Try calling the method.
+            returnValue = method.invoke( obj, args );
+        } catch ( InvocationTargetException e ) {
+            /* Identify the type of exception and rethrow it if possible */
+            Throwable cause = e.getCause();
+            if ( cause instanceof RateLimitException ) {
+                throw (RateLimitException) cause;
             }
-            
+            if ( cause instanceof MissingPermissionsException ) {
+                throw (MissingPermissionsException) cause;
+            }
+            if ( cause instanceof DiscordException ) {
+                throw (DiscordException) cause;
+            }
+            if ( cause instanceof RuntimeException ) {
+                throw (RuntimeException) cause;
+            }
+            throw new RuntimeException( "Unexpected checked exception.", e );
+        } catch ( IllegalAccessException | IllegalArgumentException e ) {
+            throw new RuntimeException( "Could not call execution method.", e );
+        }
+        
+        if ( returnValue instanceof Boolean ) { // Returned a boolean value, so return that too.
+            return ( (Boolean) returnValue ).booleanValue();
+        } else { // Returned something else (or didn't return anything), but finished executing sucessfully.
+            return true;
         }
         
     }
