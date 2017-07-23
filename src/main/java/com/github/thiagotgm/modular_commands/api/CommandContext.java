@@ -182,7 +182,7 @@ public class CommandContext {
      *
      * @param helper Helper object to be stored. If null, deletes the object currently stored.
      */
-    public void setHelper( Object helper ) throws NullPointerException {
+    public void setHelper( Object helper ) {
         
         this.helper = Optional.ofNullable( helper );
         

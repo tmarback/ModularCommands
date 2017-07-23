@@ -231,14 +231,21 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             LOG.error( "Discord error encountered while performing operation.", exception );
         
         });
+        final AtomicBoolean operationException = new AtomicBoolean();
+        builder.onGeneralError( ( exception ) -> { // Mark that an unexpected exception was thrown.
+            
+            operationException.set( true );
+            LOG.error( "Unexpected exception thrown while performing operation.", exception );
+            context.setHelper( exception ); // Store exception in context.
+            
+        });
         final ICommand firstCommand = executionChain.pop();
         builder.doAction( () -> {
             // Execute the first command in the chain.
             if ( LOG.isTraceEnabled() ) {
                 LOG.trace( "Executing \"" + firstCommand.getName() + "\"" );
             }
-            firstCommand.execute( context );
-            return true;
+            return firstCommand.execute( context );
             
         });
         while ( !executionChain.isEmpty() ) {
@@ -249,8 +256,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
                 if ( LOG.isTraceEnabled() ) {
                     LOG.trace( "Executing \"" + nextCommand.getName() + "\"" );
                 }
-                nextCommand.execute( context );
-                return true;
+                return nextCommand.execute( context );
                 
             });
             
@@ -262,6 +268,10 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
                 command.onFailure( context, FailureReason.BOT_MISSING_PERMISSIONS );
             } else if ( discordError.get() ) { // Failed due to miscellaneous error.
                 command.onFailure( context, FailureReason.DISCORD_ERROR );
+            } else if ( operationException.get() ) { // Failed due to unexpected exception.
+                command.onFailure( context, FailureReason.COMMAND_OPERATION_EXCEPTION );
+            } else { // One of the commands returned false.
+                command.onFailure( context, FailureReason.COMMAND_OPERATION_FAILED );
             }
             return true;
             

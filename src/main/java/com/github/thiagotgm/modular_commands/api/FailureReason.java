@@ -54,6 +54,18 @@ public enum FailureReason {
     /**
      * The command is marked as NSFW, but the channel isn't.
      */
-    CHANNEL_NOT_NSFW
+    CHANNEL_NOT_NSFW,
+    
+    /**
+     * The operation ran when the command was executed failed (execute() returned false).
+     */
+    COMMAND_OPERATION_FAILED,
+    
+    /**
+     * The operation ran when the command was executed threw an unexpected exception.
+     * <p>
+     * In this case, the exception that was thrown is placed in the CommandContext (as the helper object).
+     */
+    COMMAND_OPERATION_EXCEPTION;
 
 }
