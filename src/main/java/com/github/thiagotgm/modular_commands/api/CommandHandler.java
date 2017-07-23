@@ -18,9 +18,9 @@
 package com.github.thiagotgm.modular_commands.api;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Stack;
@@ -48,6 +48,27 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     private static final Logger LOG = LoggerFactory.getLogger( CommandHandler.class );
     private static final String COMMAND_FORMAT = "\"%s\" (\"%s\")";
     private static final String COMMAND_TRACE_FORMAT = "\"%s\" called by \"%s\" in channel \"%s\" on server \"%s\"";
+   
+    
+    /**
+     * Matches one or more whitespaces.
+     */
+    private static final String WHITE_SPACE_REGEX = "\\s+";
+    
+    /**
+     * Regex that matches a string that starts with a quote and, at some point before the end,
+     * has another quote that either is followed by one or more whitespaces or is the last character
+     * in the string.
+     * <p>
+     * eg, if the string is an argument string, matches it if the first argument in the string is between
+     * quotes (starts with a quote and end with a quote, followed by a whitespace or the end of the string).
+     */
+    private static final String QUOTED_ARG_REGEX = "\\A\".*\"(?:" + WHITE_SPACE_REGEX + ".*)?\\Z";
+    
+    /**
+     * Matches a quote followed by one or more whitespaces or end of string.
+     */
+    private static final String CLOSING_QUOTE_REGEX = "\"(?:" + WHITE_SPACE_REGEX + "|\\Z)";
     
     private final CommandRegistry registry;
     
@@ -78,37 +99,41 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         }
 
         /* Get command and args */
-        String message = event.getMessage().getContent();
-        List<String> args = Arrays.asList( message.trim().split( " +" ) );
-        if ( args.size() == 0 ) {
+        String message = event.getMessage().getContent().trim();
+        if ( message.isEmpty() ) {
             return; // Empty message.
         }
         
         /* Identify command */
+        String[] split = message.trim().split( WHITE_SPACE_REGEX, 2 ); // Split main command and args.
         if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Parsing command " + args );
+            LOG.info( "Parsing command " + split[0] );
         }
-        ICommand mainCommand = registry.parseCommand( args.get( 0 ) );
+        ICommand mainCommand = registry.parseCommand( split[0] );
         if ( mainCommand == null ) {
             LOG.trace( "No command found." );
             return; // No recognized command.
         }
         if ( LOG.isTraceEnabled() ) {
             LOG.trace( "Identified main command " +
-                    String.format( COMMAND_FORMAT, args.get( 0 ), mainCommand.getName() ) + "." );
+                    String.format( COMMAND_FORMAT, split[0], mainCommand.getName() ) + "." );
         }
         
         /* Get command chain */
+        List<String> args = splitArgs( ( split.length == 2 ) ? split[1] : "" );
+        if ( LOG.isInfoEnabled() ) {
+            LOG.info( "Parsing args " + args );
+        }
         List<ICommand> commands = new ArrayList<>();
         commands.add( mainCommand );
-        commands.addAll( getSubcommands( mainCommand, args.subList( 1, args.size() ) ) ); // Identify subcommands.
+        commands.addAll( getSubcommands( mainCommand, args ) ); // Identify subcommands.
         final ICommand command = commands.get( commands.size() - 1 ); // Actual command is the last
-        List<String> actualArgs = args.subList( commands.size(), args.size() );      // subcommand.
+        List<String> actualArgs = args.subList( commands.size() - 1, args.size() );  // subcommand.
         final CommandContext context = new CommandContext( event, command, actualArgs );
         if ( LOG.isTraceEnabled() ) {
             LOG.trace( "Identified command " +
-                    String.format( COMMAND_FORMAT, getCommandSignature( args, commands.size() ),
-                            command.getName() ) );
+                    String.format( COMMAND_FORMAT, getCommandSignature( split[0], args,
+                            commands.size() - 1 ), command.getName() ) );
         }
         
         /* Check if the command should be executed */
@@ -310,6 +335,40 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     }
     
     /**
+     * Splits the given argument string into a list of arguments.
+     * <p>
+     * An "argument" is considered as text preceded by either a space or the start of the string, and
+     * followed by either a space or the end of the string. Text between two double-quotes (where the first
+     * quote is preceded by either a space or the start of the string, and the second is followed by either
+     * a space or the end of the string) is considered a single argument, not including the quotes (it may
+     * have spaces within it (or other double-quotes, as long as they are followed by non-space characters).
+     *
+     * @param argString The argument string to be split.
+     * @return The arguments in the given string.
+     */
+    private List<String> splitArgs( String argString ) {
+        
+        if ( argString.isEmpty() ) {
+            return new LinkedList<>();
+        }
+        
+        argString = argString.trim(); // Ensures no trailing/leading whitespace.
+        String regex;
+        if ( argString.matches( QUOTED_ARG_REGEX )  ) { // Next argument is between quotes.
+            regex = CLOSING_QUOTE_REGEX;
+            argString = argString.substring( 1 ); // Remove the first quote.
+        } else { // Next argument ends at the next space.
+            regex = WHITE_SPACE_REGEX;
+        }
+        String[] split = argString.split( regex, 2 ); // Split off the first argument.
+        List<String> args = splitArgs( ( split.length == 2 ) ? split[1] : "" ); // Split the remaining args.
+        args.add( 0, split[0] ); // Insert first arg at the beginning.
+        
+        return args; // Return the split args.
+        
+    }
+    
+    /**
      * Obtains the subcommand chain of the given command with the given arguments.<br>
      * That is, identifies the list of subcommands that matches the arguments.
      *
@@ -366,20 +425,20 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
      * Rebuilds the signature of a command given the split args in the message and the
      * amount of commands that were parsed from it.
      *
+     * @param command The command from the message received.
      * @param args The args from the message received.
-     * @param commandAmount How many commands (main command + subcommands) are in the args.
+     * @param subCommandAmount How many subcommands are in the args.
      * @return The signature of the command.
      */
-    private static String getCommandSignature( List<String> args, int commandAmount ) {
+    private static String getCommandSignature( String command, List<String> args, int subCommandAmount ) {
         
-        Iterator<String> commands = args.iterator();
-        StringBuilder signature = new StringBuilder( commands.next() );
-        commandAmount--;
-        while ( commandAmount > 0 ) {
+        StringBuilder signature = new StringBuilder( command );
+        Iterator<String> subCommands = args.iterator();
+        while ( subCommandAmount > 0 ) {
             
             signature.append( ' ' );
-            signature.append( commands.next() );
-            commandAmount--;
+            signature.append( subCommands.next() );
+            subCommandAmount--;
             
         }
         return signature.toString();
