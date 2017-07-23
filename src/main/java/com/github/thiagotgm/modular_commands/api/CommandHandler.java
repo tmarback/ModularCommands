@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
      * Matches one or more whitespaces.
      */
     private static final String WHITE_SPACE_REGEX = "\\s+";
+    private static final Pattern WHITE_SPACE = Pattern.compile( WHITE_SPACE_REGEX );
     
     /**
      * Regex that matches a string that starts with a quote and, at some point before the end,
@@ -64,11 +66,14 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
      * quotes (starts with a quote and end with a quote, followed by a whitespace or the end of the string).
      */
     private static final String QUOTED_ARG_REGEX = "\\A\".*\"(?:" + WHITE_SPACE_REGEX + ".*)?\\Z";
+    private static final int QUOTED_ARG_FLAGS = Pattern.DOTALL;
+    private static final Pattern QUOTED_ARG = Pattern.compile( QUOTED_ARG_REGEX, QUOTED_ARG_FLAGS );
     
     /**
      * Matches a quote followed by one or more whitespaces or end of string.
      */
     private static final String CLOSING_QUOTE_REGEX = "\"(?:" + WHITE_SPACE_REGEX + "|\\Z)";
+    private static final Pattern CLOSING_QUOTE = Pattern.compile( CLOSING_QUOTE_REGEX );
     
     private final CommandRegistry registry;
     
@@ -105,7 +110,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         }
         
         /* Identify command */
-        String[] split = message.trim().split( WHITE_SPACE_REGEX, 2 ); // Split main command and args.
+        String[] split = WHITE_SPACE.split( message, 2 ); // Split main command and args.
         if ( LOG.isInfoEnabled() ) {
             LOG.info( "Parsing command " + split[0] );
         }
@@ -343,7 +348,8 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
      * a space or the end of the string) is considered a single argument, not including the quotes (it may
      * have spaces within it (or other double-quotes, as long as they are followed by non-space characters).
      *
-     * @param argString The argument string to be split.
+     * @param argString The argument string to be split. Is assumed to not have any leading or trailing
+     *                  whitespace.
      * @return The arguments in the given string.
      */
     private List<String> splitArgs( String argString ) {
@@ -352,15 +358,14 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             return new LinkedList<>();
         }
         
-        argString = argString.trim(); // Ensures no trailing/leading whitespace.
-        String regex;
-        if ( argString.matches( QUOTED_ARG_REGEX )  ) { // Next argument is between quotes.
-            regex = CLOSING_QUOTE_REGEX;
+        Pattern regex;
+        if ( QUOTED_ARG.matcher( argString ).matches() ) { // Next argument is between quotes.
+            regex = CLOSING_QUOTE;
             argString = argString.substring( 1 ); // Remove the first quote.
         } else { // Next argument ends at the next space.
-            regex = WHITE_SPACE_REGEX;
+            regex = WHITE_SPACE;
         }
-        String[] split = argString.split( regex, 2 ); // Split off the first argument.
+        String[] split = regex.split( argString, 2 ); // Split off the first argument.
         List<String> args = splitArgs( ( split.length == 2 ) ? split[1] : "" ); // Split the remaining args.
         args.add( 0, split[0] ); // Insert first arg at the beginning.
         
