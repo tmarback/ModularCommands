@@ -18,9 +18,11 @@
 package com.github.thiagotgm.modular_commands.api;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
 import sx.blah.discord.handle.obj.IChannel;
 import sx.blah.discord.handle.obj.IGuild;
@@ -53,7 +55,8 @@ public class CommandContext {
     private final IChannel channel;
     private final IGuild guild;
     private final MessageBuilder replyBuilder;
-    private Optional<?> helper;
+    private volatile Optional<?> helper;
+    private volatile List<Argument> arguments;
 
     /**
      * Builds the context for a given command triggered by the given message event.
@@ -66,7 +69,7 @@ public class CommandContext {
 
         this.command = command;
         this.event = event;
-        this.args = new ArrayList<>( args );
+        this.args = Collections.unmodifiableList( new ArrayList<>( args ) );
         this.message = event.getMessage();
         this.author = event.getAuthor();
         this.channel = event.getChannel();
@@ -77,6 +80,8 @@ public class CommandContext {
         } else { // Reply on original channel.
             this.replyBuilder.withChannel( this.channel );
         }
+        this.helper = Optional.empty();
+        this.arguments = null;
         
     }
     
@@ -103,13 +108,42 @@ public class CommandContext {
     }
     
     /**
-     * Retrieves the arguments passed in to the command.
+     * Retrieves the raw arguments passed in to the command.
+     * <p>
+     * The returned list is unmodifiable.
      *
-     * @return The list of command arguments.
+     * @return The list of (not parsed) command arguments.
+     * @see #getArguments()
      */
     public List<String> getArgs() {
         
         return args;
+        
+    }
+    
+    /**
+     * Retrieves the arguments passed in to the command, already parsed for what types of
+     * arguments they are and their associated objects.
+     * <p>
+     * The returned list is unmodifiable.
+     *
+     * @return The list of (parsed) command arguments.
+     * @see #getArgs()
+     */
+    public synchronized List<Argument> getArguments() {
+        
+        if ( arguments == null ) { // Hasn't parsed the arguments yet.
+            List<Argument> arguments = new ArrayList<>( args.size() );
+            IDiscordClient client = event.getClient();
+            for ( String arg : args ) { // Parse each argument.
+                
+                arguments.add( new Argument( arg, client ) );
+                
+            } // Store as an unmodifiable list.
+            this.arguments = Collections.unmodifiableList( arguments );
+        }
+        
+        return arguments;
         
     }
     
