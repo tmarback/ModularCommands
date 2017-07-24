@@ -2,7 +2,7 @@
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.3.0/javadoc/)
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.4.0/javadoc/)
 
 ## How to Use
 There are 2 ways to include this framework in your bot:
@@ -56,6 +56,7 @@ There are 2 ways to include this framework in your bot:
         
 ## Creating commands
 
+The main things a command needs to have are a name, a set of aliases to call it with, and an operation to perform when the command is called (which should return true if executed successfully, false otherwise).
 There are 3 ways of creating commands:
 
 1. Implementing the `ICommand` interface:
@@ -113,9 +114,10 @@ There are 3 ways of creating commands:
         }
 
         @Override
-        public void execute( CommandContext context )
+        public boolean execute( CommandContext context )
                 throws RateLimitException, MissingPermissionsException, DiscordException {
             context.getReplyBuilder().withContent( "pong!" ).build();
+            return true;
         }
 
     }
@@ -134,6 +136,7 @@ There are 3 ways of creating commands:
                                .withPrefix( "?" ) // Do not use if building a subcommand!
                                .onExecute( (context) -> {
                                    context.getReplyBuilder().withContent( "pong!" ).build();
+                                   return true;
                                })
                                .build();
    ```
@@ -154,6 +157,7 @@ There are 3 ways of creating commands:
     }
     ```
     Again, makes the same command. Will also use the default implementation, `Command`.
+    However, note that this method has a return type of `void` while the interface specifies that the `execute()` method returns boolean. If an annotated method has no return or returns something other than a boolean, the `execute()` method of the command generated from that method will always return true (operation is successful as long as it doesn't throw an exception).
 
 ## Command Registries
 In order to add a command, you're first going to need a `CommandRegistry` to add it to.
@@ -262,20 +266,46 @@ To create a subcommand, you just create a normal command, but specify that it is
 
 Also worth noting that subcommands can specify their own subcommands, which work in the same way, but using the subcommand's args.
 
-By default, if one or more subcommands are identified, only the last subcommand is executed. So if the message was `?do stuff here right now`, and there are (sub)commands for `?do`, `?do stuff`, `?do stuff here`, `?do stuff here right`, and `?do stuff here right now` (note that the last is a subcommand of the second to last, which is a subcommand of the one before, so on so forth), only the latter one would be executed. However, a subcommand can have the `executeParent` property be true to specify that, whenever it is called, its parent is also called. This behaviour is chained, so if its parent also has this property as true, its parent would also be called, and so on so forth. In these cases, the first to be called would be the first ancestor of the last subcommand that has the `executeParent` property as false (or the main command if all subcommands have it as true). So, in the example mentioned, if both `?do stuff here right` and `?do stuff here right now` had the `executeParent` property as true, but not `?do stuff here`, the commands that would end up being executed would be `?do stuff here`, `?do stuff here right`, and `?do stuff here right now`, in that order. All the properties that would be used, however, are the ones set in the most specific subcommand (`?do stuff here right now`).
+By default, if one or more subcommands are identified, only the last subcommand is executed. So if the message was `?do stuff here right now`, and there are (sub)commands for `?do`, `?do stuff`, `?do stuff here`, `?do stuff here right`, and `?do stuff here right now` (note that the last is a subcommand of the second to last, which is a subcommand of the one before, so on so forth), only the latter one would be executed. However, a subcommand can have the `executeParent` property be true to specify that, whenever it is called, its parent is also called. This behaviour is chained, so if its parent also has this property as true, its parent would also be called, and so on so forth. In these cases, the first to be called would be the first ancestor of the last subcommand that has the `executeParent` property as false (or the main command if all subcommands have it as true). So, in the example mentioned, if both `?do stuff here right` and `?do stuff here right now` had the `executeParent` property as true, but not `?do stuff here`, the commands that would end up being executed would be `?do stuff here`, `?do stuff here right`, and `?do stuff here right now`, in that order. All the properties that would be used, however, are the ones set in the most specific subcommand (`?do stuff here right now`). If any of the commands being executed fail (`execute()` returns false), however, execution stops.
 
 If there are more than one subcommand with an alias that matches the first argument, the one with the highest `priority` will be given precedence, and in case of a tie the one whose `name` comes first lexicographically is given precedence (same as how precedence is given in conflicts between main commands).
 
 OBS: Like for main commands, if a subcommand has lower precedence than another subcommand in a signature conflict, it effectively loses that signature (other signatures it may have that are not part of the conflict are not affected), even if the subcommand that replaces it is disabled.
 
 ## Command Execution
-Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called. If the command was made through a `CommandBuilder`, this means that the `Executor` specified with `CommandBuilder#onExecute(Executor)` is called. If made by marking a method with an annotation, the marked method is called for the instance that was given when registering the commands.
+Whenever a command is triggered by a message and executed, its `ICommand#execute(CommandContext)` method will be called. If the command was made through a `CommandBuilder`, this means that the `Predicate` specified with `CommandBuilder#onExecute(Predicate<CommandContext>)` is called. If made by marking a method with an annotation, the marked method is called for the instance that was given when registering the commands. The execution should return true or false to mark if the command was executed successfully (if made through an annotated method, the method may return void or something other than a boolean, in which case `ICommand#execute(CommandContext)` always returns true).
 
-The `CommandContext` given can provide all the important information about the command, such as who called it, where it was called from, its args, etc (it also provides the MessageReceivedEvent and corresponding IMessage that triggered the command, and the called ICommand itself, if you need it). It also provides a ready-made `MessageBuilder` for a reply (whether it is set to the same channel the message came from or a private channel to the message sender depends on the `replyPrivately` setting of the command that was called [more precisely, the most specific subcommand]). If the parent commands of a subcommand are also executed (see the `Subcommands` section), they will all receive the _exact same_ CommandContext as the most specific subcommand. This means that the args will not include any of their aliases, and they are all given the same `MessageBuilder`. However, the `CommandContext` also provides a way to store any `Object` inside it and retrieve it later, so if you want to do some common processing in a certain command and get the results in its subcommands, you can store that result in the `CommandContext` as a single object and retrieve it later (don't forget to cast it back) when the subcommand is executed! (also don't forget to specify in the subcommands that the parent should be executed).
+If, in your execution method, you need to call a method that throws `RateLimitException`, `MissingPermissionsException`, or `DiscordException`, you are encouraged to just let it float up (note that the `execute` method declares all those exceptions). Particularly for `RateLimitException`s, the command is called through Discord4J's request builder, so if you let it float up the execution will be reattempted automatically (so seriously, don't bother catching those if you don't have a reason to). The other exceptions are logged automatically. Runtime exceptions may also be floated up. Any of these exceptions that are thrown by the execution method can be handled later in the failure handler (described below).
 
-If, in your execution method, you need to call a method that throws `RateLimitException`, `MissingPermissionsException`, or `DiscordException`, you are encouraged to just let it float up (note that the `execute` method declares all those exceptions). Particularly for `RateLimitException`s, the command is called through Discord4J's request builder, if you let it float up the execution will be reattempted automatically (so seriously, don't bother catching those). The other exceptions are logged automatically.
+The `CommandContext` given can provide all the important information about the command, such as who called it, where it was called from, its args, etc (it also provides the MessageReceivedEvent and corresponding IMessage that triggered the command, and the called ICommand itself, if you need it). It also provides a ready-made `MessageBuilder` for a reply (whether it is set to the same channel the message came from or a private channel to the message sender depends on the `replyPrivately` setting of the command that was called [more precisely, the most specific subcommand]). If the parent commands of a subcommand are also executed (see the `Subcommands` section), they will all receive the _exact same_ CommandContext as the most specific subcommand. This means that the args will not include any of their aliases, and they are all given the same `MessageBuilder`. The `CommandContext` also provides a way to store any `Object` inside it and retrieve it later, so if you want to do some common processing in a certain command and get the results in its subcommands, you can store that result in the `CommandContext` as a single object and retrieve it later (don't forget to cast it back) when the subcommand is executed! (also don't forget to specify in the subcommands that the parent should be executed).
 
-If the command fails for some expected reason (`MissingPermissions` or `Discord` exceptions, user that called the command does not have all required permissions, etc), the command's `ICommand#onFailure(CommandContext,FailureReason)` method will be called, being given the context of the command and a value of the `FailureReason` enum that identifies why exactly it failed, and you can use that if you want to do something in case of those expected failures. Oppositely, if the command is successfully executed, the `ICommand#onSuccess(CommandContext)` method will be called (after the delay given by the command's `onSuccessDelay` property), so you can use it if you need to do some post-processing when the command was successfully executed. Again, don't catch `RateLimitException`s for the same reason, and you can let `MissingPermissions` and `Discord` exceptions float up to be auto-logged. With the `CommandBuilder`, these operations can be specified with `CommandBuilder#onSuccess(Executor)` and `CommandBuilder#onFailure(FailureHandler)`.
+When parsing the command, the arguments are split around whitespaces (including tabs, line breaks, etc). However, an argument may include whitespaces if it is between quotes. Anything preceded by a double-quote (which is preceded by a whitespace) and followed by another double-quote (followed by a whitespace or the end of the message) is considered a single argument. Examples (main command ommited):
+
+- `this is an arg` => `this`, `is`, `an`, `arg`  
+- `"this is an arg"`=> `this is an arg`  
+- `"multiple words" single word` => `multiple words`, `single`, `word`  
+- `line\nbreak\n"line\nbreak"` => `line`, `break`, `line\nbreak`  
+- `"missing closing quote` => `"missing`, `closing`, `quote`  
+- `"quote followed by"text` => `"quote`, `followed`, `by"text`  
+- `"two closing" quotes"` => `two closing`, `quotes"`  
+- `" four quotes " in " this message "` -> ` four quotes `, `in`, ` this message `  
+- `"one two"three four"` => `one two"three four`  
+- `extra_____spaces` => `extra`, `spaces`
+- `"extra_____spaces"` => `extra_____spaces`
+
+OBS: `\n` = line break  
+OBS2:  `_` = ` `, eg underscores represent spaces  
+The first word in the message (the main command signature) is exempt from this and will always end at the first whitespace. Subcommands are not, however, so a subcommand alias with a space can be called by putting it between quotes in the message.
+
+- `"?command arg"` => Main command: `"?command`, args: `arg"`  
+- `?command "sub command"` => Main command: `?command`, subcommand: `sub command`
+
+OBS: Leading and trailing whitespace in the message is ignored.
+
+The `CommandContext` provides two ways to retrieve the arguments. `CommandContext#getArgs()` will just return the text of each argument as received in the message. `CommandContext#getArguments()` returns each argument as an `Argument`, which is a parsed form of the argument that identifies what type of argument it is (just text, a mention to a user, a mention to a role, an emoji, etc) and can provide the associated object (the `String` if just text, the mentioned `IUser` or `IRole`, the `Emoji`/`IEmoji`, etc). It also has the text form of the argument (that was in the message) if necessary. See the documentation of `Argument` for all the supported types of arguments and the associated return types.
+
+If the command fails for some reason (exception other than `RateLimitException` was thrown by the operation [`execute()`], user that called the command does not have all required permissions, operaton failed [`execute()` returned false], etc), the command's `ICommand#onFailure(CommandContext,FailureReason)` method will be called, being given the context of the command and a value of the `FailureReason` enum that identifies why exactly it failed, and you can use that if you want to do something in case of those expected failures. Oppositely, if the command is successfully executed, the `ICommand#onSuccess(CommandContext)` method will be called (after the delay given by the command's `onSuccessDelay` property), so you can use it if you need to do some post-processing when the command was successfully executed. Again, don't catch `RateLimitException`s for the same reason, and you can let `MissingPermissions` and `Discord` exceptions float up to be auto-logged. With the `CommandBuilder`, these operations can be specified with `CommandBuilder#onSuccess(Consumer<CommandContext>)` and `CommandBuilder#onFailure(BiConsumer<CommandContext,FailureReason>)`.  
+OBS: If the failure was due to an exception being thrown by `execute()` other than a Discord4J exception (`MissingPermissionsException` or `DiscordException`), the exception will be stored in the `CommandContext` as the helper object.
 
 With annotations, a method with the appropriate arguments (`CommandContext` for success handler, `CommandContext, FailureReason` for failure handler) can be marked with the `@SuccessHandler(<name>)` or `@FailureHandler(<name>)` annotation to use it as a handler. Then, the annotated commands can just use the name of the desired handler (from the same class, unless registered as a static handler, explained later) in the `successHandler`/`failureHandler` member of the annotation (both main and sub commands support it). If you want to use a method as success/failure handler for annotated commands from more than one class, you can make the method `static`, then give the class (instead of an instance) to `AnnotationParser#registerAnnotatedHandlers(Class<?>)`. Then, those static handlers will be used whenever an annotated command in any object includes their names as handlers and there aren't any non-static handlers with the same name declared in that object.
 
