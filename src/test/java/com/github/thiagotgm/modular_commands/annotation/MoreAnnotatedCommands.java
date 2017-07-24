@@ -21,7 +21,13 @@ import com.github.thiagotgm.modular_commands.api.Argument;
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
 import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
+import com.vdurmont.emoji.Emoji;
 
+import sx.blah.discord.handle.obj.IChannel;
+import sx.blah.discord.handle.obj.IEmoji;
+import sx.blah.discord.handle.obj.IInvite;
+import sx.blah.discord.handle.obj.IRole;
+import sx.blah.discord.handle.obj.IUser;
 import sx.blah.discord.util.MessageBuilder;
 
 public class MoreAnnotatedCommands {
@@ -36,7 +42,42 @@ public class MoreAnnotatedCommands {
         MessageBuilder builder = context.getReplyBuilder().withContent( "Arguments:" );
         for ( Argument arg : context.getArguments() ) {
             
-            builder.appendContent( "\n\"`" + arg.getArgument() + "`\" (" + arg.getType() + ")" );
+            builder.appendContent( "\n\"`" + arg.getArgument() + "`\" (" + arg.getType() +
+                    ") -> " );
+            String str = "";
+            switch ( arg.getType() ) {
+                
+                case TEXT:
+                    str = (String) arg.getArgument();
+                    break;
+                case USER_MENTION:
+                    str = ( (IUser) arg.getArgument() ).mention();
+                    break;
+                case ROLE_MENTION:
+                    str = ( (IRole) arg.getArgument() ).mention();
+                    break;
+                case CHANNEL_MENTION:
+                    str = ( (IChannel) arg.getArgument() ).mention();
+                    break;
+                case UNICODE_EMOJI:
+                    str = ( (Emoji) arg.getArgument() ).getUnicode();
+                    break;
+                case CUSTOM_EMOJI:
+                    IEmoji emoji = (IEmoji) arg.getArgument();
+                    str = emoji + " from " + emoji.getGuild().getName();
+                    break;
+                case UNRECOGNIZED_CUSTOM_EMOJI:
+                    str = ":" + arg.getArgument() + ":";
+                    break;
+                case INVITE:
+                    IInvite invite = (IInvite) arg.getArgument();
+                    str = "Invite to " + invite.getChannel() +
+                            " in " + invite.getGuild().getName() + " by " +
+                            invite.getInviter();
+                    break;
+                
+            }
+            builder.appendContent( str );
             
         }
         builder.build();

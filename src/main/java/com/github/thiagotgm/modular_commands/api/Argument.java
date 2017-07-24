@@ -109,9 +109,16 @@ public class Argument {
          * <p>
          * OBS: Only custom emojis that can be accessed by the bot (eg ones that come from
          * guilds that the bot is part of) can be recognized. Custom emojis that cannot be
-         * accessed by the bot are treated as text.
+         * accessed by the bot are marked as {@link #UNRECOGNIZED_CUSTOM_EMOJI}.
          */
         CUSTOM_EMOJI,
+        
+        /**
+         * Argument is a custom emoji that could not be recognized by the bot (is from
+         * a guild that the bot is not in). {@link Argument#getArgument() getArgument()}
+         * will return a {@link String} that is the name of the emoji.
+         */
+        UNRECOGNIZED_CUSTOM_EMOJI,
         
         /**
          * Argument is an invite into a channel. {@link Argument#getArgument() getArgument()}
@@ -212,9 +219,9 @@ public class Argument {
             if ( emoji != null ) { // Found emoji.
                 this.argument = emoji;
                 this.type = Type.CUSTOM_EMOJI;
-            } else { // Could not find emoji. Treat as text.
-                this.argument = arg;
-                this.type = Type.TEXT;
+            } else { // Could not find emoji. Mark as unrecognized.
+                this.argument = matcher.group( 1 ); // Store name of the emoji.
+                this.type = Type.UNRECOGNIZED_CUSTOM_EMOJI;
             }
             return;
         }
