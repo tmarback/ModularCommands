@@ -50,7 +50,6 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     private static final String COMMAND_FORMAT = "\"%s\" (\"%s\")";
     private static final String COMMAND_TRACE_FORMAT = "\"%s\" called by \"%s\" in channel \"%s\" on server \"%s\"";
    
-    
     /**
      * Matches one or more whitespaces.
      */
