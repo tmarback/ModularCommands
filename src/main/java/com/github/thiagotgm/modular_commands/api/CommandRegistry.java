@@ -356,9 +356,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     public void setPrefix( String prefix ) {
         
         this.prefix = prefix;
-        if ( LOG.isDebugEnabled() ) {
-            LOG.debug( "Setting prefix of \"" + getQualifiedName() + "\" to \"" + prefix + "\"." );
-        }
+        LOG.debug( "Setting prefix of \"{}\" to \"{}\".", getQualifiedName(), prefix );
+        setLastChanged( System.currentTimeMillis() );
         
     }
     
@@ -853,6 +852,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * <ul>
      *   <li>Registering or de-registering a command;</li>
      *   <li>Registering or de-registering a subregistry.</li>
+     *   <li>Changing the prefix of the subregistry.</li>
      * </ul>
      *
      * @return The time of the last change, in milliseconds from epoch.
