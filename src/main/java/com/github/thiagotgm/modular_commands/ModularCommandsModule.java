@@ -38,15 +38,15 @@ public class ModularCommandsModule implements IModule {
     private static final String MODULE_NAME = "Modular Commands";
     
     private static final String VERSION_FILE = "ModularCommandsVersion.txt";
-    private static String moduleVersion;
-    private static String d4jVersion;
+    private static final String MODULE_VERSION;
+    private static final String D4J_VERSION;
     
-    {
+    static {
         
         Scanner in = new Scanner( ModularCommandsModule.class.getClassLoader()
                 .getResourceAsStream( VERSION_FILE ) );
-        moduleVersion = in.nextLine(); // Read project version.
-        d4jVersion = in.nextLine(); // Read D4J version.
+        MODULE_VERSION = in.nextLine(); // Read project version.
+        D4J_VERSION = in.nextLine(); // Read D4J version.
         in.close();
         
     }
@@ -84,7 +84,7 @@ public class ModularCommandsModule implements IModule {
     @Override
     public String getMinimumDiscord4JVersion() {
 
-        return d4jVersion;
+        return D4J_VERSION;
         
     }
 
@@ -98,7 +98,7 @@ public class ModularCommandsModule implements IModule {
     @Override
     public String getVersion() {
 
-        return moduleVersion;
+        return MODULE_VERSION;
         
     }
 
