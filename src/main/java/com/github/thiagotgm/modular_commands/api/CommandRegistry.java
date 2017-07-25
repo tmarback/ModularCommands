@@ -71,7 +71,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     private volatile CommandRegistry parentRegistry;
     private final Map<String, CommandRegistry> subRegistries;
-    private static final Map<IDiscordClient, CommandRegistry> registries =
+    private static final Map<IDiscordClient, ClientCommandRegistry> registries =
             Collections.synchronizedMap( new HashMap<>() );
     
     /**
@@ -98,12 +98,13 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * @return The registry linked to the given client.
      * @throws NullPointerException if the client passed in is null.
      */
-    public static CommandRegistry getRegistry( IDiscordClient client ) throws NullPointerException {
+    public static ClientCommandRegistry getRegistry( IDiscordClient client )
+            throws NullPointerException {
         
         if ( client == null ) {
             throw new NullPointerException( "Client argument cannot be null." );
         }        
-        CommandRegistry registry = registries.get( client );
+        ClientCommandRegistry registry = registries.get( client );
         if ( registry == null ) { // Registry not found, create one.
             registry = new ClientCommandRegistry( client );
             registries.put( client, registry );
@@ -139,7 +140,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *         such registry.
      * @throws NullPointerException if the client passed in is null.
      */
-    public static CommandRegistry removeRegistry( IDiscordClient client ) throws NullPointerException {
+    public static ClientCommandRegistry removeRegistry( IDiscordClient client )
+            throws NullPointerException {
         
         if ( client == null ) {
             throw new NullPointerException( "Client argument cannot be null." );
