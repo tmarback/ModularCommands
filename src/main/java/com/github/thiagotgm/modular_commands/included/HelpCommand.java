@@ -20,19 +20,24 @@ package com.github.thiagotgm.modular_commands.included;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
+import java.util.Stack;
 import java.util.TreeSet;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
+import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
+import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.handle.obj.IMessage;
 import sx.blah.discord.util.MessageBuilder;
+import sx.blah.discord.util.RequestBuilder;
 
 /**
  * Command that displays the commands currently registered and info about each of them.
@@ -44,13 +49,17 @@ import sx.blah.discord.util.MessageBuilder;
 public class HelpCommand {
     
     public static final String MAIN_COMMAND_NAME = "Default Help Command";
+    private static final String REGISTRY_LIST_SUBCOMMAND_NAME = "Registry List";
     
     private static final String BLOCK_PREFIX = "```java\n";
     private static final String BLOCK_SUFFIX = "```";
     private static final int BLOCK_EXTRA = BLOCK_PREFIX.length() + BLOCK_SUFFIX.length();
+    private static final int BLOCK_SIZE = IMessage.MAX_MESSAGE_LENGTH - BLOCK_EXTRA;
     private static final String LIST_TITLE = "[COMMAND LIST]\n";
+    private static final String SUBREGISTRY_TITLE = "[%s (%s) COMMAND LIST]\n";
+    private static final String SUBREGISTRY_PATH_DELIMITER = "::";
     
-    private CommandRegistry registry;
+    private ClientCommandRegistry registry;
     private volatile long lastUpdated;
     private Map<ICommand, List<String>> buffer;
 
@@ -112,7 +121,7 @@ public class HelpCommand {
      *
      * @param curRegistry The registry that the command is currently registered to.
      */
-    private synchronized void ensureUpdatedBuffer( CommandRegistry curRegistry ) {
+    private synchronized void ensureUpdatedBuffer( ClientCommandRegistry curRegistry ) {
         
         if ( ( registry != curRegistry ) || // Registry updated or changed registries
              ( registry.getLastChanged() > lastUpdated ) ) { // since last buffer was made.
@@ -149,12 +158,17 @@ public class HelpCommand {
     /**
      * Formats a collection of commands into a list, where each line describes a
      * single command.
+     * <p>
+     * All blocks are small enough to fit into a single message with the {@link #BLOCK_PREFIX} and
+     * {@link #BLOCK_SUFFIX}. If the first block needs to be smaller, the reduction to its maximum
+     * size can be specified.
      *
      * @param commands The commands to make a list of.
-     * @return The formatted command list.
+     * @param firstBlockReduction How much the maximum size of the first block is smaller than the
+     *                            normal block size.
+     * @return The formatted command list split in blocks.
      */
-    private List<String> formatCommandList( Collection<ICommand> commands, int firstBlockLength,
-            int otherBlockLength ) {
+    private List<String> formatCommandList( Collection<ICommand> commands, int firstBlockReduction ) {
         
         /* Gets the formatted commands and sorts them */
         SortedSet<String> commandStrings = new TreeSet<>();
@@ -170,13 +184,13 @@ public class HelpCommand {
         /* Adds all formatted commands into different lines */
         List<String> blocks = new ArrayList<>();
         StringBuilder builder = new StringBuilder();
-        int maxBlockLength = firstBlockLength;
+        int maxBlockLength = BLOCK_SIZE - firstBlockReduction;
         for ( String commandString : commandStrings ) {
             
             if ( ( builder.length() + commandString.length() + 1 ) > maxBlockLength ) {
                 // Reached max block length.
                 if ( blocks.isEmpty() ) { // Update max lenght to the other blocks.
-                    maxBlockLength = otherBlockLength;
+                    maxBlockLength = BLOCK_SIZE;
                 }
                 blocks.add( builder.toString() ); // Record current block.
                 builder = new StringBuilder(); // Start another block.
@@ -196,15 +210,19 @@ public class HelpCommand {
     @MainCommand(
             name = MAIN_COMMAND_NAME,
             aliases = { "help" },
+            description = "Displays all the registered commands. If a command signature is specified, "
+                    + "displays information about that command.",
+            usage = "{}help [(command signature), name, registries]",
             essential = true,
-            replyPrivately = false,
+            replyPrivately = true,
             overrideable = false,
-            canModifySubCommands = false
+            canModifySubCommands = false,
+            subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME }
             )
     public void helpCommand( CommandContext context ) {
         
         IDiscordClient client = context.getEvent().getClient();
-        CommandRegistry curRegistry = CommandRegistry.getRegistry( client );
+        ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
         ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
         
         if ( !context.getCommand().getName().equals( MAIN_COMMAND_NAME ) ) {
@@ -212,16 +230,97 @@ public class HelpCommand {
         }
         
         if ( context.getArgs().isEmpty() ) {
-            int blockSize = IMessage.MAX_MESSAGE_LENGTH - BLOCK_EXTRA;
-            int firstBlockSize = blockSize - LIST_TITLE.length();
-            List<String> blocks = formatCommandList( registry.getCommands(), firstBlockSize, blockSize );
+            RequestBuilder request = new RequestBuilder( this.registry.getClient() )
+                    .shouldBufferRequests( true );
+            List<String> blocks = formatCommandList( registry.getCommands(), LIST_TITLE.length() );
             MessageBuilder builder = context.getReplyBuilder();
-            builder.withContent( BLOCK_PREFIX + LIST_TITLE + blocks.get( 0 ) + BLOCK_SUFFIX ).build();
+            final String first = BLOCK_PREFIX + LIST_TITLE + blocks.get( 0 ) + BLOCK_SUFFIX;
+            request.doAction( () -> {
+                builder.withContent( first ).build();
+                return true;
+            });
             for ( int i = 1; i < blocks.size(); i++ ) {
                 
-                builder.withContent( BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX ).build();
+                final String next = BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX;
+                request.andThen( () -> {
+                    builder.withContent( next ).build();
+                    return true;
+                });
+                builder.withContent( next ).build();
                 
             }
+            request.execute();
+        }
+        
+    }
+    
+    @SubCommand(
+            name = REGISTRY_LIST_SUBCOMMAND_NAME,
+            aliases = { "registries" },
+            description = "Displays all the registered commands, categorized by the subregistries "
+                    + "that they are registered in.",
+            usage = "{}help registries",
+            essential = true,
+            replyPrivately = true,
+            canModifySubCommands = false,
+            executeParent = true
+            )
+    public void moduleListCommand( CommandContext context ) {
+        
+        Stack<CommandRegistry> registries = new Stack<>();
+        registries.push( registry );
+        final MessageBuilder builder = context.getReplyBuilder();
+        
+        while ( !registries.isEmpty() ) { // For each registry.
+            
+            CommandRegistry registry = registries.pop();
+            RequestBuilder request = new RequestBuilder( this.registry.getClient() )
+                    .shouldBufferRequests( true );
+            
+            /* Get registry path */
+            String path;
+            if ( registry.getRegistry() != null ) { // Not root registry.
+                List<String> pathList = new LinkedList<>();
+                CommandRegistry cur = registry;
+                while ( cur != this.registry ) { // Get all parents except root
+                    
+                    pathList.add( 0, cur.getName() ); // Add parent to beginning of pathlist.
+                    cur = cur.getRegistry();
+                    
+                }
+                path = String.join( SUBREGISTRY_PATH_DELIMITER, pathList );
+            } else { // Root registry.
+                path = "Core";
+            }
+            
+            /* Makes and sends the command list for the current registry */
+            String title = String.format( SUBREGISTRY_TITLE, path, registry.getQualifier() );
+            List<String> blocks = formatCommandList( registry.getRegisteredCommands(), title.length() );
+            builder.withContent( title );
+            final String first = BLOCK_PREFIX + title + blocks.get( 0 ) + BLOCK_SUFFIX;
+            request.doAction( () -> {
+                builder.withContent( first ).build();
+                return true;
+            });
+            for ( int i = 1; i < blocks.size(); i++ ) {
+                
+                final String next = BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX;
+                request.andThen( () -> {
+                    builder.withContent( next ).build();
+                    return true;
+                });
+                builder.withContent( next ).build();
+                
+            }
+            request.execute();
+            
+            System.out.println( registry.getSubRegistries() );
+            for ( CommandRegistry subRegistry : registry.getSubRegistries() ) {
+                // Add each subregistry to the stack.
+                registries.push( subRegistry );
+                
+            }
+            
         }
         
     }
