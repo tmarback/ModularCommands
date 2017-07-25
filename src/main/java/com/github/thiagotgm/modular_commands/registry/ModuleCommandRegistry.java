@@ -18,6 +18,7 @@
 package com.github.thiagotgm.modular_commands.registry;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
+import com.github.thiagotgm.modular_commands.registry.annotation.Essential;
 
 import sx.blah.discord.modules.IModule;
 
@@ -48,7 +49,12 @@ public class ModuleCommandRegistry extends CommandRegistry {
             throw new NullPointerException( "Linked module cannot be null." );
         }
         this.module = module;
-        this.essential = false;
+        
+        if ( module.getClass().isAnnotationPresent( Essential.class ) ) {
+            this.essential = true; // Marked to be initialized as essential.
+        } else {
+            this.essential = false;
+        }
 
     }
     
