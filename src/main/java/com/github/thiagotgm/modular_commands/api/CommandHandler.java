@@ -98,10 +98,6 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     @Override
     public void handle( MessageReceivedEvent event ) {
         
-        if ( event.getAuthor().equals( event.getClient().getOurUser() ) ) {
-            return; // Ignores own messages.
-        }
-        
         if ( event.getMessage().getWebhookLongID() != 0 ) {
             return; // Ignore webhooks.
         }
