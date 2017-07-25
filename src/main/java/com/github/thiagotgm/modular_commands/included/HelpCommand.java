@@ -150,6 +150,9 @@ public class HelpCommand {
         }
         String signatures = signatureList.toString(); // Get signature list.
         StringBuilder builder = new StringBuilder();
+        if ( !command.isEffectivelyEnabled() ) {
+            builder.append( "[DISABLED] " );
+        }
         builder.append( signatures, 1, signatures.length() - 1 ); // Remove brackets.
         builder.append( " - " );
         builder.append( command.getDescription() );
@@ -454,6 +457,9 @@ public class HelpCommand {
             
             /* Makes and sends the command list for the current registry */
             String title = String.format( SUBREGISTRY_TITLE, path, registry.getQualifier() );
+            if ( !registry.isEffectivelyEnabled() ) {
+                title = "[DISABLED] " + title;
+            }
             List<String> blocks = formatCommandList( registry.getRegisteredCommands(), title.length() );
             builder.withContent( title );
             final String first = BLOCK_PREFIX + title + blocks.get( 0 ) + BLOCK_SUFFIX;
