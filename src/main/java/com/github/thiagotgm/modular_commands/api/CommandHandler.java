@@ -101,6 +101,10 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
         if ( event.getAuthor().equals( event.getClient().getOurUser() ) ) {
             return; // Ignores own messages.
         }
+        
+        if ( event.getMessage().getWebhookLongID() != 0 ) {
+            return; // Ignore webhooks.
+        }
 
         /* Get command and args */
         String message = event.getMessage().getContent().trim();
