@@ -770,13 +770,15 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * whose signature matches the signature given.
      *
      * @param signature Signature to be matched.
+     * @param enableLogging Whether log messages should be enabled. Set this to false when doing
+     *                      multiple queries programmatically to avoid even more spam at the trace level.
      * @return The command with the given signature, or null if none found in this registry or
      *         one of its subregistries.
      */
-    public ICommand parseCommand( String signature ) {
+    public ICommand parseCommand( String signature, boolean enableLogging ) {
         
-        if ( LOG.isTraceEnabled() ) {
-            LOG.trace( "Parsing \"" + signature + "\" in registry \"" + getQualifiedName() + "\"." );
+        if ( enableLogging ) {
+            LOG.trace( "Parsing \"{}\" in registry \"{}\".", signature, getQualifiedName() );
         }
         ICommand command = null;
         
@@ -797,9 +799,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             }
         }
         if ( ( command != null ) && !command.isOverrideable() ) {
-            if ( LOG.isTraceEnabled() ) {
-                LOG.trace( "Registry \"" + getQualifiedName() + "\" found: \"" +
-                        command.getName() + "\" (not overrideable)." );
+            if ( enableLogging ) {
+                LOG.trace( "Registry \"{}\" found: \"{}\" (not overrideable).", getQualifiedName(),
+                        command.getName() );
             }
             return command; // Found a command and it can't be overriden.
         }
@@ -808,7 +810,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         ICommand subCommand = null;
         for ( CommandRegistry subRegistry : getSubRegistries() ) {
 
-            ICommand candidate = subRegistry.parseCommand( signature );
+            ICommand candidate = subRegistry.parseCommand( signature, enableLogging );
             if ( ( candidate != null ) && ( ( subCommand == null ) || ( candidate.compareTo( subCommand ) < 0 ) ) ) {
                 subCommand = candidate; // Keeps it if it has higher precedence than the current command.
             }
@@ -818,12 +820,29 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             command = subCommand; // A command from a subregistry always has higher precedence than
         }                         // the current registry.
         
-        if ( LOG.isTraceEnabled() ) {
-            LOG.trace( "Registry \"" + getQualifiedName() + "\" found: " +
-                    ( ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) ) + "." );
+        if ( enableLogging && LOG.isTraceEnabled() ) {
+            LOG.trace( "Registry \"{}\" found: {}.", getQualifiedName(),
+                    ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) );
         }
         return command; // Returns what was found in this registry. Will be null if not found in this
                         // registry.        
+    }
+    
+    /**
+     * Retrieves the command, in this registry or one of its subregistries (recursively),
+     * whose signature matches the signature given.
+     * <p>
+     * Logging is enabled through this method.
+     *
+     * @param signature Signature to be matched.
+     * @return The command with the given signature, or null if none found in this registry or
+     *         one of its subregistries.
+     * @see #parseCommand(String, boolean)
+     */
+    public ICommand parseCommand( String signature ) {
+        
+        return parseCommand( signature, true );
+        
     }
     
     /**
