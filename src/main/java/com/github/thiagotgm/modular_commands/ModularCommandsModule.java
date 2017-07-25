@@ -21,6 +21,7 @@ import java.util.Scanner;
 
 import com.github.thiagotgm.modular_commands.api.CommandHandler;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
+import com.github.thiagotgm.modular_commands.included.HelpCommand;
 
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
@@ -67,9 +68,14 @@ public class ModularCommandsModule implements IModule {
     @Override
     public boolean enable( IDiscordClient arg0 ) {
 
-        handler = new CommandHandler( CommandRegistry.getRegistry( arg0 ) );
+        CommandRegistry registry = CommandRegistry.getRegistry( arg0 );
+        handler = new CommandHandler( registry );
         arg0.getDispatcher().registerListener( handler ); // Create a handler and register it.
         client = arg0;
+        
+        /* Register default commands */
+        registry.registerAnnotatedCommands( new HelpCommand() );
+        
         return true;
         
     }

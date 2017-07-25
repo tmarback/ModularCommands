@@ -35,7 +35,9 @@ public class AnnotatedCommands {
             name = "Annotated main command",
             aliases = { "ano" },
             subCommands = { "Annotated sub command" },
-            successHandler = "handle"
+            successHandler = "handle",
+            description = "This is a sample command.",
+            usage = "?ano"
             )
     public void reply( CommandContext context ) {
         
