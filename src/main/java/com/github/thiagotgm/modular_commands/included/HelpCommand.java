@@ -20,6 +20,7 @@ package com.github.thiagotgm.modular_commands.included;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -50,14 +51,17 @@ public class HelpCommand {
     
     public static final String MAIN_COMMAND_NAME = "Default Help Command";
     private static final String REGISTRY_LIST_SUBCOMMAND_NAME = "Registry List";
+    private static final String PUBLIC_HELP_SUBCOMMAND_NAME = "Public Default Help Command";
     
     private static final String BLOCK_PREFIX = "```java\n";
     private static final String BLOCK_SUFFIX = "```";
     private static final int BLOCK_EXTRA = BLOCK_PREFIX.length() + BLOCK_SUFFIX.length();
     private static final int BLOCK_SIZE = IMessage.MAX_MESSAGE_LENGTH - BLOCK_EXTRA;
+    
     private static final String LIST_TITLE = "[COMMAND LIST]\n";
     private static final String SUBREGISTRY_TITLE = "[%s (%s) COMMAND LIST]\n";
     private static final String SUBREGISTRY_PATH_DELIMITER = "::";
+    private static final String COMMAND_TITLE = "[COMMAND DETAILS]\n";
     
     private ClientCommandRegistry registry;
     private volatile long lastUpdated;
@@ -132,7 +136,7 @@ public class HelpCommand {
     }
     
     /**
-     * Formats the command into a single line that shortly describes it.
+     * Formats a command into a single line that shortly describes it.
      *
      * @param command The command to format.
      * @return A string that describes the command in a single line, or null if the command has
@@ -142,15 +146,129 @@ public class HelpCommand {
         
         List<String> signatureList = buffer.get( command );
         if ( signatureList.isEmpty() ) {
-            return null;
+            return null; // Command has no callable signatures.
         }
         String signatures = signatureList.toString(); // Get signature list.
         StringBuilder builder = new StringBuilder();
         builder.append( signatures, 1, signatures.length() - 1 ); // Remove brackets.
-        builder.append( " - \"" );
-        builder.append( command.getName() );
-        builder.append( "\" - " );
+        builder.append( " - " );
         builder.append( command.getDescription() );
+        return builder.toString();
+        
+    }
+    
+    /**
+     * Formats a command into all the information a user might need.
+     *
+     * @param command The command to format.
+     * @param parent The parent command. Can be just null if the command is a main command.
+     * @param mainCommand The parent of the command that is a main command. Can be the command itself.
+     * @return The string that fully describes the command.
+     */
+    private String formatCommandLong( ICommand command, ICommand parent, ICommand mainCommand ) {
+        
+        /* Add command name */
+        StringBuilder builder = new StringBuilder( "Name: " );
+        builder.append( command.getName() );
+        builder.append( '\n' );
+        
+        /* Add command prefix if this is a main command and has one */
+        if ( !command.isSubCommand() ) {
+            String prefix = command.getPrefix();
+            if ( prefix != null ) {
+                builder.append( "Prefix: " );
+                builder.append( prefix );
+                builder.append( '\n' );
+            }
+        }
+        
+        /* Add aliases */
+        List<String> aliases = new ArrayList<>( command.getAliases().size() );
+        String effectivePrefix = mainCommand.getEffectivePrefix();
+        if ( command.isSubCommand() ) {
+            for ( String alias : command.getAliases() ) {
+                
+                if ( parent.getSubCommand( alias ) == command ) {
+                    aliases.add( alias );
+                }
+                
+            }
+        } else {
+            List<String> signatureList = buffer.get( command );
+            int prefixSize = effectivePrefix.length();
+            for ( String signature : signatureList ) {
+                // Get each callable alias.
+                aliases.add( signature.substring( prefixSize ) );
+                
+            }
+        }
+        if ( aliases.isEmpty() ) {
+            return null; // Command has no callable aliases.
+        }
+        builder.append( "Aliases: " );
+        builder.append( aliases );
+        builder.append( '\n' );
+        
+        /* Add description */
+        builder.append( "Description: " );
+        builder.append( command.getDescription() );
+        builder.append( '\n' );
+        
+        /* Add usage */
+        builder.append( "Usage: " );
+        String usage = command.getUsage();
+        if ( usage.startsWith( "{}" ) ) { // Usage has prefix placeholder.
+            builder.append( effectivePrefix ); // Substitute with effective
+            builder.append( usage, 2, usage.length() ); // prefix.
+        } else {
+            builder.append( usage );
+        }
+        builder.append( '\n' );
+        
+        /* Add subcommands */
+        SortedSet<List<String>> subCommandAliases = new TreeSet<>( ( s1, s2 ) -> {
+            return s1.get( 0 ).compareTo( s2.get( 0 ) ); // Compare head elements.
+        });
+        for ( ICommand subCommand : command.getSubCommands() ) {
+            
+            aliases = new ArrayList<>(); // Get callable alias of the subcommand.
+            for ( String alias : subCommand.getAliases() ) {
+                
+                if ( command.getSubCommand( alias ) == subCommand ) {
+                    aliases.add( alias ); // Alias is callable.
+                }
+                
+            }
+            if ( !aliases.isEmpty() ) { // This subcommand had callable aliases.
+                subCommandAliases.add( aliases );
+            }
+            
+        }
+        builder.append( "Subcommands: " );
+        if ( subCommandAliases.isEmpty() ) {
+            builder.append( "N/A" );
+        } else {
+            String subCommands = subCommandAliases.toString();
+            builder.append( subCommands, 1, subCommands.length() - 1 );
+        }
+        builder.append( '\n' );
+        
+        /* Add some options */
+        if ( command.isNSFW() ) {
+            builder.append( "- NSFW\n" );
+        }
+        if ( command.requiresOwner() ) {
+            builder.append( "- Bot owner only\n" );
+        }
+        if ( command.isEssential() ) {
+            builder.append( "- Essential\n" );
+        }
+        if ( !command.isEnabled() ) {
+            builder.append( "- Disabled\n" );
+        } else if ( !command.isEffectivelyEnabled() ) {
+            builder.append( "- Registry disabled\n" );
+        }
+        
         return builder.toString();
         
     }
@@ -212,12 +330,12 @@ public class HelpCommand {
             aliases = { "help" },
             description = "Displays all the registered commands. If a command signature is specified, "
                     + "displays information about that command.",
-            usage = "{}help [(command signature), name, registries]",
+            usage = "{}help [(command signature), registries]",
             essential = true,
             replyPrivately = true,
             overrideable = false,
             canModifySubCommands = false,
-            subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME }
+            subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME, PUBLIC_HELP_SUBCOMMAND_NAME }
             )
     public void helpCommand( CommandContext context ) {
         
@@ -225,11 +343,11 @@ public class HelpCommand {
         ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
         ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
         
-        if ( !context.getCommand().getName().equals( MAIN_COMMAND_NAME ) ) {
-            return; // A subcommand was called.
+        if ( context.getCommand().getName().equals( REGISTRY_LIST_SUBCOMMAND_NAME ) ) {
+            return; // Registry list subcommand was called.
         }
         
-        if ( context.getArgs().isEmpty() ) {
+        if ( context.getArgs().isEmpty() ) { // No command specified.
             RequestBuilder request = new RequestBuilder( this.registry.getClient() )
                     .shouldBufferRequests( true );
             List<String> blocks = formatCommandList( registry.getCommands(), LIST_TITLE.length() );
@@ -250,7 +368,47 @@ public class HelpCommand {
                 
             }
             request.execute();
+        } else { // A command was specified.
+            Iterator<String> args = context.getArgs().iterator();
+            ICommand command = registry.parseCommand( args.next(), false );
+            if ( command == null ) {
+                return; // No command with that signature.
+            }
+            
+            ICommand mainCommand = command;
+            ICommand parent = null;
+            while ( args.hasNext() ) { // Identify subcommands.
+                
+                parent = command;
+                command = command.getSubCommand( args.next() );
+                if ( command == null ) {
+                    return; // No subcommand with the argument alias.
+                }
+                
+            }
+            MessageBuilder builder = context.getReplyBuilder();
+            builder.withContent( BLOCK_PREFIX );
+            builder.appendContent( COMMAND_TITLE );
+            builder.appendContent( formatCommandLong( command, parent, mainCommand ) );
+            builder.appendContent( BLOCK_SUFFIX );
+            builder.build(); // Send message.
         }
+        
+    }
+    
+    @SubCommand(
+            name = PUBLIC_HELP_SUBCOMMAND_NAME,
+            aliases = { "here" },
+            description = "Displays all the registered commands. If a command signature is specified, "
+                    + "displays information about that command. However, this subcommand outputs "
+                    + "to the same channel instead of a private message.",
+            usage = "{}help here [command signature]",
+            canModifySubCommands = false,
+            executeParent = true
+            )
+    public void publicHelpCommand( CommandContext context ) {
+        
+        // Do nothing.
         
     }
     
@@ -263,7 +421,8 @@ public class HelpCommand {
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
-            executeParent = true
+            executeParent = true,
+            requiresOwner = true
             )
     public void moduleListCommand( CommandContext context ) {
         
