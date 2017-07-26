@@ -21,8 +21,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.PriorityQueue;
-import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Predicate;
@@ -353,7 +353,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *
      * @return The registered subregistries.
      */
-    public SortedSet<CommandRegistry> getSubRegistries() {
+    public NavigableSet<CommandRegistry> getSubRegistries() {
         
         return new TreeSet<>( subRegistries.values() );
         
@@ -744,9 +744,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *
      * @return The commands registered in this registry.
      */
-    public SortedSet<ICommand> getRegisteredCommands() {
+    public NavigableSet<ICommand> getRegisteredCommands() {
         
-        SortedSet<ICommand> commands = new TreeSet<>( ( c1, c2 ) -> {
+        NavigableSet<ICommand> commands = new TreeSet<>( ( c1, c2 ) -> {
             // Compare elements by their names.
             return c1.getName().compareTo( c2.getName() );
             
@@ -795,9 +795,9 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *
      * @return The commands registered in this registry or its subregistries.
      */
-    public SortedSet<ICommand> getCommands() {
+    public NavigableSet<ICommand> getCommands() {
         
-        SortedSet<ICommand> commands = getRegisteredCommands();
+        NavigableSet<ICommand> commands = getRegisteredCommands();
         for ( CommandRegistry subRegistry : getSubRegistries() ) {
             // Add commands from subregistries.
             commands.addAll( subRegistry.getCommands() );
