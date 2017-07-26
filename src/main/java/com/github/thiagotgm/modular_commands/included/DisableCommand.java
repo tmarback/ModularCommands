@@ -29,6 +29,7 @@ import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.command.annotation.FailureHandler;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
+import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
 import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
 
 import sx.blah.discord.util.MessageBuilder;
@@ -43,6 +44,7 @@ import sx.blah.discord.util.MessageBuilder;
 public class DisableCommand {
     
     public static final String COMMAND_NAME = "Disable Command";
+    private static final String SUBCOMMAND_NAME = "Disable Registry";
     private static final String SUCCESS_HANDLER = "Success";
     private static final String FAILURE_HANDLER = "Failure";
     
@@ -52,6 +54,7 @@ public class DisableCommand {
         
         Map<String, String> tempTypes = new HashMap<>();
         tempTypes.put( COMMAND_NAME, "Command" );
+        tempTypes.put( SUBCOMMAND_NAME, "Registry" );
         
         types = Collections.unmodifiableMap( tempTypes );
         
@@ -92,6 +95,27 @@ public class DisableCommand {
         }
         
     };
+    
+    /**
+     * Tries to disable the given Disableable instance.
+     *
+     * @param toDisable The instance to disable.
+     * @return The reason why it could not be disabled, or null if it was disabled successfully.
+     */
+    private Reason disable( Disableable toDisable ) {
+        
+        if ( !toDisable.isEnabled() ) { // Already disabled.
+            return Reason.ALREADY_DISABLED;
+        }
+        
+        if ( toDisable.isEssential() ) { // Essential (cannot be disabled).
+            return Reason.ESSENTIAL;
+        }
+        
+        toDisable.disable(); // Can be disabled. Disable it.
+        return null;
+        
+    }
 
     @MainCommand(
             name = COMMAND_NAME,
@@ -101,10 +125,15 @@ public class DisableCommand {
             requiresOwner = true,
             essential = true,
             canModifySubCommands = false,
+            subCommands = SUBCOMMAND_NAME,
             successHandler = SUCCESS_HANDLER,
             failureHandler = FAILURE_HANDLER
             )
     public boolean disableCommand( CommandContext context ) {
+        
+        if ( context.getArgs().isEmpty() ) {
+            return false; // No arguments given.
+        }
         
         CommandRegistry registry = CommandRegistry.getRegistry( context.getEvent().getClient() );
         Iterator<String> args = context.getArgs().iterator();
@@ -134,24 +163,52 @@ public class DisableCommand {
         
     }
     
-    /**
-     * Tries to disable the given Disableable instance.
-     *
-     * @param toDisable The instance to disable.
-     * @return The reason why it could not be disabled, or null if it was disabled successfully.
-     */
-    private Reason disable( Disableable toDisable ) {
+    @SubCommand(
+            name = SUBCOMMAND_NAME,
+            aliases = { "registry" },
+            description = "Disables a registry. A registry that is marked as essential cannot be disabled. "
+                    + "The registry type and name (for both parent registries and the target registry "
+                    + "itself) should be just as shown in the registry list. All parent "
+                    + "registries must be included in order. If there is a space in a "
+                    + "registry name, put the whole qualified name (type:name) between "
+                    + "double-quotes.",
+            usage = "{}disable registry [parent registries...] <registry type>:<registry name>",
+            requiresOwner = true,
+            essential = true,
+            canModifySubCommands = false,
+            successHandler = SUCCESS_HANDLER,
+            failureHandler = FAILURE_HANDLER
+            )
+    public boolean disableRegistry( CommandContext context ) {
         
-        if ( !toDisable.isEnabled() ) { // Already disabled.
-            return Reason.ALREADY_DISABLED;
+        if ( context.getArgs().isEmpty() ) {
+            return false; // No arguments given.
         }
         
-        if ( toDisable.isEssential() ) { // Essential (cannot be disabled).
-            return Reason.ESSENTIAL;
+        /* Get target registry */
+        CommandRegistry target = CommandRegistry.getRegistry( context.getEvent().getClient() );
+        Iterator<String> args = context.getArgs().iterator();               // Start with root.
+        if ( !args.next().equals( target.getQualifiedName() ) ) {
+            context.setHelper( Reason.NOT_FOUND );
+            return false; // First arg not root registry.
+        }
+        while ( args.hasNext() ) {
+            
+            target = target.getSubRegistry( args.next() );
+            if ( target == null ) {
+                context.setHelper( Reason.NOT_FOUND );
+                return false; // No registry with the argument name.
+            }
+            
         }
         
-        toDisable.disable(); // Can be disabled. Disable it.
-        return null;
+        Reason reason = disable( target ); // Attempt to disable.
+        if ( reason != null ) { // Could not disable.
+            context.setHelper( reason );
+            return false;
+        }
+        
+        return true; // Disabled successfully.
         
     }
     
@@ -183,8 +240,12 @@ public class DisableCommand {
             
             case COMMAND_OPERATION_FAILED:
                 MessageBuilder builder = context.getReplyBuilder();
-                builder.withContent( getType( context.getCommand() ) );
-                builder.appendContent( ( (Reason) context.getHelper().get() ).getMessage() );
+                if ( context.getHelper().isPresent() ) {
+                    builder.withContent( getType( context.getCommand() ) );
+                    builder.appendContent( ( (Reason) context.getHelper().get() ).getMessage() );
+                } else { // No arguments given.
+                    builder.withContent( "Missing arguments." );
+                }
                 builder.build();
                 break;
                 
