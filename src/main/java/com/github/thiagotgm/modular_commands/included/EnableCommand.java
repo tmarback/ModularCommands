@@ -35,16 +35,16 @@ import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
 import sx.blah.discord.util.MessageBuilder;
 
 /**
- * Command for disabling a command or registry.
+ * Command for enabling a command or registry.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-26
  */
-public class DisableCommand {
+public class EnableCommand {
     
-    public static final String COMMAND_NAME = "Disable Command";
-    private static final String SUBCOMMAND_NAME = "Disable Registry";
+    public static final String COMMAND_NAME = "Enable Command";
+    private static final String SUBCOMMAND_NAME = "Enable Registry";
     private static final String SUCCESS_HANDLER = "Success";
     private static final String FAILURE_HANDLER = "Failure";
     
@@ -66,11 +66,8 @@ public class DisableCommand {
         /** Command/Registry specified was not found. */
         NOT_FOUND( " not found." ),
         
-        /** Command/Registry specified is essential. */
-        ESSENTIAL( " is essential and cannot be disabled." ),
-        
-        /** Command/Registry specified is already disabled. */
-        ALREADY_DISABLED( " is already disabled." );
+        /** Command/Registry specified is already enabled. */
+        ALREADY_ENABLED( " is already enabled." );
         
         private final String message;
         
@@ -97,31 +94,27 @@ public class DisableCommand {
     };
     
     /**
-     * Tries to disable the given Disableable instance.
+     * Tries to enable the given Disableable instance.
      *
-     * @param toDisable The instance to disable.
-     * @return The reason why it could not be disabled, or null if it was disabled successfully.
+     * @param toEnable The instance to enabled.
+     * @return The reason why it could not be enabled, or null if it was enabled successfully.
      */
-    private Reason disable( Disableable toDisable ) {
+    private Reason enable( Disableable toEnable ) {
         
-        if ( !toDisable.isEnabled() ) { // Already disabled.
-            return Reason.ALREADY_DISABLED;
+        if ( toEnable.isEnabled() ) { // Already enabled.
+            return Reason.ALREADY_ENABLED;
         }
         
-        if ( toDisable.isEssential() ) { // Essential (cannot be disabled).
-            return Reason.ESSENTIAL;
-        }
-        
-        toDisable.disable(); // Can be disabled. Disable it.
+        toEnable.enable(); // Can be enabled. Disable it.
         return null;
         
     }
 
     @MainCommand(
             name = COMMAND_NAME,
-            aliases = { "disable" },
-            description = "Disables a command. A command that is marked as essential cannot be disabled.",
-            usage = "{}disable <command signature>",
+            aliases = { "enable" },
+            description = "Enables a command.",
+            usage = "{}enable <command signature>",
             requiresOwner = true,
             essential = true,
             overrideable = false,
@@ -154,26 +147,26 @@ public class DisableCommand {
             
         }
         
-        Reason reason = disable( command ); // Attempt to disable.
-        if ( reason != null ) { // Could not disable.
+        Reason reason = enable( command ); // Attempt to enable.
+        if ( reason != null ) { // Could not enable.
             context.setHelper( reason );
             return false;
         }
         
-        return true; // Disabled successfully.
+        return true; // Enabled successfully.
         
     }
     
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },
-            description = "Disables a registry. A registry that is marked as essential cannot be disabled. "
+            description = "Enables a registry. "
                     + "The registry type and name (for both parent registries and the target registry "
                     + "itself) should be just as shown in the registry list. All parent "
                     + "registries must be included in order. If there is a space in a "
                     + "registry name, put the whole qualified name (type:name) between "
                     + "double-quotes.",
-            usage = "{}disable registry [parent registries...] <registry type>:<registry name>",
+            usage = "{}enable registry [parent registries...] <registry type>:<registry name>",
             requiresOwner = true,
             essential = true,
             canModifySubCommands = false,
@@ -203,13 +196,13 @@ public class DisableCommand {
             
         }
         
-        Reason reason = disable( target ); // Attempt to disable.
-        if ( reason != null ) { // Could not disable.
+        Reason reason = enable( target ); // Attempt to enable.
+        if ( reason != null ) { // Could not enable.
             context.setHelper( reason );
             return false;
         }
         
-        return true; // Disabled successfully.
+        return true; // Enabled successfully.
         
     }
     
@@ -230,7 +223,7 @@ public class DisableCommand {
     @SuccessHandler( SUCCESS_HANDLER )
     public void disabledSuccessFully( CommandContext context ) {
         
-        context.getReplyBuilder().withContent( getType( context.getCommand() ) + " disabled." ).build();
+        context.getReplyBuilder().withContent( getType( context.getCommand() ) + " enabled." ).build();
         
     }
     

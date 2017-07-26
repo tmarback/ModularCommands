@@ -585,7 +585,7 @@ public class HelpCommand {
             request.doAction( () -> {
                 return true;
             });
-            for ( int i = 0; i < blocks.size() - 1; i++ ) {
+            for ( int i = 0; i < blocks.size() - 1; i++ ) { // Message all blocks except the last.
                 
                 final String next = BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX;
                 request.andThen( () -> {

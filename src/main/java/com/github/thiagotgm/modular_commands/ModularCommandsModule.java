@@ -22,6 +22,7 @@ import java.util.Scanner;
 import com.github.thiagotgm.modular_commands.api.CommandHandler;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.included.DisableCommand;
+import com.github.thiagotgm.modular_commands.included.EnableCommand;
 import com.github.thiagotgm.modular_commands.included.HelpCommand;
 
 import sx.blah.discord.api.IDiscordClient;
@@ -77,6 +78,7 @@ public class ModularCommandsModule implements IModule {
         /* Register default commands */
         registry.registerAnnotatedCommands( new HelpCommand() );
         registry.registerAnnotatedCommands( new DisableCommand() );
+        registry.registerAnnotatedCommands( new EnableCommand() );
         
         return true;
         
