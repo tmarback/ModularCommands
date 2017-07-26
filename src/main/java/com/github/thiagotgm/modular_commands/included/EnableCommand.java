@@ -118,6 +118,7 @@ public class EnableCommand {
             requiresOwner = true,
             essential = true,
             overrideable = false,
+            priority = Integer.MAX_VALUE,
             canModifySubCommands = false,
             subCommands = SUBCOMMAND_NAME,
             successHandler = SUCCESS_HANDLER,

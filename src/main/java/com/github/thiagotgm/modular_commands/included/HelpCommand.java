@@ -59,7 +59,7 @@ public class HelpCommand {
     private static final String REGISTRY_DETAILS_SUBCOMMAND_NAME = "Registry Details";
     private static final String PUBLIC_HELP_SUBCOMMAND_NAME = "Public Default Help Command";
     
-    private static final String BLOCK_PREFIX = "```java\n";
+    private static final String BLOCK_PREFIX = "```\n";
     private static final String BLOCK_SUFFIX = "```";
     private static final int BLOCK_EXTRA = BLOCK_PREFIX.length() + BLOCK_SUFFIX.length();
     private static final int BLOCK_SIZE = IMessage.MAX_MESSAGE_LENGTH - BLOCK_EXTRA;
@@ -406,6 +406,7 @@ public class HelpCommand {
             essential = true,
             replyPrivately = true,
             overrideable = false,
+            priority = Integer.MAX_VALUE,
             canModifySubCommands = false,
             subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME, REGISTRY_DETAILS_SUBCOMMAND_NAME, 
                     PUBLIC_HELP_SUBCOMMAND_NAME }
