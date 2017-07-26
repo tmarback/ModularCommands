@@ -587,14 +587,8 @@ public class HelpCommand {
             request.execute();
             lastBlock = blocks.get( blocks.size() - 1 );
             
-            List<CommandRegistry> subRegistries = new LinkedList<>();
-            for ( CommandRegistry subRegistry : registry.getSubRegistries() ) {
-                // Gets the subregistries in reverse order.
-                subRegistries.add( 0, subRegistry );
-                
-            }
-            for ( CommandRegistry subRegistry : subRegistries ) {
-                // Add subregistries to the stack.
+            for ( CommandRegistry subRegistry : registry.getSubRegistries().descendingSet() ) {
+                // Add subregistries to the stack in reverse order.
                 registries.push( subRegistry );
                 
             }
