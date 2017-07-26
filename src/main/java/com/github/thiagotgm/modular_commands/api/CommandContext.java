@@ -224,6 +224,8 @@ public class CommandContext {
     
     /**
      * Retrieves the helper object currently stored in this Context.
+     * <p>
+     * If there is no helper object currently stored, the returned Optional will be empty.
      *
      * @return The helper object currently stored.
      * @see #setHelper(Object)

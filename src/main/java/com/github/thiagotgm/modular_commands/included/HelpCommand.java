@@ -44,7 +44,7 @@ import sx.blah.discord.util.MessageBuilder;
 import sx.blah.discord.util.RequestBuilder;
 
 /**
- * Command that displays the commands currently registered and info about each of them.
+ * Command set that displays the commands currently registered and info about each of them.
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -142,6 +142,19 @@ public class HelpCommand {
             registry = curRegistry;
             bufferCommandList(); // Update buffer.
         }
+        
+    }
+    
+    /**
+     * Ensures all buffered data is up to date before executing a command.
+     *
+     * @param context The context of the command being executed.
+     */
+    private void update( CommandContext context ) {
+        
+        IDiscordClient client = context.getEvent().getClient();
+        ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
+        ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
         
     }
     
@@ -399,9 +412,7 @@ public class HelpCommand {
             )
     public boolean helpCommand( CommandContext context ) {
         
-        IDiscordClient client = context.getEvent().getClient();
-        ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
-        ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
+        update( context );
         
         if ( context.getArgs().isEmpty() ) { // No command specified.
             RequestBuilder request = new RequestBuilder( this.registry.getClient() )
@@ -476,6 +487,8 @@ public class HelpCommand {
             return false; // No args.
         }
         
+        update( context );
+        
         /* Get target registry */
         CommandRegistry target = registry;
         Iterator<String> args = context.getArgs().iterator();
@@ -516,9 +529,7 @@ public class HelpCommand {
             )
     public void moduleListCommand( CommandContext context ) {
         
-        IDiscordClient client = context.getEvent().getClient();
-        ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
-        ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
+        update( context );
         
         Stack<CommandRegistry> registries = new Stack<>();
         registries.push( registry );
