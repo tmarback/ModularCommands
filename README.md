@@ -2,7 +2,7 @@
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/0.4.0/javadoc/)
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/1.0.0/javadoc/)
 
 ## How to Use
 There are 2 ways to include this framework in your bot:
@@ -66,7 +66,7 @@ There are 3 ways of creating commands:
 
         private boolean enabled;
         private CommandRegistry registry;
-        private final SortedSet<String> aliases;
+        private final NavigableSet<String> aliases;
 
         public PingCommand() {
             this.enabled = true;
@@ -99,7 +99,7 @@ There are 3 ways of creating commands:
         }
 
         @Override
-        public SortedSet<String> getAliases() {
+        public NavigableSet<String> getAliases() {
             return aliases;
         }
 
@@ -227,7 +227,7 @@ To create a subcommand, you just create a normal command, but specify that it is
    ```java
    public class MainCommand implements ICommand {
        ...
-       private final SortedSet<ICommand> subCommands;
+       private final NavigableSet<ICommand> subCommands;
        public MainCommand() {
            ...
            subCommands = new TreeSet<>();
@@ -235,7 +235,7 @@ To create a subcommand, you just create a normal command, but specify that it is
        }
        ...
        @Override
-       public SortedSet<ICommand> getSubCommands() { return subCommands; }
+       public NavigableSet<ICommand> getSubCommands() { return subCommands; }
    }
    ```
    
@@ -318,7 +318,7 @@ A command can specify several properties. The interface has methods that can be 
 - `aliases`: The aliases that can be used to call the command in a text message. Default: none
 - `prefix`: Main command only. The prefix to be used before one of the aliases in order to call this command. If `null`, the prefix is inherited from the registry where this command is registered. Default: `null`
 - `description`: The description of what the command does. Default: `""`
-- `usage`: A string that shows how to call the command. For example, `"!message [user] [message]"`. Default: `""`
+- `usage`: A string that shows how to call the command. For example, `"!message [user] [message]"`. The string may start with `{}` to represent that it uses the inherited prefix (the default `help` command replaces it for the effective prefix automatically). Default: `""`
 - `onSuccessDelay`: How long after a successful execution of the command that the `onSuccess` handler should be called, in milliseconds. Default: `0`
 - `replyPrivately`: Whether the reply builder in the `CommandContext` should always be set to send a private message to the user that called the command. If false, it will be set to the same channel that the command was called from. Default: `false`
 - `ignorePublic`: Whether calls to the command made from  public channels should be ignored. Default: `false`
@@ -337,6 +337,25 @@ A command can specify several properties. The interface has methods that can be 
 - `canModifySubCommands`: This only exists for the `CommandBuilder` and annotated versions, as with the interface it just depends on the implementation. If `true`, the `ICommand#addSubCommand(ICommand)` and `ICommand#removeSubCommand(ICommand)` methods of the generated command will be useable, and the set returned by `ICommand#getSubCommands()` will be modifiable. If `false`, the set is unmodifiable and the add/remove commands throw an `UnsupportedOperationException`. See the `Command` class description for details. Default: `true`
 
 OBS: "none" means that there is no default value (a value must _always_ be specified). "`none`" means an empty set/list/etc. "`null`" means the value `null`, literally.
+
+## Default Commands
+
+There are 3 commands included in the framework:
+
+- `{}help`: Gives information about registered commands and registries.
+  
+  If used by itself, will give a list of all the commands registered in the registry tree of the current client.  
+  If used with the `registries` subcommand, will show all registries and the commands that are registered in each registry. Each registry will be titled in the form `<root registry name>::<parent registry 1 name>::...::<registry name>`, where the name is the fully qualified name, that is, `<registry type>:<registry name>`.  
+  If given the signature of a command, will display information about that command (also accepts subcommands).  
+  If used with the `registry` subcommand, will take the path of a registry (in the form `<root registry name> <parent registry 1 name> ... <registry name>`, again using the fully qualified name. Exactly as shown in the registry list, but replacing each `::` by a space) and display information about that registry.
+  
+  This command provides an easy way of giving information about your commands, but also providing more detailed information in some other form is encouraged.
+  
+- `{}enable`: Takes in the signature of a command and enables that command (also accepts subcommands). If used with the `registry` subcommand, takes the path of a registry (see `{}help` description) and enables that registry. Will fail if the command/registry is not found or is already enabled.
+
+- `{}disable`: Takes in the signature of a command and disables that command (also accepts subcommands). If used with the `registry` subcommand, takes the path of a registry (see `{}help` description) and disables that registry. Will fail if the command/registry is not found, is already disabled, or is marked as essential.
+
+OBS: `{}` = Effective prefix of the root registry.
 
 ## 3rd-party Libraries Used
 
