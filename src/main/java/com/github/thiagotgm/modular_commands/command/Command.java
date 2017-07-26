@@ -21,8 +21,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.NavigableSet;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -72,7 +72,7 @@ public class Command implements ICommand {
     private final String prefix;
     private volatile CommandRegistry registry;
     private final String name;
-    private final SortedSet<String> aliases;
+    private final NavigableSet<String> aliases;
     private final boolean subCommand;
     private final String description;
     private final String usage;
@@ -92,7 +92,7 @@ public class Command implements ICommand {
     private final boolean requiresParentPermissions;
     private final EnumSet<Permissions> requiredPermissions;
     private final EnumSet<Permissions> requiredGuildPermissions;
-    private final SortedSet<ICommand> subCommands;
+    private final NavigableSet<ICommand> subCommands;
     private final boolean canModifySubCommands;
     private final int priority;
 
@@ -232,7 +232,7 @@ public class Command implements ICommand {
         this.essential = essential;
         this.prefix = prefix;
         this.name = name;
-        this.aliases = Collections.unmodifiableSortedSet( new TreeSet<>( aliases ) );
+        this.aliases = Collections.unmodifiableNavigableSet( new TreeSet<>( aliases ) );
         this.subCommand = subCommand;
         this.description = description;
         this.usage = usage;
@@ -252,11 +252,11 @@ public class Command implements ICommand {
         this.requiresParentPermissions = requiresParentPermissions;
         this.requiredPermissions = EnumSet.copyOf( requiredPermissions );
         this.requiredGuildPermissions = EnumSet.copyOf( requiredGuildPermissions );
-        SortedSet<ICommand> subCommandSet = new TreeSet<>( subCommands );
+        NavigableSet<ICommand> subCommandSet = new TreeSet<>( subCommands );
         if ( canModifySubCommands ) {
-            this.subCommands = Collections.synchronizedSortedSet( subCommandSet );
+            this.subCommands = Collections.synchronizedNavigableSet( subCommandSet );
         } else {
-            this.subCommands = Collections.unmodifiableSortedSet( subCommandSet );
+            this.subCommands = Collections.unmodifiableNavigableSet( subCommandSet );
         }
         this.canModifySubCommands = canModifySubCommands;
         this.priority = priority;
@@ -277,7 +277,7 @@ public class Command implements ICommand {
         this.essential = c.essential;
         this.prefix = c.prefix;
         this.name = c.name;
-        this.aliases = Collections.unmodifiableSortedSet( new TreeSet<>( c.aliases ) );
+        this.aliases = Collections.unmodifiableNavigableSet( new TreeSet<>( c.aliases ) );
         this.subCommand = c.subCommand;
         this.description = c.description;
         this.usage = c.usage;
@@ -297,11 +297,11 @@ public class Command implements ICommand {
         this.requiresParentPermissions = c.requiresParentPermissions;
         this.requiredPermissions = EnumSet.copyOf( c.requiredPermissions );
         this.requiredGuildPermissions = EnumSet.copyOf( c.requiredGuildPermissions );
-        SortedSet<ICommand> subCommandSet = new TreeSet<>( c.subCommands );
+        NavigableSet<ICommand> subCommandSet = new TreeSet<>( c.subCommands );
         if ( c.canModifySubCommands ) {
-            this.subCommands = Collections.synchronizedSortedSet( subCommandSet );
+            this.subCommands = Collections.synchronizedNavigableSet( subCommandSet );
         } else {
-            this.subCommands = Collections.unmodifiableSortedSet( subCommandSet );
+            this.subCommands = Collections.unmodifiableNavigableSet( subCommandSet );
         }
         this.canModifySubCommands = c.canModifySubCommands;
         this.priority = c.priority;
@@ -361,7 +361,7 @@ public class Command implements ICommand {
     }
 
     @Override
-    public SortedSet<String> getAliases() {
+    public NavigableSet<String> getAliases() {
 
         return aliases;
         
@@ -504,7 +504,7 @@ public class Command implements ICommand {
     }
 
     @Override
-    public synchronized SortedSet<ICommand> getSubCommands() {
+    public synchronized NavigableSet<ICommand> getSubCommands() {
 
         return subCommands;
         

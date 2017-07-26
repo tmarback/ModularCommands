@@ -18,7 +18,7 @@
 package com.github.thiagotgm.modular_commands.interfaces;
 
 import java.util.Arrays;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
@@ -83,7 +83,7 @@ public class LowPriorityCommand implements ICommand {
     }
 
     @Override
-    public SortedSet<String> getAliases() {
+    public NavigableSet<String> getAliases() {
 
         String[] alias = { "priority" };
         return new TreeSet<>( Arrays.asList( alias ) );

@@ -20,7 +20,7 @@ package com.github.thiagotgm.modular_commands.api;
 import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 import sx.blah.discord.handle.obj.Permissions;
@@ -63,7 +63,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      *
      * @return The aliases of the command.
      */
-    abstract SortedSet<String> getAliases();
+    abstract NavigableSet<String> getAliases();
     
     /**
      * Retrieves the signatures that can be used to call the command.
@@ -329,7 +329,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      *
      * @return The subcommands of this command.
      */
-    default SortedSet<ICommand> getSubCommands() { return new TreeSet<ICommand>(); }
+    default NavigableSet<ICommand> getSubCommands() { return new TreeSet<ICommand>(); }
     
     /**
      * Retrieves the subcommand of this command that has the given alias.

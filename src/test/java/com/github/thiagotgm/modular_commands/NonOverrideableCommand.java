@@ -18,7 +18,7 @@
 package com.github.thiagotgm.modular_commands;
 
 import java.util.Arrays;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
@@ -86,7 +86,7 @@ public class NonOverrideableCommand implements ICommand {
     public boolean isOverrideable() { return false; }
 
     @Override
-    public SortedSet<String> getAliases() {
+    public NavigableSet<String> getAliases() {
 
         String[] alias = { "not_overrided" };
         return new TreeSet<>( Arrays.asList( alias ) );

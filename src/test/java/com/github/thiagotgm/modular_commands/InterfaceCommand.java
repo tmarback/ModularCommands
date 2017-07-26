@@ -18,7 +18,7 @@
 package com.github.thiagotgm.modular_commands;
 
 import java.util.Arrays;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
@@ -84,7 +84,7 @@ public class InterfaceCommand implements ICommand {
     }
 
     @Override
-    public SortedSet<String> getAliases() {
+    public NavigableSet<String> getAliases() {
 
         String[] alias = { "ping" };
         return new TreeSet<>( Arrays.asList( alias ) );
@@ -92,7 +92,7 @@ public class InterfaceCommand implements ICommand {
     }
     
     @Override
-    public SortedSet<ICommand> getSubCommands() {
+    public NavigableSet<ICommand> getSubCommands() {
         
         return new TreeSet<>( Arrays.asList( sub ) );
         

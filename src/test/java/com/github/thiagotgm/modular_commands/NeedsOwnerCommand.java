@@ -18,7 +18,7 @@
 package com.github.thiagotgm.modular_commands;
 
 import java.util.Arrays;
-import java.util.SortedSet;
+import java.util.NavigableSet;
 import java.util.TreeSet;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
@@ -84,7 +84,7 @@ public class NeedsOwnerCommand implements ICommand {
     }
 
     @Override
-    public SortedSet<String> getAliases() {
+    public NavigableSet<String> getAliases() {
 
         String[] alias = { "owner" };
         return new TreeSet<>( Arrays.asList( alias ) );
