@@ -24,6 +24,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import com.github.thiagotgm.modular_commands.api.CommandRegistry;
+
 /**
  * Indicates that a {@link CommandRegistry} linked to an instance of the
  * annotated class should be initialized to have the specified prefix.

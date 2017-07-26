@@ -629,7 +629,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * <p>
      * Commands that fail to be registered are unchanged.
      *
-     * @param commands The commands to be registered.
+     * @param registry The registry to get commands from.
      */
     public void registerAllCommands( CommandRegistry registry ) {
         

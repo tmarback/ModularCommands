@@ -140,12 +140,11 @@ public class CommandBuilder {
      * Constructs a new builder with the same set values as the given builder and
      * the given command name.
      * <p>
-     * The builder's initial
-     * {@link ICommand#execute(com.github.thiagotgm.modular_commands.api.CommandContext) execute},
-     * {@link ICommand#onSuccess(com.github.thiagotgm.modular_commands.api.CommandContext) onSuccess}, and
-     * {@link ICommand#onFailure(com.github.thiagotgm.modular_commands.api.CommandContext,
-     *  com.github.thiagotgm.modular_commands.api.FailureReason) onFailure} operations will be
-     * set to the same {@link Executor} and {@link FailureHandler} instances as the given builder.
+     * The builder's initial {@link ICommand#execute(CommandContext) execute},
+     * {@link ICommand#onSuccess(CommandContext) onSuccess}, and
+     * {@link ICommand#onFailure(CommandContext, FailureReason) onFailure} operations will be
+     * set to the same {@link Predicate}, {@link Consumer}, and {@link BiConsumer} instances
+     * as the given builder.
      *
      * @param name The name of the command to be built.
      * @param cb The builder to copy property values from.
@@ -398,7 +397,7 @@ public class CommandBuilder {
      * @param operation The operation to be performed.
      * @return This builder.
      * @throws NullPointerException if the given operation is null.
-     * @see ICommand#execute(com.github.thiagotgm.modular_commands.api.CommandContext)
+     * @see ICommand#execute(CommandContext)
      */
     public CommandBuilder onExecute( Predicate<CommandContext> operation ) throws NullPointerException {
         
@@ -454,7 +453,7 @@ public class CommandBuilder {
      * @param operation The operation to be performed.
      * @return This builder.
      * @throws NullPointerException if the given operation is null.
-     * @see ICommand#onSuccess(com.github.thiagotgm.modular_commands.api.CommandContext)
+     * @see ICommand#onSuccess(CommandContext)
      */
     public CommandBuilder onSuccess( Consumer<CommandContext> operation ) throws NullPointerException {
         
@@ -475,8 +474,7 @@ public class CommandBuilder {
      * @param operation The operation to be performed.
      * @return This builder.
      * @throws NullPointerException if the given operation is null.
-     * @see ICommand#onFailure(com.github.thiagotgm.modular_commands.api.CommandContext,
-     *                         com.github.thiagotgm.modular_commands.api.FailureReason)
+     * @see ICommand#onFailure(CommandContext, FailureReason)
      */
     public CommandBuilder onFailure( BiConsumer<CommandContext, FailureReason> operation )
             throws NullPointerException {
