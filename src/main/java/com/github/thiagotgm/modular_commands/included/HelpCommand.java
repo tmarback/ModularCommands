@@ -28,6 +28,9 @@ import java.util.SortedSet;
 import java.util.Stack;
 import java.util.TreeSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
@@ -48,6 +51,8 @@ import sx.blah.discord.util.RequestBuilder;
  * @since 2017-07-25
  */
 public class HelpCommand {
+    
+    private static final Logger LOG = LoggerFactory.getLogger( HelpCommand.class );
     
     public static final String MAIN_COMMAND_NAME = "Default Help Command";
     private static final String REGISTRY_LIST_SUBCOMMAND_NAME = "Registry List";
@@ -85,9 +90,11 @@ public class HelpCommand {
      */
     private void bufferCommandList() {
         
+        LOG.info( "Buffering command aliases." );
         buffer = new HashMap<>(); // Initialize new buffer.
         bufferRegistry( registry ); // Start buffering from the root registry.
         lastUpdated = System.currentTimeMillis(); // Record update time.
+        LOG.info( "Buffering finished." );
         
     }
     
@@ -382,7 +389,7 @@ public class HelpCommand {
             aliases = { "help" },
             description = "Displays all the registered commands. If a command signature is specified, "
                     + "displays information about that command.",
-            usage = "{}help [(command signature), registries]",
+            usage = "{}help [here] [command signature]",
             essential = true,
             replyPrivately = true,
             overrideable = false,
@@ -390,17 +397,11 @@ public class HelpCommand {
             subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME, REGISTRY_DETAILS_SUBCOMMAND_NAME, 
                     PUBLIC_HELP_SUBCOMMAND_NAME }
             )
-    public void helpCommand( CommandContext context ) {
+    public boolean helpCommand( CommandContext context ) {
         
         IDiscordClient client = context.getEvent().getClient();
         ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
         ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
-        
-        String commandName = context.getCommand().getName();
-        if ( commandName.equals( REGISTRY_LIST_SUBCOMMAND_NAME ) ||
-             commandName.equals( REGISTRY_DETAILS_SUBCOMMAND_NAME ) ) {
-            return; // Subcommand other than "here" modifier was called.
-        }
         
         if ( context.getArgs().isEmpty() ) { // No command specified.
             RequestBuilder request = new RequestBuilder( this.registry.getClient() )
@@ -427,7 +428,7 @@ public class HelpCommand {
             Iterator<String> args = context.getArgs().iterator();
             ICommand command = registry.parseCommand( args.next(), false );
             if ( command == null ) {
-                return; // No command with that signature.
+                return false; // No command with that signature.
             }
             
             ICommand mainCommand = command;
@@ -437,7 +438,7 @@ public class HelpCommand {
                 parent = command;
                 command = command.getSubCommand( args.next() );
                 if ( command == null ) {
-                    return; // No subcommand with the argument alias.
+                    return false; // No subcommand with the argument alias.
                 }
                 
             }
@@ -448,6 +449,8 @@ public class HelpCommand {
             builder.appendContent( BLOCK_SUFFIX );
             builder.build(); // Send message.
         }
+        
+        return true;
         
     }
     
@@ -460,30 +463,30 @@ public class HelpCommand {
                     + "registries must be included in order. If there is a space in a "
                     + "registry name, put the whole qualified name (type:name) between "
                     + "double-quotes.",
-            usage = "{}help registry [parent registries...] <registry type>:<registry name>",
+            usage = "{}help registry [here] [parent registries...] "
+                    + "<registry type>:<registry name>",
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
-            executeParent = true,
             subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME }
             )
-    public void moduleDetailsCommand( CommandContext context ) {
+    public boolean moduleDetailsCommand( CommandContext context ) {
         
         if ( context.getArgs().isEmpty() ) {
-            return; // No args.
+            return false; // No args.
         }
         
         /* Get target registry */
         CommandRegistry target = registry;
         Iterator<String> args = context.getArgs().iterator();
         if ( !args.next().equals( registry.getQualifiedName() ) ) {
-            return; // First arg is not root registry.
+            return false; // First arg is not root registry.
         }
         while ( args.hasNext() ) {
             
             target = target.getSubRegistry( args.next() );
             if ( target == null ) {
-                return; // Arg specified a non-existing subregistry.
+                return false; // Arg specified a non-existing subregistry.
             }
             
         }
@@ -496,21 +499,7 @@ public class HelpCommand {
         builder.appendContent( BLOCK_SUFFIX );
         builder.build(); // Send message.
         
-    }
-    
-    @SubCommand(
-            name = PUBLIC_HELP_SUBCOMMAND_NAME,
-            aliases = { "here" },
-            description = "Modifies a help command to output the information to the current "
-                    + "channel instead of a private channel. The information is the same "
-                    + "as calling without the \"here\" modifier.",
-            usage = "{}help [registry] here [command signature]/<registry name>",
-            canModifySubCommands = false,
-            executeParent = true
-            )
-    public void publicHelpCommand( CommandContext context ) {
-        
-        // Do nothing.
+        return true;
         
     }
     
@@ -519,13 +508,17 @@ public class HelpCommand {
             aliases = { "registries" },
             description = "Displays all the registered commands, categorized by the subregistries "
                     + "that they are registered in.",
-            usage = "{}help registries",
+            usage = "{}help registries [here]",
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
-            executeParent = true
+            subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME }
             )
     public void moduleListCommand( CommandContext context ) {
+        
+        IDiscordClient client = context.getEvent().getClient();
+        ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
+        ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
         
         Stack<CommandRegistry> registries = new Stack<>();
         registries.push( registry );
@@ -615,6 +608,22 @@ public class HelpCommand {
                         return true;
                     }).execute();
         }
+        
+    }
+
+    @SubCommand(
+            name = PUBLIC_HELP_SUBCOMMAND_NAME,
+            aliases = { "here" },
+            description = "Modifies a help command to output the information to the current "
+                    + "channel instead of a private channel. The information is the same "
+                    + "as calling without the \"here\" modifier.",
+            usage = "{}help [subcommand] here [arguments]",
+            canModifySubCommands = false,
+            executeParent = true
+            )
+    public void publicHelpCommand( CommandContext context ) {
+        
+        // Do nothing.
         
     }
 
