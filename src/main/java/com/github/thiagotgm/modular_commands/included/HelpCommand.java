@@ -51,6 +51,7 @@ public class HelpCommand {
     
     public static final String MAIN_COMMAND_NAME = "Default Help Command";
     private static final String REGISTRY_LIST_SUBCOMMAND_NAME = "Registry List";
+    private static final String REGISTRY_DETAILS_SUBCOMMAND_NAME = "Registry Details";
     private static final String PUBLIC_HELP_SUBCOMMAND_NAME = "Public Default Help Command";
     
     private static final String BLOCK_PREFIX = "```java\n";
@@ -59,9 +60,11 @@ public class HelpCommand {
     private static final int BLOCK_SIZE = IMessage.MAX_MESSAGE_LENGTH - BLOCK_EXTRA;
     
     private static final String LIST_TITLE = "[COMMAND LIST]\n";
-    private static final String SUBREGISTRY_TITLE = "[%s (%s) COMMAND LIST]\n";
+    private static final String SUBREGISTRY_TITLE = "[%s - COMMAND LIST]\n";
     private static final String SUBREGISTRY_PATH_DELIMITER = "::";
     private static final String COMMAND_TITLE = "[COMMAND DETAILS]\n";
+    private static final String REGISTRY_TITLE = "[REGISTRY DETAILS]\n";
+    private static final String DISABLED_TAG = "[DISABLED] ";
     
     private ClientCommandRegistry registry;
     private volatile long lastUpdated;
@@ -151,7 +154,7 @@ public class HelpCommand {
         String signatures = signatureList.toString(); // Get signature list.
         StringBuilder builder = new StringBuilder();
         if ( !command.isEffectivelyEnabled() ) {
-            builder.append( "[DISABLED] " );
+            builder.append( DISABLED_TAG );
         }
         builder.append( signatures, 1, signatures.length() - 1 ); // Remove brackets.
         builder.append( " - " );
@@ -175,19 +178,22 @@ public class HelpCommand {
         builder.append( command.getName() );
         builder.append( '\n' );
         
-        /* Add command prefix if this is a main command and has one */
+        /* Add prefix if this is a main command */
+        String effectivePrefix = mainCommand.getEffectivePrefix();
         if ( !command.isSubCommand() ) {
             String prefix = command.getPrefix();
-            if ( prefix != null ) {
+            if ( prefix != null ) { // Has a prefix.
                 builder.append( "Prefix: " );
                 builder.append( prefix );
-                builder.append( '\n' );
+            } else { // Only has inherited prefix.
+                builder.append( "Inherited Prefix: " );
+                builder.append( effectivePrefix );
             }
+            builder.append( '\n' );
         }
         
         /* Add aliases */
         List<String> aliases = new ArrayList<>( command.getAliases().size() );
-        String effectivePrefix = mainCommand.getEffectivePrefix();
         if ( command.isSubCommand() ) {
             for ( String alias : command.getAliases() ) {
                 
@@ -277,6 +283,49 @@ public class HelpCommand {
     }
     
     /**
+     * Formats a registry into all the information a user might need.
+     *
+     * @param registry The registry to format.
+     * @return The string that fully describes the registry.
+     */
+    private String formatRegistry( CommandRegistry registry ) {
+        
+        /* Add registry name */
+        StringBuilder builder = new StringBuilder( "Name: " );
+        builder.append( registry.getName() );
+        builder.append( '\n' );
+        
+        /* Add registry type */
+        builder.append( "Type: " );
+        builder.append( registry.getQualifier() );
+        builder.append( '\n' );
+        
+        /* Add prefix */
+        String prefix = registry.getPrefix();
+        if ( prefix != null ) { // Has a prefix.
+            builder.append( "Prefix: " );
+            builder.append( prefix );
+        } else { // Only has inherited prefix.
+            builder.append( "Inherited Prefix: " );
+            builder.append( registry.getEffectivePrefix() );
+        }
+        builder.append( '\n' );
+        
+        /* Add some options */
+        if ( registry.isEssential() ) {
+            builder.append( "- Essential\n" );
+        }
+        if ( !registry.isEnabled() ) {
+            builder.append( "- Disabled\n" );
+        } else if ( !registry.isEffectivelyEnabled() ) {
+            builder.append( "- Parent registry disabled\n" );
+        }
+        
+        return builder.toString();
+        
+    }
+    
+    /**
      * Formats a collection of commands into a list, where each line describes a
      * single command.
      * <p>
@@ -338,7 +387,8 @@ public class HelpCommand {
             replyPrivately = true,
             overrideable = false,
             canModifySubCommands = false,
-            subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME, PUBLIC_HELP_SUBCOMMAND_NAME }
+            subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME, REGISTRY_DETAILS_SUBCOMMAND_NAME, 
+                    PUBLIC_HELP_SUBCOMMAND_NAME }
             )
     public void helpCommand( CommandContext context ) {
         
@@ -346,8 +396,10 @@ public class HelpCommand {
         ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
         ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
         
-        if ( context.getCommand().getName().equals( REGISTRY_LIST_SUBCOMMAND_NAME ) ) {
-            return; // Registry list subcommand was called.
+        String commandName = context.getCommand().getName();
+        if ( commandName.equals( REGISTRY_LIST_SUBCOMMAND_NAME ) ||
+             commandName.equals( REGISTRY_DETAILS_SUBCOMMAND_NAME ) ) {
+            return; // Subcommand other than "here" modifier was called.
         }
         
         if ( context.getArgs().isEmpty() ) { // No command specified.
@@ -400,12 +452,59 @@ public class HelpCommand {
     }
     
     @SubCommand(
+            name = REGISTRY_DETAILS_SUBCOMMAND_NAME,
+            aliases = { "registry" },
+            description = "Displays information about a particular registry. The registry "
+                    + "type and name (for both parent registries and the target registry "
+                    + "itself) should be just as shown in the registry list. All parent "
+                    + "registries must be included in order. If there is a space in a "
+                    + "registry name, put the whole qualified name (type:name) between "
+                    + "double-quotes.",
+            usage = "{}help registry [parent registries...] <registry type>:<registry name>",
+            essential = true,
+            replyPrivately = true,
+            canModifySubCommands = false,
+            executeParent = true,
+            subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME }
+            )
+    public void moduleDetailsCommand( CommandContext context ) {
+        
+        if ( context.getArgs().isEmpty() ) {
+            return; // No args.
+        }
+        
+        /* Get target registry */
+        CommandRegistry target = registry;
+        Iterator<String> args = context.getArgs().iterator();
+        if ( !args.next().equals( registry.getQualifiedName() ) ) {
+            return; // First arg is not root registry.
+        }
+        while ( args.hasNext() ) {
+            
+            target = target.getSubRegistry( args.next() );
+            if ( target == null ) {
+                return; // Arg specified a non-existing subregistry.
+            }
+            
+        }
+        
+        /* Send details */
+        MessageBuilder builder = context.getReplyBuilder();
+        builder.withContent( BLOCK_PREFIX );
+        builder.appendContent( REGISTRY_TITLE );
+        builder.appendContent( formatRegistry( target ) );
+        builder.appendContent( BLOCK_SUFFIX );
+        builder.build(); // Send message.
+        
+    }
+    
+    @SubCommand(
             name = PUBLIC_HELP_SUBCOMMAND_NAME,
             aliases = { "here" },
-            description = "Displays all the registered commands. If a command signature is specified, "
-                    + "displays information about that command. However, this subcommand outputs "
-                    + "to the same channel instead of a private message.",
-            usage = "{}help here [command signature]",
+            description = "Modifies a help command to output the information to the current "
+                    + "channel instead of a private channel. The information is the same "
+                    + "as calling without the \"here\" modifier.",
+            usage = "{}help [registry] here [command signature]/<registry name>",
             canModifySubCommands = false,
             executeParent = true
             )
@@ -424,8 +523,7 @@ public class HelpCommand {
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
-            executeParent = true,
-            requiresOwner = true
+            executeParent = true
             )
     public void moduleListCommand( CommandContext context ) {
         
@@ -433,6 +531,7 @@ public class HelpCommand {
         registries.push( registry );
         final MessageBuilder builder = context.getReplyBuilder();
         
+        String lastBlock = "";
         while ( !registries.isEmpty() ) { // For each registry.
             
             CommandRegistry registry = registries.pop();
@@ -440,34 +539,49 @@ public class HelpCommand {
                     .shouldBufferRequests( true );
             
             /* Get registry path */
-            String path;
-            if ( registry.getRegistry() != null ) { // Not root registry.
-                List<String> pathList = new LinkedList<>();
-                CommandRegistry cur = registry;
-                while ( cur != this.registry ) { // Get all parents except root
-                    
-                    pathList.add( 0, cur.getName() ); // Add parent to beginning of pathlist.
-                    cur = cur.getRegistry();
-                    
+            List<String> pathList = new LinkedList<>();
+            CommandRegistry cur = registry;
+            while ( cur != null ) { // Get all parents.
+                
+                pathList.add( 0, cur.getQualifiedName() ); // Add parent to beginning of pathlist.
+                cur = cur.getRegistry();
+                
+            }
+            String path = String.join( SUBREGISTRY_PATH_DELIMITER, pathList );
+            
+            /* Makes the title, and appends after the leftover block if there's space */
+            String title = String.format( SUBREGISTRY_TITLE, path );
+            if ( !registry.isEffectivelyEnabled() ) {
+                title = DISABLED_TAG + title;
+            }
+            List<String> blocks = null;
+            if ( !lastBlock.isEmpty() ) { // There is a leftover block.
+                blocks = formatCommandList( registry.getRegisteredCommands(), // Try to fit it before
+                        title.length() + lastBlock.length() + 1 ); // the title.
+                if ( !blocks.get( 0 ).isEmpty() ) { // There's enough space for the leftover block.
+                    title = lastBlock + "\n" + title; // Send it before the title.
+                } else { // No space. Send the leftover block on its own.
+                    blocks = null;
+                    final String leftover = BLOCK_PREFIX + lastBlock + BLOCK_SUFFIX;;
+                    new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true )
+                            .doAction( () -> {
+                                builder.withContent( leftover ).build();
+                                return true;
+                            }).execute();
                 }
-                path = String.join( SUBREGISTRY_PATH_DELIMITER, pathList );
-            } else { // Root registry.
-                path = "Core";
+            }
+            lastBlock = "";
+            if ( blocks == null ) {      // Blocks haven't been initialized yet, or tried 
+                blocks = formatCommandList( registry.getRegisteredCommands(), // with the
+                        title.length() );             // leftover and there was no space.
             }
             
             /* Makes and sends the command list for the current registry */
-            String title = String.format( SUBREGISTRY_TITLE, path, registry.getQualifier() );
-            if ( !registry.isEffectivelyEnabled() ) {
-                title = "[DISABLED] " + title;
-            }
-            List<String> blocks = formatCommandList( registry.getRegisteredCommands(), title.length() );
-            builder.withContent( title );
-            final String first = BLOCK_PREFIX + title + blocks.get( 0 ) + BLOCK_SUFFIX;
+            blocks.set( 0, title + blocks.get( 0 ) ); // Add title to the first block.
             request.doAction( () -> {
-                builder.withContent( first ).build();
                 return true;
             });
-            for ( int i = 1; i < blocks.size(); i++ ) {
+            for ( int i = 0; i < blocks.size() - 1; i++ ) {
                 
                 final String next = BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX;
                 request.andThen( () -> {
@@ -478,14 +592,28 @@ public class HelpCommand {
                 
             }
             request.execute();
+            lastBlock = blocks.get( blocks.size() - 1 );
             
-            System.out.println( registry.getSubRegistries() );
+            List<CommandRegistry> subRegistries = new LinkedList<>();
             for ( CommandRegistry subRegistry : registry.getSubRegistries() ) {
-                // Add each subregistry to the stack.
+                // Gets the subregistries in reverse order.
+                subRegistries.add( 0, subRegistry );
+                
+            }
+            for ( CommandRegistry subRegistry : subRegistries ) {
+                // Add subregistries to the stack.
                 registries.push( subRegistry );
                 
             }
             
+        }
+        if ( !lastBlock.isEmpty() ) { // There was a block leftover.
+            final String leftover = BLOCK_PREFIX + lastBlock + BLOCK_SUFFIX;;
+            new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true )
+                    .doAction( () -> { // Print leftover block.
+                        builder.withContent( leftover ).build();
+                        return true;
+                    }).execute();
         }
         
     }

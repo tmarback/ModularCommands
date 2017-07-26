@@ -243,6 +243,19 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Retrieves the subregistry that has the given qualified name, if one exists.
+     *
+     * @param qualifiedName The qualified name of the subregistry.
+     * @return The subregistry with the qualified name, or null if there is no such
+     *         subregistry.
+     */
+    public CommandRegistry getSubRegistry( String qualifiedName ) {
+        
+        return subRegistries.get( qualifiedName );
+        
+    }
+    
+    /**
      * Retrieves the subregistry linked to a given module.
      * <p>
      * If no such subregistry is registered, creates one.
