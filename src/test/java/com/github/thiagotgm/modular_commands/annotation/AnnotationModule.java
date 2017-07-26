@@ -18,6 +18,8 @@
 package com.github.thiagotgm.modular_commands.annotation;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
+import com.github.thiagotgm.modular_commands.registry.annotation.HasPrefix;
+
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
 
@@ -28,6 +30,7 @@ import sx.blah.discord.modules.IModule;
  * @author ThiagoTGM
  * @since 2017-07-21
  */
+@HasPrefix( "!" )
 public class AnnotationModule implements IModule {
 
     @Override

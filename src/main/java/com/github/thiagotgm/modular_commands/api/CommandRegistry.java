@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import com.github.thiagotgm.modular_commands.command.annotation.AnnotationParser;
 import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 import com.github.thiagotgm.modular_commands.registry.ModuleCommandRegistry;
+import com.github.thiagotgm.modular_commands.registry.annotation.HasPrefix;
 
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.modules.IModule;
@@ -49,7 +50,7 @@ import sx.blah.discord.modules.IModule;
  */
 public abstract class CommandRegistry implements Disableable, Prefixed, Comparable<CommandRegistry> {
     
-    /** Default prefix inherited when no prefix was specified in the inheritance chain. */
+    /** Default prefix to be inherited when no prefix was specified in the inheritance chain. */
     public static final String DEFAULT_PREFIX = "?";
     
     /** Separator used between qualifier and name in the qualified name. */
@@ -75,17 +76,43 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             Collections.synchronizedMap( new HashMap<>() );
     
     /**
-     * Creates a new registry.
+     * Creates a new registry with no declared prefix.
      */
     protected CommandRegistry() {
-
+        
         this.enabled = true;
+        this.prefix = null;
         
         this.commands = Collections.synchronizedMap( new HashMap<>() );
         this.withPrefix = Collections.synchronizedMap( new HashMap<>() );
         this.noPrefix = Collections.synchronizedMap( new HashMap<>() );
         
         this.subRegistries = Collections.synchronizedMap( new TreeMap<>() );
+        
+    }
+    
+    /**
+     * Creates a new command registry to be linked to the given object.
+     * <p>
+     * If the object's class has a {@link HasPrefix} annotation, the registry
+     * will be intialized to have the prefix specified in the annotation. Else,
+     * the registry will have no declared prefix.
+     *
+     * @param obj The object that will be linked to the initialized registry.
+     * @throws NullPointerException if the object received is null.
+     */
+    protected CommandRegistry( Object obj ) throws NullPointerException {
+        
+        this();
+        
+        if ( obj == null ) {
+            throw new NullPointerException( "Linked object cannot be null." );
+        }
+        
+        HasPrefix prefix = obj.getClass().getDeclaredAnnotation( HasPrefix.class );
+        if ( prefix != null ) { // A prefix was specified in the object's type.
+            this.prefix = prefix.value();
+        }
         
     }
     

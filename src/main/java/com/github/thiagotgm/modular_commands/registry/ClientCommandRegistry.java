@@ -46,9 +46,8 @@ public class ClientCommandRegistry extends CommandRegistry {
      */
     public ClientCommandRegistry( IDiscordClient client ) throws NullPointerException {
 
-        if ( client == null ) {
-            throw new NullPointerException( "Linked client cannot be null." );
-        }
+        super( client );
+        
         this.client = client;
 
     }

@@ -45,9 +45,8 @@ public class ModuleCommandRegistry extends CommandRegistry {
      */
     public ModuleCommandRegistry( IModule module ) throws NullPointerException {
 
-        if ( module == null ) {
-            throw new NullPointerException( "Linked module cannot be null." );
-        }
+        super( module );
+        
         this.module = module;
         
         if ( module.getClass().isAnnotationPresent( Essential.class ) ) {
