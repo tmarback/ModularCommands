@@ -347,7 +347,8 @@ There are 3 commands included in the framework:
   If used by itself, will give a list of all the commands registered in the registry tree of the current client.  
   If used with the `registries` subcommand, will show all registries and the commands that are registered in each registry. Each registry will be titled in the form `<root registry name>::<parent registry 1 name>::...::<registry name>`, where the name is the fully qualified name, that is, `<registry type>:<registry name>`.  
   If given the signature of a command, will display information about that command (also accepts subcommands).  
-  If used with the `registry` subcommand, will take the path of a registry (in the form `<root registry name> <parent registry 1 name> ... <registry name>`, again using the fully qualified name. Exactly as shown in the registry list, but replacing each `::` by a space) and display information about that registry.
+  If used with the `registry` subcommand, will take the path of a registry (in the form `<root registry name> <parent registry 1 name> ... <registry name>`, again using the fully qualified name. Exactly as shown in the registry list, but replacing each `::` by a space) and display information about that registry.  
+  By default the output is sent to a private message, but if the word "here" is used after the command/subcommands (before the arguments, if any), the output goes to the same channel where the command was called.
   
   This command provides an easy way of giving information about your commands, but also providing more detailed information in some other form is encouraged.
   
