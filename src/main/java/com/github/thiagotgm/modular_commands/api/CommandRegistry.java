@@ -783,6 +783,18 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Deregisters all the commands in the registry.
+     */
+    public void clear() {
+        
+        LOG.info( "Clearing all commands in registry {}.", getQualifiedName() );
+        commands.clear();
+        withPrefix.clear();
+        noPrefix.clear();
+        
+    }
+    
+    /**
      * Retrieves the command registered in this registry that has the given name, if
      * one exists.
      *
