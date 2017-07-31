@@ -75,10 +75,29 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private static final Map<IDiscordClient, ClientCommandRegistry> registries =
             Collections.synchronizedMap( new HashMap<>() );
     
+    private static final Map<Class<?>, Class<? extends CommandRegistry>> registryTypes;
+    private static final Map<Class<?>, String> qualifiers;
+    
+    static { // Builds type-registry-qualifier maps.
+        
+        Map<Class<?>, Class<? extends CommandRegistry>> registryMap = new HashMap<>();
+        Map<Class<?>, String> qualifierMap = new HashMap<>();
+        
+        registryMap.put( IDiscordClient.class, ClientCommandRegistry.class );
+        qualifierMap.put( IDiscordClient.class, ClientCommandRegistry.QUALIFIER );
+        
+        registryMap.put( IModule.class, ModuleCommandRegistry.class );
+        qualifierMap.put( IModule.class, ModuleCommandRegistry.QUALIFIER );
+        
+        registryTypes = Collections.unmodifiableMap( registryMap );
+        qualifiers = Collections.unmodifiableMap( qualifierMap );
+        
+    }
+    
     /**
      * Creates a new registry with no declared prefix.
      */
-    protected CommandRegistry() {
+    private CommandRegistry() {
         
         this.enabled = true;
         this.prefix = null;
@@ -192,6 +211,20 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Given a class and a name, retrieves the qualified name of the registry that
+     * has the given name and is associated to an object of the given type.
+     *
+     * @param linkedClass The class of objects that the registry type links to.
+     * @param name The name of the registry.
+     * @return The qualified name of the registry.
+     */
+    protected static String qualifiedName( Class<?> linkedClass, String name ) {
+        
+        return qualifiedName( qualifiers.get( linkedClass ), name );
+        
+    }
+    
+    /**
      * Retrieves the name of the registry.
      *
      * @return The name that identifies the registry.
@@ -273,12 +306,37 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * Retrieves the subregistry that has the given qualified name, if one exists.
      *
      * @param qualifiedName The qualified name of the subregistry.
-     * @return The subregistry with the qualified name, or null if there is no such
-     *         subregistry.
+     * @return The subregistry with the qualified name.
+     * @throws NullPointerException if the name passed in is null.
      */
     public CommandRegistry getSubRegistry( String qualifiedName ) {
         
         return subRegistries.get( qualifiedName );
+        
+    }
+    
+    /**
+     * Retrieves the subregistry that is associated to an object of the given 
+     * class and has the given name, if one exists.
+     *
+     * @param linkedClass The class of objects that the desired registry links to.
+     * @param qualifiedName The simple name of the subregistry.
+     * @return The subregistry with the qualified name.
+     * @throws NullPointerException if one of the arguments is null.
+     * @throws IllegalArgumentException if there is no registry for the given type.
+     */
+    public CommandRegistry getSubRegistry( Class<?> linkedClass, String name )
+            throws NullPointerException, IllegalArgumentException {
+        
+        if ( ( linkedClass == null ) || ( name == null ) ) {
+            throw new NullPointerException( "Arguments cannot be null." );
+        }
+        
+        if ( !registryTypes.containsKey( linkedClass ) ) {
+            throw new IllegalArgumentException( "There are no registries for the given class." );
+        }
+        
+        return getSubRegistry( qualifiedName( linkedClass, name ) );
         
     }
     
