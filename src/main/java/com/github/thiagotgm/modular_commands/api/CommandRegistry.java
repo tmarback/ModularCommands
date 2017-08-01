@@ -17,6 +17,7 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,6 +34,8 @@ import org.slf4j.LoggerFactory;
 import com.github.thiagotgm.modular_commands.command.annotation.AnnotationParser;
 import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 import com.github.thiagotgm.modular_commands.registry.ModuleCommandRegistry;
+import com.github.thiagotgm.modular_commands.registry.PlaceholderCommandRegistry;
+import com.github.thiagotgm.modular_commands.registry.annotation.Essential;
 import com.github.thiagotgm.modular_commands.registry.annotation.HasPrefix;
 
 import sx.blah.discord.api.IDiscordClient;
@@ -58,10 +61,12 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     private static final Logger LOG = LoggerFactory.getLogger( CommandRegistry.class );
     
+    private final Object linkedObject;
     private volatile boolean enabled;
     private volatile String prefix;
     private volatile Predicate<CommandContext> contextCheck;
     private volatile long lastChanged;
+    protected volatile boolean essential;
     
     /** Table of commands, stored by name. */
     private final Map<String, ICommand> commands;
@@ -71,7 +76,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private final Map<String, PriorityQueue<ICommand>> noPrefix;
     
     private volatile CommandRegistry parentRegistry;
-    private final Map<String, CommandRegistry> subRegistries;
+    protected final Map<String, CommandRegistry> subRegistries;
+    protected final Map<String, PlaceholderCommandRegistry> placeholders;
     private static final Map<IDiscordClient, ClientCommandRegistry> registries =
             Collections.synchronizedMap( new HashMap<>() );
     
@@ -94,19 +100,28 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
     }
     
-    /**
-     * Creates a new registry with no declared prefix.
-     */
-    private CommandRegistry() {
+    { // Initializes default values.
         
         this.enabled = true;
         this.prefix = null;
+        this.essential = false;
         
         this.commands = Collections.synchronizedMap( new HashMap<>() );
         this.withPrefix = Collections.synchronizedMap( new HashMap<>() );
         this.noPrefix = Collections.synchronizedMap( new HashMap<>() );
         
         this.subRegistries = Collections.synchronizedMap( new TreeMap<>() );
+        this.placeholders = Collections.synchronizedMap( new HashMap<>() );
+        
+    }
+    
+    /**
+     * Creates a new registry with no declared prefix.
+     */
+    protected CommandRegistry() {
+        
+        this.linkedObject = null;
+        this.essential = false;
         
     }
     
@@ -115,22 +130,65 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * <p>
      * If the object's class has a {@link HasPrefix} annotation, the registry
      * will be intialized to have the prefix specified in the annotation. Else,
-     * the registry will have no declared prefix.
+     * the registry will have no declared prefix.<br>
+     * If it has the {@link Essential} annotation, the registry is initialized to
+     * be essential. Else, it is initialized to not be essential.
      *
      * @param obj The object that will be linked to the initialized registry.
      * @throws NullPointerException if the object received is null.
      */
     protected CommandRegistry( Object obj ) throws NullPointerException {
         
-        this();
-        
         if ( obj == null ) {
             throw new NullPointerException( "Linked object cannot be null." );
         }
         
+        this.linkedObject = obj;
+        
         HasPrefix prefix = obj.getClass().getDeclaredAnnotation( HasPrefix.class );
         if ( prefix != null ) { // A prefix was specified in the object's type.
             this.prefix = prefix.value();
+        }
+        
+        if ( obj.getClass().isAnnotationPresent( Essential.class ) ) {
+            this.essential = true; // Marked to be initialized as essential.
+        } else {
+            this.essential = false;
+        }
+        
+    }
+    
+    /**
+     * Creates a new command registry to be linked to the given object that is
+     * initialized from the given placeholder.
+     * <p>
+     * The constructed registry has all of the placeholder's subregistries.
+     *
+     * @param obj The object that will be linked to the initialized registry.
+     * @throws NullPointerException if the object or placeholder received is null.
+     * @see #CommandRegistry(Object)
+     */
+    protected CommandRegistry( Object obj, PlaceholderCommandRegistry placeholder )
+            throws NullPointerException {
+        
+        this( obj );
+        
+        if ( placeholder == null ) {
+            throw new NullPointerException( "Placeholder cannot be null." );
+        }
+        
+        /* Transfers placeholder subregistries and placeholders to this */
+        for ( CommandRegistry subRegistry : placeholder.getSubRegistries() ) {
+            
+            this.subRegistries.put( subRegistry.getQualifiedName(), subRegistry );
+            subRegistry.setRegistry( this );
+            
+        }
+        for ( PlaceholderCommandRegistry subPlaceholder : placeholder.placeholders.values() ) {
+            
+            this.placeholders.put( subPlaceholder.getQualifiedName(), subPlaceholder );
+            subPlaceholder.setRegistry( this );
+            
         }
         
     }
@@ -251,6 +309,31 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Retrieves the object that the registry is linked to.
+     * <p>
+     * Will return null if this is a placeholder (placeholders are not
+     * linked to any object).
+     *
+     * @return The linked object.
+     */
+    public Object getLinkedObject() {
+        
+        return linkedObject;
+        
+    }
+    
+    /**
+     * Retrieves the subregistry placeholders stored in this registry.
+     *
+     * @return This registry's placeholders.
+     */
+    public Collection<PlaceholderCommandRegistry> getPlaceholders() {
+        
+        return placeholders.values();
+        
+    }
+    
+    /**
      * Registers a new subregistry into this registry.
      * <p>
      * If the given registry was already registered into another registry, it is
@@ -276,9 +359,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             registry.getRegistry().unregisterSubRegistry( registry );
         }
         registry.setRegistry( this );
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Adding subregistry \"" + qualifiedName + "\" to \"" + getQualifiedName() + "\"." );
-        }
+        LOG.info( "Adding subregistry \"{}\" to \"{}\".",
+                qualifiedName, getQualifiedName() );
         setLastChanged( System.currentTimeMillis() );
         
     }
@@ -293,10 +375,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
         if ( subRegistries.remove( registry.getQualifiedName() ) != null ) {
             registry.setRegistry( null );
-            if ( LOG.isInfoEnabled() ) {
-                LOG.info( "Removing subregistry \"" + registry.getQualifiedName() +
-                        "\" from \"" + getQualifiedName() + "\"." );
-            }
+            LOG.info( "Removing subregistry \"{}\" from \"{}\".",
+                    registry.getQualifiedName(), getQualifiedName() );
         }
         setLastChanged( System.currentTimeMillis() );
         
@@ -306,7 +386,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * Retrieves the subregistry that has the given qualified name, if one exists.
      *
      * @param qualifiedName The qualified name of the subregistry.
-     * @return The subregistry with the qualified name.
+     * @return The subregistry with the qualified name, or null if none exist.
      * @throws NullPointerException if the name passed in is null.
      */
     public CommandRegistry getSubRegistry( String qualifiedName ) {
@@ -317,11 +397,15 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     
     /**
      * Retrieves the subregistry that is associated to an object of the given 
-     * class and has the given name, if one exists.
+     * class and has the given name.
+     * <p>
+     * If no such registry exists, but there is a placeholder for it, retrieves the
+     * placeholder.<br>
+     * Else, creates a placeholder and retrieves it.
      *
      * @param linkedClass The class of objects that the desired registry links to.
-     * @param qualifiedName The simple name of the subregistry.
-     * @return The subregistry with the qualified name.
+     * @param name The simple name of the subregistry.
+     * @return The subregistry with the qualified name (actual or placeholder).
      * @throws NullPointerException if one of the arguments is null.
      * @throws IllegalArgumentException if there is no registry for the given type.
      */
@@ -336,7 +420,178 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             throw new IllegalArgumentException( "There are no registries for the given class." );
         }
         
-        return getSubRegistry( qualifiedName( linkedClass, name ) );
+        String qualifiedName = qualifiedName( linkedClass, name );
+        CommandRegistry registry = subRegistries.get( qualifiedName );
+        if ( registry != null ) {
+            return registry; // Has an actual registry.
+        }
+        registry = placeholders.get( qualifiedName );
+        if ( registry != null ) {
+            return registry; // Has a placeholder.
+        }
+        LOG.info( "Creating placeholder for {} in {}.", qualifiedName, getQualifiedName() );
+        PlaceholderCommandRegistry placeholder = // Create a new placeholder.
+                new PlaceholderCommandRegistry( qualifiers.get( linkedClass ), name );
+        placeholders.put( qualifiedName, placeholder );
+        placeholder.setRegistry( this );
+        return placeholder;
+        
+    }
+    
+    /**
+     * Removes the subregistry with the given name that is linked to an object of the
+     * given class, if it exists.
+     * <p>
+     * If the subregistry has subregistries, leaves a placeholder for it that keeps the
+     * subregistries, so that if the subregistry is recreated, the subregistries
+     * are brought back.<br>
+     * Thus, if a registry is found and deleted, it will always be returned with no
+     * subregistries, as any it might have had are left with the placeholder.<br>
+     * If the subregistries should be also deleted/kept with the registry, use 
+     * {@link #removeSubRegistryFull(Class, String)}.
+     *
+     * @param linkedClass The class of objects that the desired registry links to.
+     * @param name The simple name of the subregistry.
+     * @return The deleted subregistry, or null if no matching subregistry found.
+     * @throws NullPointerException if one of the arguments is null.
+     * @throws IllegalArgumentException if there is no registry for the given type.
+     */
+    protected CommandRegistry removeSubRegistry( Class<?> linkedClass, String name )
+            throws NullPointerException, IllegalArgumentException {
+        
+        if ( ( linkedClass == null ) || ( name == null ) ) {
+            throw new NullPointerException( "Arguments cannot be null." );
+        }
+        
+        if ( !registryTypes.containsKey( linkedClass ) ) {
+            throw new IllegalArgumentException( "There are no registries for the given class." );
+        }
+        
+        String qualifiedName = qualifiedName( linkedClass, name );
+        CommandRegistry subRegistry = subRegistries.get( qualifiedName );
+        if ( subRegistry == null ) {
+            return null; // No subregistry found.
+        }
+        unregisterSubRegistry( subRegistry );
+        if ( subRegistry.subRegistries.isEmpty() && // No sub-subregistries
+             subRegistry.placeholders.isEmpty() ) { // or placeholders.
+            /* Delete all ancestors that are placeholders and became irrelevant */
+            CommandRegistry registry = this;
+            while ( ( registry instanceof PlaceholderCommandRegistry ) &&
+                    ( registry.subRegistries.isEmpty() ) &&
+                    ( registry.placeholders.isEmpty() ) ) {
+                
+                CommandRegistry parent = registry.getRegistry();
+                LOG.debug( "Removing empty placeholder." );
+                parent.placeholders.remove( registry );
+                registry = parent;
+                
+            }
+        } else { // Needs to keep the sub-subregistries and placeholders.
+            LOG.debug( "Leaving placeholder." );
+            placeholders.put( qualifiedName, new PlaceholderCommandRegistry( subRegistry ) );
+        }
+        return subRegistry;
+        
+    }
+    
+    /**
+     * Removes the subregistry with the given name that is linked to an object of the
+     * given class, if it exists.
+     * <p>
+     * If the subregistry has subregistries, they are kept with the registry and thus
+     * also deleted.<br>
+     * If the subregistries should be kept in a placeholder for when/if the subregistry
+     * is recreated, use {@link #removeSubRegistry(Class, String)}.
+     *
+     * @param linkedClass The class of objects that the desired registry links to.
+     * @param name The simple name of the subregistry.
+     * @return The deleted subregistry, or null if no matching subregistry found.
+     * @throws NullPointerException if one of the arguments is null.
+     * @throws IllegalArgumentException if there is no registry for the given type.
+     */
+    protected CommandRegistry removeSubRegistryFull( Class<?> linkedClass, String name )
+            throws NullPointerException, IllegalArgumentException {
+        
+        if ( ( linkedClass == null ) || ( name == null ) ) {
+            throw new NullPointerException( "Arguments cannot be null." );
+        }
+        
+        if ( !registryTypes.containsKey( linkedClass ) ) {
+            throw new IllegalArgumentException( "There are no registries for the given class." );
+        }
+        
+        String qualifiedName = qualifiedName( linkedClass, name );
+        CommandRegistry subRegistry = subRegistries.get( qualifiedName );
+        if ( subRegistry == null ) {
+            return null; // No subregistry found.
+        }
+        unregisterSubRegistry( subRegistry );
+        /* Delete all ancestors that are placeholders and became irrelevant */
+        CommandRegistry registry = this;
+        while ( ( registry instanceof PlaceholderCommandRegistry ) &&
+                ( registry.subRegistries.isEmpty() ) &&
+                ( registry.placeholders.isEmpty() ) ) {
+            
+            CommandRegistry parent = registry.getRegistry();
+            LOG.debug( "Removing empty placeholder." );
+            parent.placeholders.remove( registry );
+            registry = parent;
+            
+        }
+        return subRegistry;
+        
+    }
+    
+    /**
+     * Retrieves the subregistry linked to a given object under the given type,
+     * that has the given name.
+     * <p>
+     * If no such subregistry is registered, creates one, initializing from a
+     * placeholder if there is one.
+     *
+     * @param linkedObject The object whose linked subregistry should be retrieved.
+     * @param linkedClass The specific class that the registry type links to.
+     * @param name The name of the registry.
+     * @return The subregistry linked to the given object.
+     * @throws NullPointerException if one of the arguments is null.
+     * @throws IllegalArgumentException if there is no registry for the given type.
+     */
+    protected <T> CommandRegistry getSubRegistry( T linkedObject, Class<? super T> linkedClass,
+            String name ) throws NullPointerException, IllegalArgumentException {
+        
+        if ( ( linkedObject == null ) || ( linkedClass == null ) || ( name == null ) ) {
+            throw new NullPointerException( "Arguments cannot be null." );
+        }
+        
+        if ( !registryTypes.containsKey( linkedClass ) ) {
+            throw new IllegalArgumentException( "There are no registries for the given class." );
+        }
+        
+        String qualifiedName = qualifiedName( linkedClass, name );
+        CommandRegistry registry = subRegistries.get( qualifiedName );
+        if ( registry == null ) { // Subregistry not found, create one.
+            LOG.info( "Creating subregistry {} in {}.", qualifiedName, getQualifiedName() );
+            Class<? extends CommandRegistry> registryType = registryTypes.get( linkedClass );
+            PlaceholderCommandRegistry placeholder = placeholders.remove( qualifiedName );
+            try {
+                if ( placeholder == null ) { // No placeholder.
+                    registry = registryType.getConstructor( linkedClass )
+                            .newInstance( linkedObject );
+                } else { // Has a placeholder.
+                    LOG.debug( "Absorbing placeholder." );
+                    registry = registryType.getConstructor( linkedClass,
+                            PlaceholderCommandRegistry.class )
+                            .newInstance( linkedObject, placeholder );
+                }
+            } catch ( InstantiationException | IllegalAccessException | IllegalArgumentException
+                    | InvocationTargetException | NoSuchMethodException | SecurityException e ) {
+                LOG.error( "Could not create subregistry.", e );
+                return null; // Error encountered.
+            }
+            registerSubRegistry( registry );
+        }
+        return registry;
         
     }
     
@@ -351,16 +606,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      */
     public CommandRegistry getSubRegistry( IModule module ) throws NullPointerException {
         
-        if ( module == null ) {
-            throw new NullPointerException( "Module argument cannot be null." );
-        }
-        String qualifiedName = qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() );
-        CommandRegistry registry = subRegistries.get( qualifiedName );
-        if ( registry == null ) { // Subregistry not found, create one.
-            registry = new ModuleCommandRegistry( module );
-            registerSubRegistry( registry );
-        }
-        return registry;
+        return getSubRegistry( module, IModule.class, module.getName() );
         
     }
     
@@ -398,11 +644,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( module == null ) {
             throw new NullPointerException( "Module argument cannot be null." );
         }
-        CommandRegistry subRegistry = subRegistries.get( qualifiedName( ModuleCommandRegistry.QUALIFIER, module.getName() ) );
-        if ( subRegistry != null ) { // If linked subregistry found, unregister it.
-            unregisterSubRegistry( subRegistry );
-        }
-        return subRegistry;
+        return removeSubRegistry( IModule.class, module.getName() );
         
     }
     
@@ -487,6 +729,13 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         }
         this.enabled = enabled;
 
+    }
+    
+    @Override
+    public boolean isEssential() {
+        
+        return essential;
+        
     }
     
     /**

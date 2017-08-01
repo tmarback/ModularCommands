@@ -18,8 +18,6 @@
 package com.github.thiagotgm.modular_commands.registry;
 
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
-import com.github.thiagotgm.modular_commands.registry.annotation.Essential;
-
 import sx.blah.discord.modules.IModule;
 
 /**
@@ -33,28 +31,40 @@ public class ModuleCommandRegistry extends CommandRegistry {
     
     /** Qualifier for this registry type. */
     public static final String QUALIFIER = "module";
-
-    private final IModule module;
-    private boolean essential;
     
     /**
      * Initializes a registry linked to the given module.
      *
      * @param module The module that the registry should be linked to.
      * @throws NullPointerException if the module received is null.
+     * @see CommandRegistry#CommandRegistry(Object)
      */
     public ModuleCommandRegistry( IModule module ) throws NullPointerException {
 
         super( module );
-        
-        this.module = module;
-        
-        if ( module.getClass().isAnnotationPresent( Essential.class ) ) {
-            this.essential = true; // Marked to be initialized as essential.
-        } else {
-            this.essential = false;
-        }
 
+    }
+    
+    /**
+     * Creates a new command registry to be linked to the given module that is
+     * initialized from the given placeholder.
+     *
+     * @param module The module that will be linked to the initialized registry.
+     * @throws NullPointerException if the module or placeholder received is null.
+     * @see CommandRegistry#CommandRegistry(Object, PlaceholderCommandRegistry)
+     */
+    public ModuleCommandRegistry( IModule module, PlaceholderCommandRegistry placeholder )
+            throws NullPointerException {
+        
+        super( module, placeholder );
+        
+    }
+    
+    @Override
+    public IModule getLinkedObject() {
+        
+        return (IModule) super.getLinkedObject();
+        
     }
     
     /**
@@ -64,7 +74,7 @@ public class ModuleCommandRegistry extends CommandRegistry {
      */
     public IModule getModule() {
 
-        return module;
+        return getLinkedObject();
         
     }
     
@@ -80,18 +90,11 @@ public class ModuleCommandRegistry extends CommandRegistry {
         this.essential = essential;
         
     }
-    
-    @Override
-    public boolean isEssential() {
-        
-        return essential;
-        
-    }
 
     @Override
     public String getName() {
 
-        return module.getName();
+        return getModule().getName();
         
     }
     
