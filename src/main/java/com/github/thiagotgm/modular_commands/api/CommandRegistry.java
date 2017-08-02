@@ -82,8 +82,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private static final Map<IDiscordClient, ClientCommandRegistry> registries =
             Collections.synchronizedMap( new HashMap<>() );
     
-    private static final Map<Class<?>, Class<? extends CommandRegistry>> registryTypes;
-    private static final Map<Class<?>, String> qualifiers;
+    protected static final Map<Class<?>, Class<? extends CommandRegistry>> registryTypes;
+    protected static final Map<Class<?>, String> qualifiers;
     
     static { // Builds type-registry-qualifier maps.
         
@@ -96,8 +96,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         registryMap.put( IModule.class, ModuleCommandRegistry.class );
         qualifierMap.put( IModule.class, ModuleCommandRegistry.QUALIFIER );
         
-        registryTypes = Collections.unmodifiableMap( registryMap );
-        qualifiers = Collections.unmodifiableMap( qualifierMap );
+        registryTypes = Collections.synchronizedMap( registryMap );
+        qualifiers = Collections.synchronizedMap( qualifierMap );
         
     }
     
@@ -436,11 +436,12 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * Removes the subregistry with the given name that is linked to an object of the
      * given class, if it exists.
      * <p>
-     * If the subregistry has subregistries, leaves a placeholder for it that keeps the
-     * subregistries, so that if the subregistry is recreated, the subregistries
-     * are brought back.<br>
+     * If the subregistry has subregistries and/or placeholders, leaves a placeholder
+     * for it that keeps the subregistries, so that if the subregistry is recreated,
+     * the subregistries (and placeholders) are brought back.<br>
      * Thus, if a registry is found and deleted, it will always be returned with no
-     * subregistries, as any it might have had are left with the placeholder.<br>
+     * subregistries or placeholders, as any it might have had are left with the
+     * placeholder.<br>
      * If the subregistries should be also deleted/kept with the registry, use 
      * {@link #removeSubRegistryFull(Class, String)}.
      *
@@ -496,8 +497,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * Removes the subregistry with the given name that is linked to an object of the
      * given class, if it exists.
      * <p>
-     * If the subregistry has subregistries, they are kept with the registry and thus
-     * also deleted.<br>
+     * If the subregistry has subregistries and/or placeholders, they are kept with
+     * the registry and thus also deleted.<br>
      * If the subregistries should be kept in a placeholder for when/if the subregistry
      * is recreated, use {@link #removeSubRegistry(Class, String)}.
      *
@@ -554,7 +555,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * @throws NullPointerException if one of the arguments is null.
      * @throws IllegalArgumentException if there is no registry for the given type.
      */
-    protected <T> CommandRegistry getSubRegistry( T linkedObject, Class<? super T> linkedClass,
+    public <T> CommandRegistry getSubRegistry( T linkedObject, Class<? super T> linkedClass,
             String name ) throws NullPointerException, IllegalArgumentException {
         
         if ( ( linkedObject == null ) || ( linkedClass == null ) || ( name == null ) ) {
