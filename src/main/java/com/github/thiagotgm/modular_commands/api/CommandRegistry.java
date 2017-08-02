@@ -18,10 +18,13 @@
 package com.github.thiagotgm.modular_commands.api;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.PriorityQueue;
@@ -66,6 +69,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private volatile boolean enabled;
     private volatile String prefix;
     private volatile Predicate<CommandContext> contextCheck;
+    private final List<Predicate<CommandContext>> contextChecks;
     private volatile long lastChanged;
     protected volatile boolean essential;
     
@@ -106,6 +110,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         this.enabled = true;
         this.prefix = null;
         this.contextCheck = null;
+        this.contextChecks = Collections.synchronizedList( new LinkedList<>() );
         this.lastChanged = System.currentTimeMillis();
         
         this.commands = Collections.synchronizedMap( new HashMap<>() );
@@ -760,22 +765,106 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      */
     public void setContextCheck( Predicate<CommandContext> contextCheck ) {
         
-        if ( LOG.isDebugEnabled() ) {
-            LOG.debug( "Setting context check for \"" + getQualifiedName() + "\"." );
-        }
         this.contextCheck = contextCheck;
+        contextChecks.clear();
+        if ( contextCheck != null ) { // set context check.
+            LOG.debug( "Setting context check for \"{}\".", getQualifiedName() );
+            contextChecks.add( contextCheck );
+        } else { // Remove context check.
+            LOG.debug( "Removing all context checks for \"{}\".", getQualifiedName() );
+        }
+        
+    }
+    
+    /**
+     * Adds a context check to run in addition to the currently set context check.<br>
+     * The context check becomes a composition of the currently set context check
+     * AND the given context check.
+     * <p>
+     * If there is no currently set context check, the given check becomes the only one.
+     *
+     * @param contextCheck The context check to be ran in addition to the current one.
+     * @throws NullPointerException if the context check given is null.
+     * @see #setContextCheck(Predicate)
+     * @see Predicate#and(Predicate)
+     */
+    public void addContextCheck( Predicate<CommandContext> contextCheck )
+            throws NullPointerException {
+        
+        if ( contextCheck == null ) {
+            throw new NullPointerException( "Context check to be added cannot be null." );
+        }
+        
+        LOG.debug( "Adding context check for \"{}\".", getQualifiedName() );
+        if ( this.contextCheck == null ) { // This is the first context check.
+            this.contextCheck = contextCheck;
+        } else { // This is not the first context check.
+            this.contextCheck = this.contextCheck.and( contextCheck );
+        }
+        contextChecks.add( contextCheck );
+        
+    }
+    
+    /**
+     * Removes one of the context checks being made for this registry. The context
+     * check becomes a logical AND of all the remaining context checks.
+     * <p>
+     * If there are no remaining context checks, the context check is removed.
+     *
+     * @param contextCheck The context check to be removed.
+     * @throws NullPointerException if the context check given is null.
+     * @see #addContextCheck(Predicate)
+     */
+    public void removeContextCheck( Predicate<CommandContext> contextCheck )
+            throws NullPointerException {
+        
+        if ( contextCheck == null ) {
+            throw new NullPointerException( "Context check to be removed cannot be null." );
+        }
+        
+        LOG.debug( "Removing context check for \"{}\".", getQualifiedName() );
+        
+        if ( contextChecks.isEmpty() ) {
+            this.contextCheck = null; // No more context checks.
+            return;
+        } else {
+            /* Remakes context check from remaining checks */
+            Iterator<Predicate<CommandContext>> iter = contextChecks.iterator();
+            this.contextCheck = iter.next();
+            while ( iter.hasNext() ) {
+                
+                this.contextCheck = this.contextCheck.and( contextCheck );
+                
+            }
+        }
         
     }
     
     /**
      * Retrieves the operation being used to determine if this registry is active under
      * the context of a command.
+     * <p>
+     * If there are multiple context checks set, the returned object is a logical
+     * AND of all the set context checks.
      *
-     * @return The check being ran on command contexts.
+     * @return The check being ran on command contexts, or null if no check is set.
+     * @see #addContextCheck(Predicate)
      */
     public Predicate<CommandContext> getContextCheck() {
         
         return contextCheck;
+        
+    }
+    
+    /**
+     * Retrieves the operations being used to determine if this registry is active under
+     * the context of a command.
+     *
+     * @return The list of context checks. May be empty if no check is set.
+     */
+    public List<Predicate<CommandContext>> getContextChecks() {
+        
+        return new ArrayList<>( contextChecks );
         
     }
     
