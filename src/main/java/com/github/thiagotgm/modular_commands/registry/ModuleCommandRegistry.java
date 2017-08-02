@@ -45,21 +45,6 @@ public class ModuleCommandRegistry extends CommandRegistry {
 
     }
     
-    /**
-     * Creates a new command registry to be linked to the given module that is
-     * initialized from the given placeholder.
-     *
-     * @param module The module that will be linked to the initialized registry.
-     * @throws NullPointerException if the module or placeholder received is null.
-     * @see CommandRegistry#CommandRegistry(Object, PlaceholderCommandRegistry)
-     */
-    public ModuleCommandRegistry( IModule module, PlaceholderCommandRegistry placeholder )
-            throws NullPointerException {
-        
-        super( module, placeholder );
-        
-    }
-    
     @Override
     public IModule getLinkedObject() {
         

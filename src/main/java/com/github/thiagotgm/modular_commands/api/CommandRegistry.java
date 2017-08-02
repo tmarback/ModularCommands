@@ -21,6 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.PriorityQueue;
@@ -104,7 +105,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         
         this.enabled = true;
         this.prefix = null;
-        this.essential = false;
+        this.contextCheck = null;
+        this.lastChanged = System.currentTimeMillis();
         
         this.commands = Collections.synchronizedMap( new HashMap<>() );
         this.withPrefix = Collections.synchronizedMap( new HashMap<>() );
@@ -116,7 +118,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
-     * Creates a new registry with no declared prefix.
+     * Creates a new registry with no declared prefix and linked to no object.
      */
     protected CommandRegistry() {
         
@@ -154,41 +156,6 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             this.essential = true; // Marked to be initialized as essential.
         } else {
             this.essential = false;
-        }
-        
-    }
-    
-    /**
-     * Creates a new command registry to be linked to the given object that is
-     * initialized from the given placeholder.
-     * <p>
-     * The constructed registry has all of the placeholder's subregistries.
-     *
-     * @param obj The object that will be linked to the initialized registry.
-     * @throws NullPointerException if the object or placeholder received is null.
-     * @see #CommandRegistry(Object)
-     */
-    protected CommandRegistry( Object obj, PlaceholderCommandRegistry placeholder )
-            throws NullPointerException {
-        
-        this( obj );
-        
-        if ( placeholder == null ) {
-            throw new NullPointerException( "Placeholder cannot be null." );
-        }
-        
-        /* Transfers placeholder subregistries and placeholders to this */
-        for ( CommandRegistry subRegistry : placeholder.getSubRegistries() ) {
-            
-            this.subRegistries.put( subRegistry.getQualifiedName(), subRegistry );
-            subRegistry.setRegistry( this );
-            
-        }
-        for ( PlaceholderCommandRegistry subPlaceholder : placeholder.placeholders.values() ) {
-            
-            this.placeholders.put( subPlaceholder.getQualifiedName(), subPlaceholder );
-            subPlaceholder.setRegistry( this );
-            
         }
         
     }
@@ -323,13 +290,40 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
-     * Retrieves the subregistry placeholders stored in this registry.
+     * Transfers all subregistries (including placeholders) in the given
+     * registry to the calling registry.
      *
-     * @return This registry's placeholders.
+     * @param registry The registry to get subregistries from.
      */
-    public Collection<PlaceholderCommandRegistry> getPlaceholders() {
+    protected void transferSubRegistries( CommandRegistry registry ) {
         
-        return placeholders.values();
+        LOG.trace( "Transferring subregistries and placeholders from {} to {}.",
+                registry.getQualifiedName(), getQualifiedName() );
+        
+        /* Transfer subregistries */
+        Iterator<CommandRegistry> subRegistryIter = registry.subRegistries.values().iterator();
+        while ( subRegistryIter.hasNext() ) {
+            
+            CommandRegistry subRegistry = subRegistryIter.next();
+            this.subRegistries.put( subRegistry.getQualifiedName(), subRegistry );
+            subRegistry.setRegistry( this ); // Add to this registry.
+            subRegistryIter.remove(); // Remove from the last one.
+            
+        }
+        
+        /* Transfer placeholders */
+        Iterator<PlaceholderCommandRegistry> placeholderIter = registry.placeholders.values()
+                .iterator();
+        while ( placeholderIter.hasNext() ) {
+            
+            PlaceholderCommandRegistry placeholder = placeholderIter.next();
+            this.placeholders.put( placeholder.getQualifiedName(), placeholder );
+            placeholder.setRegistry( this ); // Add to this registry.
+            placeholderIter.remove(); // Remove from the last one.
+            
+        }
+        setLastChanged( System.currentTimeMillis() );
+        registry.setLastChanged( System.currentTimeMillis() );
         
     }
     
@@ -489,7 +483,10 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             }
         } else { // Needs to keep the sub-subregistries and placeholders.
             LOG.debug( "Leaving placeholder." );
-            placeholders.put( qualifiedName, new PlaceholderCommandRegistry( subRegistry ) );
+            PlaceholderCommandRegistry placeholder = new PlaceholderCommandRegistry(
+                    subRegistry.getQualifier(), subRegistry.getName() );
+            placeholder.transferSubRegistries( subRegistry );
+            placeholders.put( qualifiedName, placeholder );
         }
         return subRegistry;
         
@@ -573,21 +570,19 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( registry == null ) { // Subregistry not found, create one.
             LOG.info( "Creating subregistry {} in {}.", qualifiedName, getQualifiedName() );
             Class<? extends CommandRegistry> registryType = registryTypes.get( linkedClass );
-            PlaceholderCommandRegistry placeholder = placeholders.remove( qualifiedName );
-            try {
-                if ( placeholder == null ) { // No placeholder.
-                    registry = registryType.getConstructor( linkedClass )
-                            .newInstance( linkedObject );
-                } else { // Has a placeholder.
-                    LOG.debug( "Absorbing placeholder." );
-                    registry = registryType.getConstructor( linkedClass,
-                            PlaceholderCommandRegistry.class )
-                            .newInstance( linkedObject, placeholder );
-                }
+            try { // Instantiate the registry.
+                registry = registryType.getConstructor( linkedClass )
+                        .newInstance( linkedObject );
             } catch ( InstantiationException | IllegalAccessException | IllegalArgumentException
                     | InvocationTargetException | NoSuchMethodException | SecurityException e ) {
                 LOG.error( "Could not create subregistry.", e );
                 return null; // Error encountered.
+            }
+
+            PlaceholderCommandRegistry placeholder = placeholders.remove( qualifiedName );
+            if ( placeholder != null ) { // Registry has a placeholder.
+                LOG.debug( "Absorbing placeholder." );
+                registry.transferSubRegistries( placeholder );
             }
             registerSubRegistry( registry );
         }
@@ -1216,7 +1211,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      *                    of its subregistries had a change.
      * @see #getLastChanged()
      */
-    private void setLastChanged( long lastChanged ) {
+    protected void setLastChanged( long lastChanged ) {
         
         this.lastChanged = lastChanged;
         if ( getRegistry() != null ) {

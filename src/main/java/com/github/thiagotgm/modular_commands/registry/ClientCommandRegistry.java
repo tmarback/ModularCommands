@@ -46,28 +46,9 @@ public class ClientCommandRegistry extends CommandRegistry {
     public ClientCommandRegistry( IDiscordClient client ) throws NullPointerException {
 
         super( client );
-
-    }
-    
-    /**
-     * Creates a new command registry to be linked to the given client that is
-     * initialized from the given placeholder.
-     *
-     * @param client The client that will be linked to the initialized registry.
-     * @throws NullPointerException if the client or placeholder received is null.
-     * @see CommandRegistry#CommandRegistry(Object, PlaceholderCommandRegistry)
-     */
-    public ClientCommandRegistry( IDiscordClient client, PlaceholderCommandRegistry placeholder )
-            throws NullPointerException {
-        
-        super( client, placeholder );
-        
-    }
-    
-    { // Sets the registry to be essential.
         
         this.essential = true;
-        
+
     }
     
     @Override

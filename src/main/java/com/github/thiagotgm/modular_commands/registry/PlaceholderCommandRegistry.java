@@ -56,43 +56,6 @@ public class PlaceholderCommandRegistry extends CommandRegistry {
         this.name = name;
         
     }
-    
-    /**
-     * Creates a placeholder for the given registry, transferring its subregistries to
-     * the constructed placeholder.
-     * <p>
-     * To be used when the registry is being deleted.
-     *
-     * @param registry The registry to construct a placeholder for.
-     * @throws NullPointerException if the argument is null.
-     */
-    public PlaceholderCommandRegistry( CommandRegistry registry )
-            throws NullPointerException {
-        
-        super();
-        
-        if ( registry == null ) {
-            throw new NullPointerException( "Argument cannot be null." );
-        }
-        
-        this.qualifier = registry.getQualifier();
-        this.name = registry.getName();
-        
-        /* Transfers placeholder subregistries and placeholders to this */
-        for ( CommandRegistry subRegistry : registry.getSubRegistries() ) {
-            
-            this.subRegistries.put( subRegistry.getQualifiedName(), subRegistry );
-            subRegistry.setRegistry( this );
-            
-        }
-        for ( PlaceholderCommandRegistry placeholder : registry.getPlaceholders() ) {
-            
-            this.placeholders.put( placeholder.getQualifiedName(), placeholder );
-            placeholder.setRegistry( this );
-            
-        }
-        
-    }
 
     @Override
     public String getName() {
@@ -105,6 +68,18 @@ public class PlaceholderCommandRegistry extends CommandRegistry {
     public String getQualifier() {
 
         return qualifier;
+        
+    }
+    
+    /**
+     * Placeholder registries are not counted in the registry hierarchy, so changes
+     * to a placeholder are irrelevant.<br>
+     * Thus, a call to this is ignored.
+     */
+    @Override
+    public void setLastChanged( long lastChanged ) {
+        
+        return;
         
     }
     
