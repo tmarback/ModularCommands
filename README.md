@@ -2,7 +2,7 @@
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/1.0.0/javadoc/)
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/1.1.0/javadoc/)
 
 ## How to Use
 There are 2 ways to include this framework in your bot:
@@ -166,13 +166,11 @@ You can get the root registry using your `IDiscordClient`:
 CommandRegistry root = CommandRegistry.getRegistry( client );
 ```
 If you want to, you can just add commands here, and that's fine. However, if you want to add some modularity to your commands, you can get a registry made specifically for each of your modules:
-
 ```java
 CommandRegistry subRegistry = root.getSubRegistry( module );
 ```
 
 The advantage of using subregistries is that, this way, your commands become _much_ more easy to manage. As you probably noticed in the example of making a command with the interface, commands can be enabled or disabled at will. But, so can registries. So, if you added your commands to separate registries for each of your modules, and for some reason you decided that you want to disable all the commands from that module:
-
 ```java
 subRegistry.disable();
 ```
@@ -180,18 +178,23 @@ subRegistry.disable();
 And voila! Now all the commands in that registry are disabled (and so cannot be called) until you enable it again. Do note, however, that if a registry (or a command, for that matter) is set to be `essential`, it cannot be disabled, and so this would throw an exception. The root registry is an example of such registry.
 
 It would also be useful if you happen to need to disable the module. Instead of removing your commands one by one, just remove the entire subregistry:
-
 ```java
 root.removeSubRegistry( module );
 ```
 
 And you're not limited to getting subregistries only from the root registry. If, for example, you have another module that adds some commands that add more functionality to the first module, you can put those in their own subregistry:
-
 ```java
 CommandRegistry subSubRegistry = subRegistry.getSubRegistry( otherModule );
 ```
 
-On that note, you can use these subregistries for another use: _overriding_ commands. If a certain registry has a command with the alias `loot` and prefix `!`, but then one of its subregistries also has a command with the alias `loot` and prefix `!`, the one that would be executed whenever someone used the command `!loot` would be the one in the subregistry (unless the command in the original registry had the `overrideable` property set to false). This way, you could add functionality to commands of other modules without having a headache if you ever need to restore the original one.
+If you want to get a subregistry from the registry of another module, but you don't have the instance of the "parent" module (as is usually the case), you can use the module name to get its registry before getting the registry for the current module:
+```java
+CommandRegistry registry = root.getSubRegistry( IModule.class, "Parent module name" ).getSubRegistry( this );
+```
+In this case, if the subregistry of the parent module doesn't yet exist, what will be retrieved is a _placeholder_ for its registry. A placeholder cannot register any commands, it can only be used to make subregistries. It is also not counted on the normal registry hierarchy, so commands registered in subregistries of the placeholder are not active (they won't be callable and won't show up in the default help command). Once the registry that it stands for is actually created (in this example, the parent module creates its own subregistry in the root registry), the newly created registry will get all the subregistries (and placeholders) that were in the placeholder. This eliminates the need for worrying about whether the parent module is enabled or not.  
+Also, when a subregistry is removed (for example, in the module's `disable()` method), a placeholder is created to hold its own subregistries. Thus, if/when the registry is created again (for example, the module is re-enabled), the subregistries are restored. Thus, you can disable/re-enable modules without having to worry if other modules might have added their own subregistries and commands.
+
+You can use subregistries for another use: _overriding_ commands. If a certain registry has a command with the alias `loot` and prefix `!`, but then one of its subregistries also has a command with the alias `loot` and prefix `!`, the one that would be executed whenever someone used the command `!loot` would be the one in the subregistry (unless the command in the original registry had the `overrideable` property set to false). This way, you could add functionality to commands of other modules without having a headache if you ever need to restore the original one.
 
 OBS: it is possible to have more than one subregistry have commands with the same signature. For those moments, you can specify a `priority` to your commands, and in those cases the one with the highest priority will be chosen (in case of priority ties, the one whose `name` comes first lexicographically is picked). The same applies if there are multiple commands in the same registry with the same signature (this also means that, even if a command is set as not overrideable, it could still be replaced by a command in the same registry).
 
@@ -205,6 +208,21 @@ registry.setContextCheck( (context) -> {
     return context.getChannel().getName().equals("general");
 });
 ```
+Or, if you need to have multiple individual checks:
+```java
+registry.setContextCheck( null ); // Remove context checks.
+Predicate<CommandContext> check1 = (context) -> {
+    return context.getChannel().getName().equals("chat");
+};
+registry.addContextCheck( check1 ); // Only check1 is ran.
+
+registry.addContextCheck( (context) -> { // check2.
+    return context.getChannel().getName().equals("general");
+}); // Now runs both check1 and check2.
+
+registry.removeContextCheck( check1 ); // Now only runs check2.
+```
+OBS: Calling `setContextCheck` replaces all current context checks with the one given.
 
 Now, once you have the registry you want to add your command to, adding the command is really simple:
 ```java
@@ -213,7 +231,7 @@ registry.registerCommand( pingCommand );
 registry.registerAnnotatedCommands( new AnnotatedCommand() );
 ```
 
-OBS: While multiple commands can have the same `alias`, the `name` of each command _must_ be unique within the registry hierarchy (the root registry and all its subregistries).
+OBS: While multiple commands can have the same `alias`, the `name` of each command _must_ be unique within the registry hierarchy (the root registry and all its subregistries, including subregistries in placeholders).
 
 OBS 2: If a command has one or more of its signatures overriden or otherwise has lower precedence than another command in a signature conflict, it effectively loses that signature (other signatures it may have that are not part of the conflict are not affected), even if the command that replaces it is disabled. It can only be restored by de-registering the command that replaces it.
 
