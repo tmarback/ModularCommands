@@ -71,6 +71,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private volatile Predicate<CommandContext> contextCheck;
     private final List<Predicate<CommandContext>> contextChecks;
     private volatile long lastChanged;
+    /** Stores whether the registry is essential. */
     protected volatile boolean essential;
     
     /** Table of commands, stored by name. */
@@ -81,12 +82,23 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     private final Map<String, PriorityQueue<ICommand>> noPrefix;
     
     private volatile CommandRegistry parentRegistry;
+    /** Map of the subregistries registered in this registry and their names. */
     protected final Map<String, CommandRegistry> subRegistries;
+    /** Map of the placeholders stored in this registry and their names. */
     protected final Map<String, PlaceholderCommandRegistry> placeholders;
+    /** Map of the root registries for each client. */
     private static final Map<IDiscordClient, ClientCommandRegistry> registries =
             Collections.synchronizedMap( new HashMap<>() );
     
+    /**
+     * Map between classes that can be linked to a registry and the registry subtype that
+     * links to objects of that class.
+     */
     protected static final Map<Class<?>, Class<? extends CommandRegistry>> registryTypes;
+    /**
+     * Map between classes that can be linked to a registry and the qualifier of the
+     * registry subtype that links to objects of that class.
+     */
     protected static final Map<Class<?>, String> qualifiers;
     
     static { // Builds type-registry-qualifier maps.
