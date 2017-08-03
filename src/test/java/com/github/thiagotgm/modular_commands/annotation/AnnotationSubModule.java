@@ -33,10 +33,29 @@ public class AnnotationSubModule implements IModule {
     @Override
     public boolean enable( IDiscordClient client ) {
 
-        IModule parent = new AnnotationModule();
-        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( parent )
-                .getSubRegistry( this );
+        CommandRegistry parent = CommandRegistry.getRegistry( client )
+                .getSubRegistry( IModule.class, AnnotationModule.NAME );
+        CommandRegistry reg = parent.getSubRegistry( this );
         reg.registerAnnotatedCommands( new SubAnnotatedCommands() );
+        
+        parent = CommandRegistry.getRegistry( client )
+                .getSubRegistry( IModule.class, "Inexistent module" );
+        reg = parent.getSubRegistry( this );
+        reg.registerAnnotatedCommands( new InexistentCommand() );
+        
+        IModule inexistent = new AnnotationSubModule() {
+            
+            @Override
+            public String getName() { return "Inexistent module"; }
+            
+        };
+        CommandRegistry root = CommandRegistry.getRegistry( client );
+        
+        root.getSubRegistry( inexistent );
+        root.removeSubRegistry( inexistent );
+        root.removeSubRegistry( inexistent );
+        root.getSubRegistry( IModule.class, "Inexistent module" ).removeSubRegistry( this );
+        
         return true;
     }
 

@@ -33,6 +33,8 @@ import sx.blah.discord.modules.IModule;
 @HasPrefix( "!" )
 public class AnnotationModule implements IModule {
 
+    public static final String NAME = "Annotation module";
+    
     @Override
     public boolean enable( IDiscordClient client ) {
 
@@ -52,7 +54,7 @@ public class AnnotationModule implements IModule {
     @Override
     public String getName() {
 
-        return "Annotation module";
+        return NAME;
         
     }
 

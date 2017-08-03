@@ -438,6 +438,27 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
     }
     
     /**
+     * Deletes all empty placeholder registries starting from the calling registry and
+     * going up the registry hierarchy, until hitting either a non-placeholder registry
+     * or a non-empty placeholder.
+     */
+    private void cleanPlaceholders() {
+        
+        CommandRegistry registry = this;
+        while ( ( registry instanceof PlaceholderCommandRegistry ) &&
+                ( registry.subRegistries.isEmpty() ) &&
+                ( registry.placeholders.isEmpty() ) ) {
+            
+            CommandRegistry parent = registry.getRegistry();
+            LOG.debug( "Removing empty placeholder \"{}\".", registry.getQualifiedName() );
+            parent.placeholders.remove( registry );
+            registry = parent;
+            
+        }
+        
+    }
+    
+    /**
      * Removes the subregistry with the given name that is linked to an object of the
      * given class, if it exists.
      * <p>
@@ -475,24 +496,15 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         unregisterSubRegistry( subRegistry );
         if ( subRegistry.subRegistries.isEmpty() && // No sub-subregistries
              subRegistry.placeholders.isEmpty() ) { // or placeholders.
-            /* Delete all ancestors that are placeholders and became irrelevant */
-            CommandRegistry registry = this;
-            while ( ( registry instanceof PlaceholderCommandRegistry ) &&
-                    ( registry.subRegistries.isEmpty() ) &&
-                    ( registry.placeholders.isEmpty() ) ) {
-                
-                CommandRegistry parent = registry.getRegistry();
-                LOG.debug( "Removing empty placeholder." );
-                parent.placeholders.remove( registry );
-                registry = parent;
-                
-            }
+            // Delete all ancestors that are placeholders and became irrelevant.
+            cleanPlaceholders();
         } else { // Needs to keep the sub-subregistries and placeholders.
             LOG.debug( "Leaving placeholder." );
             PlaceholderCommandRegistry placeholder = new PlaceholderCommandRegistry(
                     subRegistry.getQualifier(), subRegistry.getName() );
             placeholder.transferSubRegistries( subRegistry );
             placeholders.put( qualifiedName, placeholder );
+            placeholder.setRegistry( this );
         }
         return subRegistry;
         
@@ -530,18 +542,8 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             return null; // No subregistry found.
         }
         unregisterSubRegistry( subRegistry );
-        /* Delete all ancestors that are placeholders and became irrelevant */
-        CommandRegistry registry = this;
-        while ( ( registry instanceof PlaceholderCommandRegistry ) &&
-                ( registry.subRegistries.isEmpty() ) &&
-                ( registry.placeholders.isEmpty() ) ) {
-            
-            CommandRegistry parent = registry.getRegistry();
-            LOG.debug( "Removing empty placeholder." );
-            parent.placeholders.remove( registry );
-            registry = parent;
-            
-        }
+        // Delete all ancestors that are placeholders and became irrelevant.
+        cleanPlaceholders();
         return subRegistry;
         
     }
