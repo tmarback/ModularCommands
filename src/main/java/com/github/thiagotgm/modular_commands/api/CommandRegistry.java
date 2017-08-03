@@ -302,7 +302,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      */
     protected void transferSubRegistries( CommandRegistry registry ) {
         
-        LOG.trace( "Transferring subregistries and placeholders from {} to {}.",
+        LOG.trace( "Transferring subregistries and placeholders from \"{}\" to \"{}\".",
                 registry.getQualifiedName(), getQualifiedName() );
         
         /* Transfer subregistries */
@@ -428,7 +428,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         if ( registry != null ) {
             return registry; // Has a placeholder.
         }
-        LOG.info( "Creating placeholder for {} in {}.", qualifiedName, getQualifiedName() );
+        LOG.info( "Creating placeholder for \"{}\" in \"{}\".", qualifiedName, getQualifiedName() );
         PlaceholderCommandRegistry placeholder = // Create a new placeholder.
                 new PlaceholderCommandRegistry( qualifiers.get( linkedClass ), name );
         placeholders.put( qualifiedName, placeholder );
@@ -574,7 +574,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         String qualifiedName = qualifiedName( linkedClass, name );
         CommandRegistry registry = subRegistries.get( qualifiedName );
         if ( registry == null ) { // Subregistry not found, create one.
-            LOG.info( "Creating subregistry {} in {}.", qualifiedName, getQualifiedName() );
+            LOG.info( "Creating subregistry \"{}\" in \"{}\".", qualifiedName, getQualifiedName() );
             Class<? extends CommandRegistry> registryType = registryTypes.get( linkedClass );
             try { // Instantiate the registry.
                 registry = registryType.getConstructor( linkedClass )
@@ -920,6 +920,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * Registers a command into the calling registry.<br>
      * The command will fail to be added if there is already a command in the registry hierarchy
      * (parent and sub registries) with the same name (eg the command name must be unique).
+     * (placeholder subregistries are also counted).
      * <p>
      * If the command was already registered to another registry (that is not part of the
      * hierarchy of the calling registry), it is unregistered from it first.<br>
@@ -946,9 +947,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             fail = true; // Check if there is a command in the chain with the same name.
         }
         if ( fail ) {
-            if ( LOG.isInfoEnabled() ) {
-                LOG.error( "Failed to register command \"" + command.getName() + "\"." );
-            }
+            LOG.error( "Failed to register command \"{}\".", command.getName() );
             return false; // Error found.
         }
         
@@ -1165,7 +1164,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * the given name, if one exists.
      * <p>
      * The search on the subregistries also includes their respective subregistries
-     * (eg searches recursively).
+     * (eg searches recursively). Placeholder subregistries are also searched.
      *
      * @param name The name of the command.
      * @return The command in this registry or its subregistries with the given name,
@@ -1180,6 +1179,14 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
         for ( CommandRegistry subRegistry : getSubRegistries() ) { // Check each subregistry.
             
             command = subRegistry.getCommand( name );
+            if ( command != null ) {
+                return command; // Found command in a subregistry.
+            }
+            
+        }
+        for ( CommandRegistry placeholder : placeholders.values() ) { // Check each placeholder.
+            
+            command = placeholder.getCommand( name );
             if ( command != null ) {
                 return command; // Found command in a subregistry.
             }
