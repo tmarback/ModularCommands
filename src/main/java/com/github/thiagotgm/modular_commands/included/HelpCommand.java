@@ -51,7 +51,7 @@ import sx.blah.discord.util.RequestBuilder;
  * @since 2017-07-25
  */
 public class HelpCommand {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger( HelpCommand.class );
     
     public static final String MAIN_COMMAND_NAME = "Default Help Command";
@@ -70,6 +70,8 @@ public class HelpCommand {
     private static final String COMMAND_TITLE = "[COMMAND DETAILS]\n";
     private static final String REGISTRY_TITLE = "[REGISTRY DETAILS]\n";
     private static final String DISABLED_TAG = "[DISABLED] ";
+    
+    private static final String EMPTY_REGISTRY = "<no commands>\n";
     
     private ClientCommandRegistry registry;
     private volatile long lastUpdated;
@@ -391,6 +393,10 @@ public class HelpCommand {
         }
         if ( builder.length() > 0 ) {
             blocks.add( builder.toString() ); // Record last block.
+        }
+        
+        if ( blocks.isEmpty() ) {
+            blocks.add( EMPTY_REGISTRY ); // Ensure at least one block.
         }
         
         return blocks;
