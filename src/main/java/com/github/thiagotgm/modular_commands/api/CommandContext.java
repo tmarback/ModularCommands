@@ -55,7 +55,7 @@ public class CommandContext {
     private final IChannel channel;
     private final IGuild guild;
     private final MessageBuilder replyBuilder;
-    private volatile Optional<?> helper;
+    private volatile Optional<Object> helper;
     private volatile List<Argument> arguments;
 
     /**
@@ -230,7 +230,7 @@ public class CommandContext {
      * @return The helper object currently stored.
      * @see #setHelper(Object)
      */
-    public Optional<?> getHelper() {
+    public Optional<Object> getHelper() {
         
         return helper;
         
