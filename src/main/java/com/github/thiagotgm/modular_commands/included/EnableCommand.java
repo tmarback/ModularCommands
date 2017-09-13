@@ -161,7 +161,7 @@ public class EnableCommand {
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },
-            description = "Enables a registry. "
+            description = "Enables a registry.\n"
                     + "The registry type and name (for both parent registries and the target registry "
                     + "itself) should be just as shown in the registry list. All parent "
                     + "registries must be included in order. If there is a space in a "

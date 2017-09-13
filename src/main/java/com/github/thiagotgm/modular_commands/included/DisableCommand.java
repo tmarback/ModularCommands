@@ -120,7 +120,7 @@ public class DisableCommand {
     @MainCommand(
             name = COMMAND_NAME,
             aliases = { "disable" },
-            description = "Disables a command. A command that is marked as essential cannot be disabled.",
+            description = "Disables a command.\nOnly non-essential commands can be disabled.",
             usage = "{}disable <command signature>",
             requiresOwner = true,
             essential = true,
@@ -168,7 +168,7 @@ public class DisableCommand {
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },
-            description = "Disables a registry. A registry that is marked as essential cannot be disabled. "
+            description = "Disables a registry.\nA registry that is marked as essential cannot be disabled. "
                     + "The registry type and name (for both parent registries and the target registry "
                     + "itself) should be just as shown in the registry list. All parent "
                     + "registries must be included in order. If there is a space in a "

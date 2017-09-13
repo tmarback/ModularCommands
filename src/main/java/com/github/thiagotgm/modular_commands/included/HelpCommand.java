@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.Stack;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +74,9 @@ public class HelpCommand {
     private static final String DISABLED_TAG = "[DISABLED] ";
     
     private static final String EMPTY_REGISTRY = "<no commands>\n";
+    
+    private static final Pattern DESCRIPTION_PATTERN =
+            Pattern.compile( "\\s*(.*?)\\s*(?:\\n\\s*(.*?)\\s*)?", Pattern.DOTALL );
     
     private ClientCommandRegistry registry;
     private volatile long lastUpdated;
@@ -161,6 +166,34 @@ public class HelpCommand {
     }
     
     /**
+     * Parses a command's description into the <i>short description</i> and the
+     * <i>detailed description</i>.
+     * <p>
+     * The <i>short description</i> is the first line of the description, and is displayed
+     * in both the command list and in the command details.<br>
+     * The <i>detailed description</i> is everything after the first line, and is only
+     * displayed in the command details, after the short description.
+     * <p>
+     * Leading and trailing whitespace in either piece is removed.
+     *
+     * @param command The command to parse the description of.
+     * @return The split command description. The index 0 contains the <i>short description</i>,
+     *         and may be empty, but never <tt>null</tt>. The index 1 is the <i>detailed
+     *         description</i>, and may be <tt>null</tt> if the command description only
+     *         had a single non-empty line.
+     */
+    private static String[] parseDescription( ICommand command ) {
+        
+        Matcher match = DESCRIPTION_PATTERN.matcher( command.getDescription() );
+        match.matches(); // Apply pattern.
+        String[] description = new String[2];
+        description[0] = match.group( 1 );
+        description[1] = match.group( 2 );
+        return description;
+        
+    }
+    
+    /**
      * Formats a command into a single line that shortly describes it.
      *
      * @param command The command to format.
@@ -180,7 +213,7 @@ public class HelpCommand {
         }
         builder.append( signatures, 1, signatures.length() - 1 ); // Remove brackets.
         builder.append( " - " );
-        builder.append( command.getDescription() );
+        builder.append( parseDescription( command )[0] );
         return builder.toString();
         
     }
@@ -242,8 +275,14 @@ public class HelpCommand {
         
         /* Add description */
         builder.append( "Description: " );
-        builder.append( command.getDescription() );
+        String[] description = parseDescription( command );
+        builder.append( description[0] );
         builder.append( '\n' );
+        if ( description[1] != null ) { // Command has detailed description.
+            builder.append( '\t' );
+            builder.append( description[1] );
+            builder.append( '\n' );
+        }
         
         /* Add usage */
         builder.append( "Usage: " );
@@ -406,8 +445,9 @@ public class HelpCommand {
     @MainCommand(
             name = MAIN_COMMAND_NAME,
             aliases = { "help" },
-            description = "Displays all the registered commands. If a command signature is specified, "
-                    + "displays information about that command.",
+            description = "Displays information about registered commands.\nIf a command "
+                    + "signature is specified, displays information about that command. "
+                    + "Else, displays a list of all registered commands.",
             usage = "{}help [here] [command signature]",
             essential = true,
             replyPrivately = true,
@@ -475,7 +515,7 @@ public class HelpCommand {
     @SubCommand(
             name = REGISTRY_DETAILS_SUBCOMMAND_NAME,
             aliases = { "registry" },
-            description = "Displays information about a particular registry. The registry "
+            description = "Displays information about a particular registry.\nThe registry "
                     + "type and name (for both parent registries and the target registry "
                     + "itself) should be just as shown in the registry list. All parent "
                     + "registries must be included in order. If there is a space in a "
@@ -526,8 +566,8 @@ public class HelpCommand {
     @SubCommand(
             name = REGISTRY_LIST_SUBCOMMAND_NAME,
             aliases = { "registries" },
-            description = "Displays all the registered commands, categorized by the subregistries "
-                    + "that they are registered in.",
+            description = "Displays all the registered commands, categorized by "
+                    + "the subregistries that they are registered in.",
             usage = "{}help registries [here]",
             essential = true,
             replyPrivately = true,
@@ -627,7 +667,7 @@ public class HelpCommand {
             name = PUBLIC_HELP_SUBCOMMAND_NAME,
             aliases = { "here" },
             description = "Modifies a help command to output the information to the current "
-                    + "channel instead of a private channel. The information is the same "
+                    + "channel instead of a private channel.\nThe information is the same "
                     + "as calling without the \"here\" modifier.",
             usage = "{}help [subcommand] here [arguments]",
             canModifySubCommands = false,
