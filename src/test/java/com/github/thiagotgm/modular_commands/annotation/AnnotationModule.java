@@ -41,6 +41,7 @@ public class AnnotationModule implements IModule {
         CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
         reg.registerAnnotatedCommands( new AnnotatedCommands() );
         reg.registerAnnotatedCommands( new MoreAnnotatedCommands() );
+        reg.registerAnnotatedCommands( new StatCommand() );
         return true;
     }
 
