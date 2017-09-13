@@ -2,7 +2,7 @@
 Framework for creating and managing chat commands for Discord bots that use Discord4J.
 This framework focuses on offering the greatest flexibility for creating and managing commands in a bot as effortlessly as possible.
 
-The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/1.1.0/javadoc/)
+The javadocs are available at https://jitpack.io/com/github/ThiagoTGM/ModularCommands/@VERSION@/javadoc/, where `@VERSION@` should be replaced by the desired version. This README can't possibly explain everything in full detail, so definitely check them for more detailed information (particularly the `ICommand` interface). [latest](https://jitpack.io/com/github/ThiagoTGM/ModularCommands/1.2.0/javadoc/)
 
 ## How to Use
 There are 2 ways to include this framework in your bot:
@@ -368,13 +368,23 @@ There are 3 commands included in the framework:
   If used with the `registry` subcommand, will take the path of a registry (in the form `<root registry name> <parent registry 1 name> ... <registry name>`, again using the fully qualified name. Exactly as shown in the registry list, but replacing each `::` by a space) and display information about that registry.  
   By default the output is sent to a private message, but if the word "here" is used after the command/subcommands (before the arguments, if any), the output goes to the same channel where the command was called.
   
-  This command provides an easy way of giving information about your commands, but also providing more detailed information in some other form is encouraged.
+  The first line of the command description (up to the first newline character, not including leading and trailing whitespace) is treated as the "short description" of the command, with any further content (again not including leading and trailing whitespace) treated as the "extended description" (optional). The command lists show the short description next to the signatures of each command. The command details show the short description, then the extended description (if any) on the next line. An empty description is treated as an empty short description and no extended description.
+  
+  This command provides an easy way of giving quick information about your commands, but also providing more detailed information in some other form is encouraged.
   
 - `{}enable`: Takes in the signature of a command and enables that command (also accepts subcommands). If used with the `registry` subcommand, takes the path of a registry (see `{}help` description) and enables that registry. Will fail if the command/registry is not found or is already enabled.
 
 - `{}disable`: Takes in the signature of a command and disables that command (also accepts subcommands). If used with the `registry` subcommand, takes the path of a registry (see `{}help` description) and disables that registry. Will fail if the command/registry is not found, is already disabled, or is marked as essential.
 
 OBS: `{}` = Effective prefix of the root registry.
+
+## Stats Tracking
+
+The library keeps track of the amount of commands that were executed by any `CommandHandler` since the program started. This includes only *actual* executions, so commands that do not execute due to ignoring the call (ignoring a bot caller, for example), being disabled, the calling user not having the required permissions, etc, are not counted. Cases where the command executes but fails (bot missing permissions, an exception is thrown, discord error, etc) are counted, however.
+
+The amount of executed commands can be retrieved by using `CommandStats#getCount()`.
+
+OBS: In order to maintain count consistency across threads without creating a bottleneck, the count is increased internally by a single, independent thread, with the `getCount()` method returning the latest count. This means that if the processor becomes overloaded, the counter may be delayed, possibly making `getCount()` not include the latest few executions.
 
 ## 3rd-party Libraries Used
 

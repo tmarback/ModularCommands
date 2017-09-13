@@ -335,6 +335,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             LOG.info( "Executing command " + getCommandTrace( command, event ) );
         }
         builder.execute(); // Execute the command.
+        CommandStats.incrementCount(); // Record command execution.
         
     }
     

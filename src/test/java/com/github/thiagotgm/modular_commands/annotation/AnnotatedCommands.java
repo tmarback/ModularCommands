@@ -36,7 +36,7 @@ public class AnnotatedCommands {
             aliases = { "ano" },
             subCommands = { "Annotated sub command" },
             successHandler = "handle",
-            description = "This is a sample command.",
+            description = "This is a sample command. Does nothing.\n  \tSecond line.",
             usage = "?ano"
             )
     public void reply( CommandContext context ) {
