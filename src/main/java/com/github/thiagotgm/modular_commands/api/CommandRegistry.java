@@ -463,7 +463,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
             
             CommandRegistry parent = registry.getRegistry();
             LOG.debug( "Removing empty placeholder \"{}\".", registry.getQualifiedName() );
-            parent.placeholders.remove( registry );
+            parent.placeholders.remove( registry.getQualifiedName() );
             registry = parent;
             
         }
