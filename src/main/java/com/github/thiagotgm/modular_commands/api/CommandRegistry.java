@@ -570,6 +570,7 @@ public abstract class CommandRegistry implements Disableable, Prefixed, Comparab
      * @param linkedObject The object whose linked subregistry should be retrieved.
      * @param linkedClass The specific class that the registry type links to.
      * @param name The name of the registry.
+     * @param <T> The type of the object.
      * @return The subregistry linked to the given object.
      * @throws NullPointerException if one of the arguments is null.
      * @throws IllegalArgumentException if there is no registry for the given type.
