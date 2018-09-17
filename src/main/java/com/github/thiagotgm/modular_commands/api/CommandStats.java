@@ -17,14 +17,10 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Keeps track of command-related statistics. In order to ensure count consistency without
- * delaying command executions due to synchronization locks, stat increments are only
- * <b>requested</b> by other classes, and are applied one at a time by an independent
- * internal thread.
+ * Keeps track of command-related statistics.
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -32,33 +28,14 @@ import java.util.concurrent.Executors;
  */
 public abstract class CommandStats {
 
-    private static final Executor EXECUTOR = Executors.newSingleThreadExecutor( ( r ) -> {
-        
-        Thread thread = new Thread( r, "CommandStats Updater" );
-        thread.setDaemon( true );
-        return thread;
-        
-    });
-    private static final Runnable INCREMENT_TASK = () -> { increment(); };
-    
-    private static volatile long executedCount = 0;
+    private static final AtomicLong EXECUTED_COUNT = new AtomicLong( 0 );
     
     /**
      * Increments the counter of command executions.
      */
-    private static synchronized void increment() {
-        
-        executedCount++;
-        
-    }
-    
-    /**
-     * Requests an increment of the counter of command executions. The increment is not
-     * necessarily processed immediately.
-     */
     protected static void incrementCount() {
         
-        EXECUTOR.execute( INCREMENT_TASK );
+        EXECUTED_COUNT.incrementAndGet();
         
     }
     
@@ -72,7 +49,7 @@ public abstract class CommandStats {
      */
     public static long getCount() {
         
-        return executedCount;
+        return EXECUTED_COUNT.get();
         
     }
 
