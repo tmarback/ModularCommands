@@ -36,17 +36,22 @@ import sx.blah.discord.util.MissingPermissionsException;
 import sx.blah.discord.util.RateLimitException;
 
 /**
- * Annotation that marks a method that can be turned into an ICommand that is
- * a subcommand.<br>
- * The annotated method must take a single parameter of type {@link CommandContext}.<br>
+ * Annotation that marks a method that can be turned into an ICommand that is a
+ * subcommand.<br>
+ * The annotated method must take a single parameter of type
+ * {@link CommandContext}.<br>
  * It may throw exceptions of type {@link RateLimitException},
  * {@link MissingPermissionsException}, and {@link DiscordException}.
  * <p>
  * Command properties can be specified within the annotation.
  * <p>
  * The method annotated by this will become the command's
- * {@link ICommand#execute(CommandContext)}
- * method.
+ * {@link ICommand#execute(CommandContext)} method.
+ * <p>
+ * <b>NOTE:</b> Rate-limited executions of this method are automatically
+ * re-attempted as a whole. As such, it may not be safe to perform multiple
+ * potentially rate-limited operations in this method, particularly on the same
+ * endpoint.
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -58,7 +63,7 @@ import sx.blah.discord.util.RateLimitException;
 @Repeatable( SubCommands.class )
 @Retention( RUNTIME )
 public @interface SubCommand {
-    
+
     /**
      * Retrieves the name of the command.
      * <p>
@@ -68,7 +73,7 @@ public @interface SubCommand {
      * @see ICommand#getName()
      */
     String name();
-    
+
     /**
      * Retrieves whether the command is essential.
      * <p>
@@ -78,7 +83,7 @@ public @interface SubCommand {
      * @see ICommand#isEssential()
      */
     boolean essential() default false;
-    
+
     /**
      * Retrieves the aliases of the command.
      * <p>
@@ -88,7 +93,7 @@ public @interface SubCommand {
      * @see ICommand#getAliases()
      */
     String[] aliases();
-    
+
     /**
      * Retrieves the description of the command.
      * <p>
@@ -98,7 +103,7 @@ public @interface SubCommand {
      * @see ICommand#getDescription()
      */
     String description() default "";
-    
+
     /**
      * Retrieves the usage of the command.
      * <p>
@@ -108,7 +113,7 @@ public @interface SubCommand {
      * @see ICommand#getUsage()
      */
     String usage() default "";
-    
+
     /**
      * Retrieves how long after a successful execution that
      * {@link ICommand#onSuccess(CommandContext)} should be called.
@@ -119,10 +124,10 @@ public @interface SubCommand {
      * @see ICommand#getOnSuccessDelay()
      */
     long onSuccessDelay() default 0;
-    
+
     /**
-     * Retrieves the name of the operation to be performed after a successful execution
-     * of the command and the specified onSuccess time delay.
+     * Retrieves the name of the operation to be performed after a successful
+     * execution of the command and the specified onSuccess time delay.
      * <p>
      * By default, returns the empty string (no operation).
      *
@@ -131,10 +136,10 @@ public @interface SubCommand {
      * @see SuccessHandler
      */
     String successHandler() default "";
-    
+
     /**
-     * Retrieves the name of the operation to be performed after a failed call to the
-     * command (when failed due to expected reasons).
+     * Retrieves the name of the operation to be performed after a failed call to
+     * the command (when failed due to expected reasons).
      * <p>
      * By default, returns the empty string (no operation).
      *
@@ -143,10 +148,10 @@ public @interface SubCommand {
      * @see FailureHandler
      */
     String failureHandler() default "";
-    
+
     /**
-     * Retrieves whether the command should always reply to the caller on a private channel
-     * instead of the same channel the command was called from.
+     * Retrieves whether the command should always reply to the caller on a private
+     * channel instead of the same channel the command was called from.
      * <p>
      * By default, returns false.
      *
@@ -154,7 +159,7 @@ public @interface SubCommand {
      * @see ICommand#replyPrivately()
      */
     boolean replyPrivately() default false;
-    
+
     /**
      * Retrieves whether the command should ignore calls made from public channels.
      * <p>
@@ -164,7 +169,7 @@ public @interface SubCommand {
      * @see ICommand#ignorePublic()
      */
     boolean ignorePublic() default false;
-    
+
     /**
      * Retrieves whether the command should ignore calls made from private channels.
      * <p>
@@ -174,7 +179,7 @@ public @interface SubCommand {
      * @see ICommand#ignorePrivate()
      */
     boolean ignorePrivate() default false;
-    
+
     /**
      * Retrieves whether calls to the command made by bot users should be ignored.
      * <p>
@@ -184,20 +189,22 @@ public @interface SubCommand {
      * @see ICommand#ignoreBots()
      */
     boolean ignoreBots() default true;
-    
+
     /**
-     * Retrieves whether the message that called the command should be deleted after a
-     * successful execution.
+     * Retrieves whether the message that called the command should be deleted after
+     * a successful execution.
      * <p>
      * By default, returns false.
      *
-     * @return Whether the command message should be deleted after successfully executing.
+     * @return Whether the command message should be deleted after successfully
+     *         executing.
      * @see ICommand#deleteCommand()
      */
     boolean deleteCommand() default false;
-    
+
     /**
-     * Retrieves whether only the owner of the bot account is allowed to call the command.
+     * Retrieves whether only the owner of the bot account is allowed to call the
+     * command.
      * <p>
      * By default, returns false.
      *
@@ -205,9 +212,10 @@ public @interface SubCommand {
      * @see ICommand#requiresOwner()
      */
     boolean requiresOwner() default false;
-    
+
     /**
-     * Retrieves whether the command can only be executed in a channel marked as NSFW.
+     * Retrieves whether the command can only be executed in a channel marked as
+     * NSFW.
      * <p>
      * By default, returns false.
      *
@@ -215,7 +223,7 @@ public @interface SubCommand {
      * @see ICommand#isNSFW()
      */
     boolean NSFW() default false;
-    
+
     /**
      * Retrieves whether the parent command of the command should be executed before
      * executing the command.
@@ -226,10 +234,10 @@ public @interface SubCommand {
      * @see ICommand#executeParent()
      */
     boolean executeParent() default false;
-    
+
     /**
-     * Retrieves whether the permission requirements for the parent command must be satisfied
-     * in addition to the command's own requirements.
+     * Retrieves whether the permission requirements for the parent command must be
+     * satisfied in addition to the command's own requirements.
      * <p>
      * By default, returns true.
      *
@@ -237,10 +245,10 @@ public @interface SubCommand {
      * @see ICommand#requiresParentPermissions()
      */
     boolean requiresParentPermissions() default true;
-    
+
     /**
-     * Retrieves the (channel-overriden) permissions that the calling user must have in order
-     * to execute the command.
+     * Retrieves the (channel-overriden) permissions that the calling user must have
+     * in order to execute the command.
      * <p>
      * By default, returns an empty array.
      *
@@ -248,10 +256,10 @@ public @interface SubCommand {
      * @see ICommand#getRequiredPermissions()
      */
     Permissions[] requiredPermissions() default {};
-    
+
     /**
-     * Retrieves the (guild-wide) permissions that the calling user must have in order
-     * to execute the command.
+     * Retrieves the (guild-wide) permissions that the calling user must have in
+     * order to execute the command.
      * <p>
      * By default, returns an empty array.
      *
@@ -259,7 +267,7 @@ public @interface SubCommand {
      * @see ICommand#getRequiredGuildPermissions()
      */
     Permissions[] requiredGuildPermissions() default {};
-    
+
     /**
      * Retrieves the names of the subcommands of the command.
      * <p>
@@ -269,7 +277,7 @@ public @interface SubCommand {
      * @see ICommand#getSubCommands()
      */
     String[] subCommands() default {};
-    
+
     /**
      * Retrieves whether the command supports altering the subcommand set.
      * <p>
@@ -279,7 +287,7 @@ public @interface SubCommand {
      * @see CommandBuilder#canModifySubCommands(boolean)
      */
     boolean canModifySubCommands() default true;
-    
+
     /**
      * Retrieves the priority of the command.
      * <p>
