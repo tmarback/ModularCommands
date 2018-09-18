@@ -17,6 +17,7 @@
 
 package com.github.thiagotgm.modular_commands.api;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -24,6 +25,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Stack;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -39,6 +43,10 @@ import sx.blah.discord.util.RequestBuilder;
 
 /**
  * Listener that identifies commands from text messages and executes them.
+ * <p>
+ * Commands are parsed asynchronously using a thread pool shared among all
+ * instances of this class. Execution of each step of the command chain is then
+ * made through the RequestBuffer to deal with rate limiting.
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -75,10 +83,20 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     private static final String CLOSING_QUOTE_REGEX = "\"(?:" + WHITE_SPACE_REGEX + "|\\Z)";
     private static final Pattern CLOSING_QUOTE = Pattern.compile( CLOSING_QUOTE_REGEX );
 
+    /**
+     * Default amount of threads to use. Four times the amount of cores in the
+     * system.
+     */
+    public static final int N_THREADS = Runtime.getRuntime().availableProcessors() * 4;
+
+    private static final ThreadGroup THREADS = new ThreadGroup( "Command Handler" );
+    private static final Executor EXECUTOR = Executors.newFixedThreadPool( N_THREADS, new NumberedThreadFactory(
+            THREADS, ( t, e ) -> LOG.error( "Uncaugth exception while executing command.", e ) ) );
+
     private final CommandRegistry registry;
 
     /**
-     * Creates a command handler that uses a given registry.
+     * Creates a command handler that uses a given registry to execute commands.
      *
      * @param registry
      *            Registry that this handler should use.
@@ -101,246 +119,250 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     @Override
     public void handle( MessageReceivedEvent event ) {
 
-        if ( event.getMessage().getWebhookLongID() != 0 ) {
-            return; // Ignore webhooks.
-        }
+        EXECUTOR.execute( () -> { // Execute asynchronously.
 
-        /* Get command and args */
-        String message = event.getMessage().getContent().trim();
-        if ( message.isEmpty() ) {
-            return; // Empty message.
-        }
-
-        /* Identify command */
-        String[] split = WHITE_SPACE.split( message, 2 ); // Split main command and args.
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Parsing command " + split[0] );
-        }
-        ICommand mainCommand = registry.parseCommand( split[0] );
-        if ( mainCommand == null ) {
-            LOG.trace( "No command found." );
-            return; // No recognized command.
-        }
-        if ( LOG.isTraceEnabled() ) {
-            LOG.trace( "Identified main command " + String.format( COMMAND_FORMAT, split[0], mainCommand.getName() )
-                    + "." );
-        }
-
-        /* Get command chain */
-        List<String> args = splitArgs( ( split.length == 2 ) ? split[1] : "" );
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Parsing args " + args );
-        }
-        List<ICommand> commands = new ArrayList<>();
-        commands.add( mainCommand );
-        commands.addAll( getSubcommands( mainCommand, args ) ); // Identify subcommands.
-        final ICommand command = commands.get( commands.size() - 1 ); // Actual command is the last
-        List<String> actualArgs = args.subList( commands.size() - 1, args.size() ); // subcommand.
-        final CommandContext context = new CommandContext( event, command, actualArgs );
-        if ( LOG.isTraceEnabled() ) {
-            LOG.trace( "Identified command " + String.format( COMMAND_FORMAT,
-                    getCommandSignature( split[0], args, commands.size() - 1 ), command.getName() ) );
-        }
-
-        /* Check if the command should be executed */
-        for ( ICommand curCommand : commands ) { // Check that each command on the chain
-            if ( !curCommand.isEffectivelyEnabled() ) { // is enabled.
-                LOG.trace( "Command is disabled." );
-                return; // Command is disabled.
-            }
-        }
-        if ( command.ignorePublic() && !event.getChannel().isPrivate() ) {
-            LOG.trace( "Ignoring public execution." );
-            return; // Ignore public command.
-        }
-        if ( command.ignorePrivate() && event.getChannel().isPrivate() ) {
-            LOG.trace( "Ignoring private execution." );
-            return; // Ignore private command.
-        }
-        if ( command.ignoreBots() && event.getAuthor().isBot() ) {
-            LOG.trace( "Ignoring bot caller." );
-            return; // Ignore bot.
-        }
-        if ( !mainCommand.getRegistry().contextCheck( context ) ) {
-            LOG.trace( "Registry context check failed." );
-            return; // Registry disabled under calling context.
-        }
-
-        /* Check if the caller is allowed to call the command. */
-        if ( LOG.isDebugEnabled() ) {
-            LOG.debug( "Command {} - checking permission", getCommandTrace( command, event ) );
-        }
-        RequestBuilder errorBuilder = new RequestBuilder( event.getClient() ); // Builds request for
-        errorBuilder.shouldBufferRequests( true ).setAsync( true ); // error handler.
-        errorBuilder.onMissingPermissionsError( ( exception ) -> {
-            // In case error handler hits a MissingPermissions error.
-            LOG.warn( "Lacking permissions to execute operation.", exception );
-
-        } );
-        errorBuilder.onDiscordError( ( exception ) -> {
-            // In case error handler hits a Discord error.
-            LOG.error( "Discord error encountered while performing operation.", exception );
-
-        } );
-        if ( command.isNSFW() && event.getChannel().isNSFW() ) {
-            LOG.debug( "Channel is not NSFW." );
-            errorBuilder.doAction( () -> { // Channel needs to be marked NSFW.
-
-                command.onFailure( context, FailureReason.CHANNEL_NOT_NSFW );
-                return true;
-
-            } ).execute();
-            return;
-        }
-        if ( command.requiresOwner() && !event.getClient().getApplicationOwner().equals( event.getAuthor() ) ) {
-            LOG.debug( "Caller is not the owner of the bot." );
-            errorBuilder.doAction( () -> { // Command can only be called by bot owner.
-
-                command.onFailure( context, FailureReason.USER_NOT_OWNER );
-                return true;
-
-            } ).execute();
-            return;
-        }
-        EnumSet<Permissions> requiredPermissions = EnumSet.noneOf( Permissions.class );
-        EnumSet<Permissions> requiredGuildPermissions = EnumSet.noneOf( Permissions.class );
-        ListIterator<ICommand> iter = commands.listIterator( commands.size() );
-        while ( iter.hasPrevious() ) { // Get requirements for each command in the chain.
-
-            ICommand cur = iter.previous(); // Get for the next in the chain.
-            requiredPermissions.addAll( cur.getRequiredPermissions() );
-            requiredGuildPermissions.addAll( cur.getRequiredGuildPermissions() );
-            if ( !cur.requiresParentPermissions() ) {
-                break; // Current command does not require parent's permissions.
+            if ( event.getMessage().getWebhookLongID() != 0 ) {
+                return; // Ignore webhooks.
             }
 
-        }
-        EnumSet<Permissions> channelPermissions = event.getChannel().getModifiedPermissions( event.getAuthor() );
-        if ( !channelPermissions.containsAll( requiredPermissions ) ) {
-            LOG.debug( "Caller does not have the required permissions in the channel." );
-            errorBuilder.doAction( () -> { // User does not have required channel-overriden permissions.
+            /* Get command and args */
+            String message = event.getMessage().getContent().trim();
+            if ( message.isEmpty() ) {
+                return; // Empty message.
+            }
 
-                command.onFailure( context, FailureReason.USER_MISSING_PERMISSIONS );
-                return true;
+            /* Identify command */
+            String[] split = WHITE_SPACE.split( message, 2 ); // Split main command and args.
+            if ( LOG.isInfoEnabled() ) {
+                LOG.info( "Parsing command " + split[0] );
+            }
+            ICommand mainCommand = registry.parseCommand( split[0] );
+            if ( mainCommand == null ) {
+                LOG.trace( "No command found." );
+                return; // No recognized command.
+            }
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace( "Identified main command " + String.format( COMMAND_FORMAT, split[0], mainCommand.getName() )
+                        + "." );
+            }
 
-            } ).execute();
-            return;
-        }
-        if ( event.getGuild() != null ) { // If message came from guild, check required permissions for it.
-            EnumSet<Permissions> guildPermissions = event.getAuthor().getPermissionsForGuild( event.getGuild() );
-            if ( !guildPermissions.containsAll( requiredGuildPermissions ) ) {
-                LOG.debug( "Caller does not have the required permissions in the server." );
-                errorBuilder.doAction( () -> { // User does not have required server-wide permissions.
+            /* Get command chain */
+            List<String> args = splitArgs( ( split.length == 2 ) ? split[1] : "" );
+            if ( LOG.isInfoEnabled() ) {
+                LOG.info( "Parsing args " + args );
+            }
+            List<ICommand> commands = new ArrayList<>();
+            commands.add( mainCommand );
+            commands.addAll( getSubcommands( mainCommand, args ) ); // Identify subcommands.
+            final ICommand command = commands.get( commands.size() - 1 ); // Actual command is the last
+            List<String> actualArgs = args.subList( commands.size() - 1, args.size() ); // subcommand.
+            final CommandContext context = new CommandContext( event, command, actualArgs );
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace( "Identified command " + String.format( COMMAND_FORMAT,
+                        getCommandSignature( split[0], args, commands.size() - 1 ), command.getName() ) );
+            }
 
-                    command.onFailure( context, FailureReason.USER_MISSING_GUILD_PERMISSIONS );
+            /* Check if the command should be executed */
+            for ( ICommand curCommand : commands ) { // Check that each command on the chain
+                if ( !curCommand.isEffectivelyEnabled() ) { // is enabled.
+                    LOG.trace( "Command is disabled." );
+                    return; // Command is disabled.
+                }
+            }
+            if ( command.ignorePublic() && !event.getChannel().isPrivate() ) {
+                LOG.trace( "Ignoring public execution." );
+                return; // Ignore public command.
+            }
+            if ( command.ignorePrivate() && event.getChannel().isPrivate() ) {
+                LOG.trace( "Ignoring private execution." );
+                return; // Ignore private command.
+            }
+            if ( command.ignoreBots() && event.getAuthor().isBot() ) {
+                LOG.trace( "Ignoring bot caller." );
+                return; // Ignore bot.
+            }
+            if ( !mainCommand.getRegistry().contextCheck( context ) ) {
+                LOG.trace( "Registry context check failed." );
+                return; // Registry disabled under calling context.
+            }
+
+            /* Check if the caller is allowed to call the command. */
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug( "Command {} - checking permission", getCommandTrace( command, event ) );
+            }
+            RequestBuilder errorBuilder = new RequestBuilder( event.getClient() ); // Builds request for
+            errorBuilder.shouldBufferRequests( true ).setAsync( true ); // error handler.
+            errorBuilder.onMissingPermissionsError( ( exception ) -> {
+                // In case error handler hits a MissingPermissions error.
+                LOG.warn( "Lacking permissions to execute operation.", exception );
+
+            } );
+            errorBuilder.onDiscordError( ( exception ) -> {
+                // In case error handler hits a Discord error.
+                LOG.error( "Discord error encountered while performing operation.", exception );
+
+            } );
+            if ( command.isNSFW() && event.getChannel().isNSFW() ) {
+                LOG.debug( "Channel is not NSFW." );
+                errorBuilder.doAction( () -> { // Channel needs to be marked NSFW.
+
+                    command.onFailure( context, FailureReason.CHANNEL_NOT_NSFW );
                     return true;
 
                 } ).execute();
                 return;
             }
-        }
+            if ( command.requiresOwner() && !event.getClient().getApplicationOwner().equals( event.getAuthor() ) ) {
+                LOG.debug( "Caller is not the owner of the bot." );
+                errorBuilder.doAction( () -> { // Command can only be called by bot owner.
 
-        /* Get execution chain */
-        LOG.trace( "Permission check passed. Preparing to execute." );
-        Stack<ICommand> executionChain = new Stack<>(); // Gets all the parent commands that should also
-        buildExecutionChain( executionChain, commands ); // be executed.
+                    command.onFailure( context, FailureReason.USER_NOT_OWNER );
+                    return true;
 
-        /* Build request */
-        RequestBuilder builder = new RequestBuilder( event.getClient() );
-        builder.shouldBufferRequests( true ).setAsync( true );
-        final AtomicBoolean permissionsError = new AtomicBoolean();
-        builder.onMissingPermissionsError( ( exception ) -> {
-
-            permissionsError.set( true ); // Mark that a permission error occurred.
-            LOG.warn( "Lacking permissions to execute operation.", exception );
-
-        } );
-        final AtomicBoolean discordError = new AtomicBoolean();
-        builder.onDiscordError( ( exception ) -> {
-
-            discordError.set( true ); // Mark that a Discord error occurred.
-            LOG.error( "Discord error encountered while performing operation.", exception );
-
-        } );
-        final AtomicBoolean operationException = new AtomicBoolean();
-        builder.onGeneralError( ( exception ) -> { // Mark that an unexpected exception was thrown.
-
-            operationException.set( true );
-            LOG.error( "Unexpected exception thrown while performing operation.", exception );
-            context.setHelper( exception ); // Store exception in context.
-
-        } );
-        final ICommand firstCommand = executionChain.pop();
-        builder.doAction( () -> {
-            // Execute the first command in the chain.
-            event.getChannel().setTypingStatus( true );
-            if ( LOG.isTraceEnabled() ) {
-                LOG.trace( "Executing \"" + firstCommand.getName() + "\"" );
+                } ).execute();
+                return;
             }
-            return firstCommand.execute( context );
+            EnumSet<Permissions> requiredPermissions = EnumSet.noneOf( Permissions.class );
+            EnumSet<Permissions> requiredGuildPermissions = EnumSet.noneOf( Permissions.class );
+            ListIterator<ICommand> iter = commands.listIterator( commands.size() );
+            while ( iter.hasPrevious() ) { // Get requirements for each command in the chain.
 
-        } );
-        while ( !executionChain.isEmpty() ) {
-            // Execute each subsequent command in the chain.
-            final ICommand nextCommand = executionChain.pop();
-            builder.andThen( () -> {
-
-                if ( LOG.isTraceEnabled() ) {
-                    LOG.trace( "Executing \"" + nextCommand.getName() + "\"" );
+                ICommand cur = iter.previous(); // Get for the next in the chain.
+                requiredPermissions.addAll( cur.getRequiredPermissions() );
+                requiredGuildPermissions.addAll( cur.getRequiredGuildPermissions() );
+                if ( !cur.requiresParentPermissions() ) {
+                    break; // Current command does not require parent's permissions.
                 }
-                return nextCommand.execute( context );
+
+            }
+            EnumSet<Permissions> channelPermissions = event.getChannel().getModifiedPermissions( event.getAuthor() );
+            if ( !channelPermissions.containsAll( requiredPermissions ) ) {
+                LOG.debug( "Caller does not have the required permissions in the channel." );
+                errorBuilder.doAction( () -> { // User does not have required channel-overriden permissions.
+
+                    command.onFailure( context, FailureReason.USER_MISSING_PERMISSIONS );
+                    return true;
+
+                } ).execute();
+                return;
+            }
+            if ( event.getGuild() != null ) { // If message came from guild, check required permissions for it.
+                EnumSet<Permissions> guildPermissions = event.getAuthor().getPermissionsForGuild( event.getGuild() );
+                if ( !guildPermissions.containsAll( requiredGuildPermissions ) ) {
+                    LOG.debug( "Caller does not have the required permissions in the server." );
+                    errorBuilder.doAction( () -> { // User does not have required server-wide permissions.
+
+                        command.onFailure( context, FailureReason.USER_MISSING_GUILD_PERMISSIONS );
+                        return true;
+
+                    } ).execute();
+                    return;
+                }
+            }
+
+            /* Get execution chain */
+            LOG.trace( "Permission check passed. Preparing to execute." );
+            Stack<ICommand> executionChain = new Stack<>(); // Gets all the parent commands that should also
+            buildExecutionChain( executionChain, commands ); // be executed.
+
+            /* Build request */
+            RequestBuilder builder = new RequestBuilder( event.getClient() );
+            builder.shouldBufferRequests( true ).setAsync( false );
+            final AtomicBoolean permissionsError = new AtomicBoolean();
+            builder.onMissingPermissionsError( ( exception ) -> {
+
+                permissionsError.set( true ); // Mark that a permission error occurred.
+                LOG.warn( "Lacking permissions to execute operation.", exception );
 
             } );
+            final AtomicBoolean discordError = new AtomicBoolean();
+            builder.onDiscordError( ( exception ) -> {
 
-        }
-        builder.elseDo( () -> { // In case command fails.
+                discordError.set( true ); // Mark that a Discord error occurred.
+                LOG.error( "Discord error encountered while performing operation.", exception );
 
-            event.getChannel().setTypingStatus( false );
-            LOG.debug( "Command failed. Executing failure handler." );
-            if ( permissionsError.get() ) { // Failed due to missing permissions.
-                command.onFailure( context, FailureReason.BOT_MISSING_PERMISSIONS );
-            } else if ( discordError.get() ) { // Failed due to miscellaneous error.
-                command.onFailure( context, FailureReason.DISCORD_ERROR );
-            } else if ( operationException.get() ) { // Failed due to unexpected exception.
-                command.onFailure( context, FailureReason.COMMAND_OPERATION_EXCEPTION );
-            } else { // One of the commands returned false.
-                command.onFailure( context, FailureReason.COMMAND_OPERATION_FAILED );
+            } );
+            final AtomicBoolean operationException = new AtomicBoolean();
+            builder.onGeneralError( ( exception ) -> { // Mark that an unexpected exception was thrown.
+
+                operationException.set( true );
+                LOG.error( "Unexpected exception thrown while performing operation.", exception );
+                context.setHelper( exception ); // Store exception in context.
+
+            } );
+            final ICommand firstCommand = executionChain.pop();
+            builder.doAction( () -> {
+                // Execute the first command in the chain.
+                event.getChannel().setTypingStatus( true );
+                if ( LOG.isTraceEnabled() ) {
+                    LOG.trace( "Executing \"" + firstCommand.getName() + "\"" );
+                }
+                return firstCommand.execute( context );
+
+            } );
+            while ( !executionChain.isEmpty() ) {
+                // Execute each subsequent command in the chain.
+                final ICommand nextCommand = executionChain.pop();
+                builder.andThen( () -> {
+
+                    if ( LOG.isTraceEnabled() ) {
+                        LOG.trace( "Executing \"" + nextCommand.getName() + "\"" );
+                    }
+                    return nextCommand.execute( context );
+
+                } );
+
             }
-            return true;
+            builder.elseDo( () -> { // In case command fails.
 
-        } );
-        if ( command.deleteCommand() ) { // Command message should be deleted after
-            builder.andThen( () -> { // successful execution.
-
-                LOG.debug( "Successful execution. Deleting command message." );
-                try {
-                    event.getMessage().delete();
-                } catch ( MissingPermissionsException e ) {
-                    LOG.warn( "Missing permissions to delete message.", e );
-                } catch ( DiscordException e ) {
-                    LOG.error( "Error encountered while deleting message.", e );
+                event.getChannel().setTypingStatus( false );
+                LOG.debug( "Command failed. Executing failure handler." );
+                if ( permissionsError.get() ) { // Failed due to missing permissions.
+                    command.onFailure( context, FailureReason.BOT_MISSING_PERMISSIONS );
+                } else if ( discordError.get() ) { // Failed due to miscellaneous error.
+                    command.onFailure( context, FailureReason.DISCORD_ERROR );
+                } else if ( operationException.get() ) { // Failed due to unexpected exception.
+                    command.onFailure( context, FailureReason.COMMAND_OPERATION_EXCEPTION );
+                } else { // One of the commands returned false.
+                    command.onFailure( context, FailureReason.COMMAND_OPERATION_FAILED );
                 }
                 return true;
 
             } );
-        }
-        builder.andThen( () -> { // In case command succeeds.
+            if ( command.deleteCommand() ) { // Command message should be deleted after
+                builder.andThen( () -> { // successful execution.
 
-            event.getChannel().setTypingStatus( false );
-            LOG.debug( "Command succeeded." );
-            Thread.sleep( command.getOnSuccessDelay() ); // Wait specified time.
-            LOG.debug( "Executing success handler." );
-            command.onSuccess( context ); // Execute success operation.
-            return true;
+                    LOG.debug( "Successful execution. Deleting command message." );
+                    try {
+                        event.getMessage().delete();
+                    } catch ( MissingPermissionsException e ) {
+                        LOG.warn( "Missing permissions to delete message.", e );
+                    } catch ( DiscordException e ) {
+                        LOG.error( "Error encountered while deleting message.", e );
+                    }
+                    return true;
+
+                } );
+            }
+            builder.andThen( () -> { // In case command succeeds.
+
+                event.getChannel().setTypingStatus( false );
+                LOG.debug( "Command succeeded." );
+                Thread.sleep( command.getOnSuccessDelay() ); // Wait specified time.
+                LOG.debug( "Executing success handler." );
+                command.onSuccess( context ); // Execute success operation.
+                return true;
+
+            } );
+
+            /* Execute command */
+            if ( LOG.isInfoEnabled() ) {
+                LOG.info( "Executing command " + getCommandTrace( command, event ) );
+            }
+            builder.execute(); // Execute the command.
+            CommandStats.incrementCount(); // Record command execution.
 
         } );
-
-        /* Execute command */
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Executing command " + getCommandTrace( command, event ) );
-        }
-        builder.execute(); // Execute the command.
-        CommandStats.incrementCount(); // Record command execution.
 
     }
 
@@ -480,6 +502,55 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
 
         return String.format( COMMAND_TRACE_FORMAT, command.getName(), event.getAuthor().getName(),
                 event.getChannel().getName(), ( event.getGuild() != null ) ? event.getGuild().getName() : "<private>" );
+
+    }
+
+    /**
+     * Implementation of ThreadFactory that creates threads that belong to a thread
+     * group specified on construction, whose name are the name of the thread group
+     * appended by the number of the built thread.
+     * <p>
+     * All threads made by this factory are daemon threads.
+     *
+     * @version 1.0
+     * @author ThiagoTGM
+     * @since 2018-09-17
+     */
+    private static class NumberedThreadFactory implements ThreadFactory {
+
+        private final ThreadGroup group;
+        private final UncaughtExceptionHandler handler;
+
+        private volatile int threadNum;
+
+        /**
+         * Constructs a factory that creates threads in the given thread group, with the
+         * given exception handler.
+         *
+         * @param group
+         *            The thread group that built threads should be a part of.
+         * @param handler
+         *            The handler for uncaught exceptions.
+         */
+        public NumberedThreadFactory( ThreadGroup group, UncaughtExceptionHandler handler ) {
+
+            this.group = group;
+            this.handler = handler;
+
+            this.threadNum = 0;
+
+        }
+
+        @Override
+        public Thread newThread( Runnable r ) {
+
+            String name = String.format( "%s-%d", group.getName(), threadNum++ );
+            Thread thread = new Thread( group, r, name );
+            thread.setUncaughtExceptionHandler( handler );
+            thread.setDaemon( true );
+            return thread;
+
+        }
 
     }
 

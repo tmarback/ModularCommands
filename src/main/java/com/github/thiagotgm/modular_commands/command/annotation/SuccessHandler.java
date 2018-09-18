@@ -37,6 +37,11 @@ import sx.blah.discord.util.RateLimitException;
  * The annotated method must take a single parameter of type {@link CommandContext}.<br>
  * It may throw exceptions of type {@link RateLimitException},
  * {@link MissingPermissionsException}, and {@link DiscordException}.
+ * <p>
+ * <b>NOTE:</b> Rate-limited executions of this method are automatically
+ * re-attempted as a whole. As such, it may not be safe to perform multiple
+ * potentially rate-limited operations in this method, particularly on the same
+ * endpoint.
  *
  * @version 1.0.0
  * @author ThiagoTGM
