@@ -39,11 +39,18 @@ public class LoggedCommand {
             name = "Logged command",
             aliases = "log",
             successHandler = "success",
-            onSuccessDelay = 1000
+            onSuccessDelay = 1000,
+            replyPrivately = true
             )
     public void command( CommandContext context ) {
 
         LOG.info( "Command was called!" );
+        try {
+            Thread.sleep( 5000 );
+        } catch ( InterruptedException e ) {
+            LOG.error( "Interrupted.", e );
+        }
+        LOG.info( "Command finished!" );
 
     }
     
