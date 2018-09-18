@@ -42,6 +42,7 @@ public class AnnotationModule implements IModule {
         reg.registerAnnotatedCommands( new AnnotatedCommands() );
         reg.registerAnnotatedCommands( new MoreAnnotatedCommands() );
         reg.registerAnnotatedCommands( new StatCommand() );
+        reg.registerAnnotatedCommands( new LoggedCommand() );
         return true;
     }
 
