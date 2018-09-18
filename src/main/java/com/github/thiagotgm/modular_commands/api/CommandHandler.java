@@ -27,7 +27,9 @@ import java.util.ListIterator;
 import java.util.Stack;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -39,6 +41,7 @@ import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedE
 import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
+import sx.blah.discord.util.RequestBuffer;
 import sx.blah.discord.util.RequestBuilder;
 
 /**
@@ -89,9 +92,14 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
      */
     public static final int N_THREADS = Runtime.getRuntime().availableProcessors() * 4;
 
-    private static final ThreadGroup THREADS = new ThreadGroup( "Command Handler" );
-    private static final Executor EXECUTOR = Executors.newFixedThreadPool( N_THREADS, new NumberedThreadFactory(
-            THREADS, ( t, e ) -> LOG.error( "Uncaugth exception while executing command.", e ) ) );
+    private static final ThreadGroup PARSE_THREADS = new ThreadGroup( "Command Handler" );
+    private static final Executor PARSE_EXECUTOR = Executors.newFixedThreadPool( N_THREADS, new NumberedThreadFactory(
+            PARSE_THREADS, ( t, e ) -> LOG.error( "Uncaugth exception while executing command.", e ) ) );
+
+    private static final ThreadGroup SUCCESS_THREADS = new ThreadGroup( "Command Success Handler" );
+    private static final ScheduledExecutorService SUCCESS_EXECUTOR = Executors.newScheduledThreadPool( N_THREADS,
+            new NumberedThreadFactory( SUCCESS_THREADS,
+                    ( t, e ) -> LOG.error( "Uncaugth exception while executing command success handler.", e ) ) );
 
     private final CommandRegistry registry;
 
@@ -119,7 +127,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
     @Override
     public void handle( MessageReceivedEvent event ) {
 
-        EXECUTOR.execute( () -> { // Execute asynchronously.
+        PARSE_EXECUTOR.execute( () -> { // Execute asynchronously.
 
             if ( event.getMessage().getWebhookLongID() != 0 ) {
                 return; // Ignore webhooks.
@@ -293,7 +301,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             final ICommand firstCommand = executionChain.pop();
             builder.doAction( () -> {
                 // Execute the first command in the chain.
-                event.getChannel().setTypingStatus( true );
+                context.getReplyBuilder().getChannel().setTypingStatus( true );
                 if ( LOG.isTraceEnabled() ) {
                     LOG.trace( "Executing \"" + firstCommand.getName() + "\"" );
                 }
@@ -315,7 +323,7 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             }
             builder.elseDo( () -> { // In case command fails.
 
-                event.getChannel().setTypingStatus( false );
+                context.getReplyBuilder().getChannel().setTypingStatus( false );
                 LOG.debug( "Command failed. Executing failure handler." );
                 if ( permissionsError.get() ) { // Failed due to missing permissions.
                     command.onFailure( context, FailureReason.BOT_MISSING_PERMISSIONS );
@@ -346,11 +354,15 @@ public class CommandHandler implements IListener<MessageReceivedEvent> {
             }
             builder.andThen( () -> { // In case command succeeds.
 
-                event.getChannel().setTypingStatus( false );
+                context.getReplyBuilder().getChannel().setTypingStatus( false );
                 LOG.debug( "Command succeeded." );
-                Thread.sleep( command.getOnSuccessDelay() ); // Wait specified time.
-                LOG.debug( "Executing success handler." );
-                command.onSuccess( context ); // Execute success operation.
+                LOG.trace( "Success handler delay: {}ms", command.getOnSuccessDelay() );
+                SUCCESS_EXECUTOR.schedule( () -> { // Wait specified time.
+
+                    LOG.debug( "Executing success handler." ); // Execute success operation.
+                    RequestBuffer.request( () -> command.onSuccess( context ) );
+
+                }, command.getOnSuccessDelay(), TimeUnit.MILLISECONDS );
                 return true;
 
             } );

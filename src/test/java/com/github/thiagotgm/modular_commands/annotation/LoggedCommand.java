@@ -22,9 +22,10 @@ import org.slf4j.LoggerFactory;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
+import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
 
 /**
- * Command that logs its call.
+ * Command that logs its call and has a delayed success handler.
  *
  * @version 1.0
  * @author ThiagoTGM
@@ -36,12 +37,21 @@ public class LoggedCommand {
 
     @MainCommand(
             name = "Logged command",
-            aliases = "log"
+            aliases = "log",
+            successHandler = "success",
+            onSuccessDelay = 1000
             )
     public void command( CommandContext context ) {
 
         LOG.info( "Command was called!" );
 
+    }
+    
+    @SuccessHandler( "success" )
+    public void success( CommandContext context ) {
+        
+        LOG.info( "Success!" );
+        
     }
 
 }
