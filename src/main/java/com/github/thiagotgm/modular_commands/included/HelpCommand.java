@@ -20,6 +20,7 @@ package com.github.thiagotgm.modular_commands.included;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -29,7 +30,11 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.Stack;
 import java.util.TreeSet;
+import java.util.function.Function;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -80,10 +85,152 @@ public class HelpCommand {
     private static final String EMPTY_REGISTRY = "<no commands>\n";
 
     private static final Pattern LINE_SPLITTER_PATTERN = Pattern.compile( "\\s*\n\\s*" );
-    
+
     private static final String TABBED_LINE = '\n' + StringUtils.repeat( "\u200B\t", 5 );
 
     private static final Color EMBED_COLOR = Color.WHITE;
+
+    private static final Pattern OPERATION_PATTERN = Pattern.compile( "(.+?)\\s*([+-])\\s*(.+)" );
+    private static final Pattern USAGE_PLACEHOLDER_PATTERN = Pattern.compile( "((?:\\\\\\\\)*)(\\\\)?\\{\\s*(.+?)\\s*\\}" );
+    private static final Map<Pattern, Function<Placeholder, String>> USAGE_PLACEHOLDERS;
+
+    private static class Placeholder {
+
+        public final MatchResult match;
+        public final List<ICommand> commandChain;
+        public final Map<ICommand, List<String>> signatureBuffer;
+
+        public Placeholder( MatchResult match, List<ICommand> commandChain,
+                Map<ICommand, List<String>> signatureBuffer ) {
+
+            this.match = match;
+            this.commandChain = Collections.unmodifiableList( commandChain );
+            this.signatureBuffer = Collections.unmodifiableMap( signatureBuffer );
+
+        }
+
+    }
+
+    private static List<String> getAliases( ICommand command, ICommand parent,
+            Map<ICommand, List<String>> signatureBuffer ) {
+
+        List<String> aliases = new ArrayList<>( command.getAliases().size() );
+        if ( command.isSubCommand() ) {
+            for ( String alias : command.getAliases() ) {
+
+                if ( parent.getSubCommand( alias ) == command ) {
+                    aliases.add( alias );
+                }
+
+            }
+        } else {
+            List<String> signatureList = signatureBuffer.get( command );
+            int prefixSize = command.getEffectivePrefix().length();
+            for ( String signature : signatureList ) {
+                // Get each callable alias.
+                aliases.add( signature.substring( prefixSize ) );
+
+            }
+        }
+        return aliases;
+
+    }
+
+    private static String formatAliases( ICommand command, ICommand parent,
+            Map<ICommand, List<String>> signatureBuffer ) {
+
+        List<String> aliases = getAliases( command, parent, signatureBuffer );
+        String aliasString = String.join( ", ", aliases );
+        return aliases.size() > 1 ? String.format( "{%s}", aliasString ) : aliasString;
+
+    }
+
+    private static int evaluateOperand( String operandStr, int size ) {
+
+        Matcher m = OPERATION_PATTERN.matcher( operandStr.trim() );
+        if ( m.matches() ) {
+            int op1 = evaluateOperand( m.group( 1 ), size );
+            int op2 = evaluateOperand( m.group( 3 ), size );
+            switch ( m.group( 2 ) ) {
+
+                case "+":
+                    return op1 + op2;
+
+                case "-":
+                    return op1 - op2;
+
+                default:
+                    return -1;
+
+            }
+        } else {
+            if ( operandStr.equals( "size" ) ) {
+                return size;
+            } else {
+                try {
+                    return Integer.parseInt( operandStr );
+                } catch ( NumberFormatException e ) {
+                    return -1;
+                }
+            }
+        }
+
+    }
+
+    private static int parseIndex( MatchResult idxStr, int size ) {
+
+        if ( idxStr.group( 1 ) == null ) {
+            return size - 1;
+        }
+
+        int idx = evaluateOperand( idxStr.group( 1 ), size );
+        return idx < size ? idx : -1;
+
+    }
+
+    private static final String INDEX = "(?:\\[(.+)\\])?";
+
+    static {
+
+        Map<String, Function<Placeholder, String>> placeholders = new HashMap<>();
+
+        placeholders.put( "prefix", p -> p.commandChain.get( 0 ).getEffectivePrefix() );
+        placeholders.put( "aliases" + INDEX, p -> {
+
+            int index = parseIndex( p.match, p.commandChain.size() );
+            if ( index == -1 ) {
+                return p.match.group();
+            }
+
+            ICommand command = p.commandChain.get( index );
+            ICommand parent = index > 0 ? p.commandChain.get( index - 1 ) : null;
+            return formatAliases( command, parent, p.signatureBuffer );
+
+        } );
+        placeholders.put( "signature" + INDEX, p -> {
+
+            int index = parseIndex( p.match, p.commandChain.size() );
+            if ( index == -1 ) {
+                return p.match.group();
+            }
+
+            List<ICommand> commands = p.commandChain.subList( 0, index + 1 );
+            List<String> aliases = new ArrayList<>( commands.size() );
+            for ( int i = 0; i < commands.size(); i++ ) {
+
+                aliases.add(
+                        formatAliases( commands.get( i ), i > 0 ? commands.get( i - 1 ) : null, p.signatureBuffer ) );
+
+            }
+            return commands.get( 0 ).getEffectivePrefix() + String.join( " ", aliases );
+
+        } );
+
+        // Compile patterns and store.
+        USAGE_PLACEHOLDERS = Collections.unmodifiableMap( placeholders.entrySet().stream()
+                .collect( Collectors.toMap( e -> Pattern.compile( e.getKey() ), e -> e.getValue() ) ) );
+
+    }
 
     private ClientCommandRegistry registry;
     private volatile long lastUpdated;
@@ -228,6 +375,46 @@ public class HelpCommand {
 
     }
 
+    private String parseUsage( List<ICommand> commandChain ) {
+
+        String usage = commandChain.get( commandChain.size() - 1 ).getUsage();
+        Matcher m = USAGE_PLACEHOLDER_PATTERN.matcher( usage );
+        int curStart = 0;
+        StringBuilder builder = new StringBuilder();
+
+        while ( m.find() ) {
+
+            builder.append( usage.substring( curStart, m.start() ) ); // Append content between placeholders.
+            String backslashes = m.group( 1 );
+            if ( backslashes != null ) { // Insert escaped backslashes.
+                builder.append( backslashes.substring( 0, backslashes.length() / 2 ) );
+            }
+            boolean matched = false;
+            if ( m.group( 2 ) == null ) { // Ignore if opening bracket escaped.
+                for ( Map.Entry<Pattern, Function<Placeholder, String>> e : USAGE_PLACEHOLDERS.entrySet() ) {
+
+                    Matcher match = e.getKey().matcher( m.group( 3 ) );
+                    if ( match.matches() ) { // Matched placeholder.
+                        matched = true;
+                        builder.append( // Insert substituted value.
+                                e.getValue().apply( new Placeholder( match.toMatchResult(), commandChain, buffer ) ) );
+                        break;
+                    }
+
+                }
+            }
+            if ( !matched ) { // Did not match a placeholder or was escaped.
+                builder.append( m.group() ); // Just insert original text.
+            }
+            curStart = m.end(); // Move start to after match.
+
+        }
+        builder.append( usage.substring( curStart, usage.length() ) ); // Append content after last placeholder.
+
+        return builder.toString();
+
+    }
+
     /**
      * Formats a command into all the information a user might need.
      *
@@ -241,7 +428,10 @@ public class HelpCommand {
      *            command itself.
      * @return The string that fully describes the command.
      */
-    private EmbedObject formatCommandLong( ICommand command, ICommand parent, ICommand mainCommand ) {
+    private EmbedObject formatCommandLong( List<ICommand> commandChain ) {
+        
+        ICommand command = commandChain.get( commandChain.size() - 1 );
+        ICommand parent = commandChain.size() > 1 ? commandChain.get( commandChain.size() - 2 ) : null;
 
         EmbedBuilder builder = new EmbedBuilder().withColor( EMBED_COLOR );
 
@@ -255,10 +445,9 @@ public class HelpCommand {
         }
 
         /* Add prefix if this is a main command */
-        String effectivePrefix = mainCommand.getEffectivePrefix();
         if ( !command.isSubCommand() ) {
             String title = command.getPrefix() == null ? "Inherited Prefix" : "Prefix";
-            builder.appendField( title, effectivePrefix, false );
+            builder.appendField( title, command.getEffectivePrefix(), false );
         }
 
         /* Add aliases */
@@ -273,7 +462,7 @@ public class HelpCommand {
             }
         } else {
             List<String> signatureList = buffer.get( command );
-            int prefixSize = effectivePrefix.length();
+            int prefixSize = command.getEffectivePrefix().length();
             for ( String signature : signatureList ) {
                 // Get each callable alias.
                 aliases.add( signature.substring( prefixSize ) );
@@ -286,11 +475,8 @@ public class HelpCommand {
         builder.appendField( "Aliases", aliases.toString(), false );
 
         /* Add usage */
-        String usage = command.getUsage();
+        String usage = parseUsage( commandChain );
         if ( !usage.isEmpty() ) {
-            if ( usage.startsWith( "{}" ) ) { // Usage has prefix placeholder.
-                usage = effectivePrefix + usage.substring( 2, usage.length() ); // Substitute with effective prefix.
-            }
             builder.appendField( "Usage", usage, false );
         }
 
@@ -300,14 +486,7 @@ public class HelpCommand {
         } );
         for ( ICommand subCommand : command.getSubCommands() ) {
 
-            aliases = new ArrayList<>(); // Get callable alias of the subcommand.
-            for ( String alias : subCommand.getAliases() ) {
-
-                if ( command.getSubCommand( alias ) == subCommand ) {
-                    aliases.add( alias ); // Alias is callable.
-                }
-
-            }
+            aliases = getAliases( subCommand, command, buffer );
             if ( !aliases.isEmpty() ) { // This subcommand had callable aliases.
                 subCommandAliases.add( aliases );
             }
@@ -462,7 +641,7 @@ public class HelpCommand {
             description = "Displays information about registered commands.\nIf a command "
                     + "signature is specified, displays information about that command.\n"
                     + "Else, displays a list of all registered commands.",
-            usage = "{}help [here] [command signature]",
+            usage = "{prefix}{aliases} [here] [command signature]",
             essential = true,
             replyPrivately = true,
             overrideable = false,
@@ -501,18 +680,18 @@ public class HelpCommand {
                 return false; // No command with that signature.
             }
 
-            ICommand mainCommand = command;
-            ICommand parent = null;
+            List<ICommand> commandChain = new ArrayList<>( context.getArgs().size() );
+            commandChain.add( command );
             while ( args.hasNext() ) { // Identify subcommands.
 
-                parent = command;
                 command = command.getSubCommand( args.next() );
                 if ( command == null ) {
                     return false; // No subcommand with the argument alias.
                 }
+                commandChain.add( command );
 
             }
-            context.getReplyBuilder().withEmbed( formatCommandLong( command, parent, mainCommand ) ).build();
+            context.getReplyBuilder().withEmbed( formatCommandLong( commandChain ) ).build();
         }
 
         return true;
