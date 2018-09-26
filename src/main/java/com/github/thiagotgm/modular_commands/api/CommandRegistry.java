@@ -27,8 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.PriorityQueue;
-import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -50,6 +50,8 @@ import sx.blah.discord.modules.IModule;
  * registries as subregistries.
  * <p>
  * A registry can only be registered to one parent registry.
+ * <p>
+ * This class is <i>thread-safe</i>.
  *
  * @version 1.1
  * @author ThiagoTGM
@@ -68,6 +70,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      * path}.
      */
     public static final char PATH_SEPARATOR = '/';
+
+    private static final Predicate<CommandContext> NO_CHECK = c -> true;
 
     private static final Logger LOG = LoggerFactory.getLogger( CommandRegistry.class );
 
@@ -108,10 +112,16 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
         if ( client == null ) {
             throw new NullPointerException( "Client argument cannot be null." );
         }
-        ClientCommandRegistry registry = registries.get( client );
-        if ( registry == null ) { // Registry not found, create one.
-            registry = new ClientCommandRegistry( client );
-            registries.put( client, registry );
+
+        ClientCommandRegistry registry;
+        synchronized ( registries ) {
+
+            registry = registries.get( client );
+            if ( registry == null ) { // Registry not found, create one.
+                registry = new ClientCommandRegistry( client );
+                registries.put( client, registry );
+            }
+
         }
         return registry;
 
@@ -242,23 +252,6 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     /** Map of the placeholders stored in this registry and their names. */
     protected final Map<String, PlaceholderCommandRegistry> placeholders;
 
-    { // Initializes defaults.
-
-        this.enabled = true;
-        this.prefix = null;
-        this.contextCheck = null;
-        this.contextChecks = Collections.synchronizedList( new LinkedList<>() );
-        this.lastChanged = System.currentTimeMillis();
-
-        this.commands = Collections.synchronizedMap( new HashMap<>() );
-        this.withPrefix = Collections.synchronizedMap( new HashMap<>() );
-        this.noPrefix = Collections.synchronizedMap( new HashMap<>() );
-
-        this.subRegistries = Collections.synchronizedMap( new TreeMap<>() );
-        this.placeholders = Collections.synchronizedMap( new HashMap<>() );
-
-    }
-
     /**
      * Initializes a registry with the given name.
      *
@@ -278,6 +271,21 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
         }
         this.name = name;
         this.essential = essential;
+
+        // Initializes defaults.
+
+        this.enabled = true;
+        this.prefix = null;
+        this.contextCheck = NO_CHECK;
+        this.contextChecks = new LinkedList<>();
+        this.lastChanged = System.currentTimeMillis();
+
+        this.commands = new ConcurrentHashMap<>();
+        this.withPrefix = new ConcurrentHashMap<>();
+        this.noPrefix = new ConcurrentHashMap<>();
+
+        this.subRegistries = new ConcurrentHashMap<>();
+        this.placeholders = new ConcurrentHashMap<>();
 
     }
 
@@ -334,8 +342,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
 
     /**
      * Retrieves the <i>path</i> of this registry, that is, the name of this
-     * registry prepended by the name of each parent registry in order, separated by the
-     * {@link #PATH_SEPARATOR}.
+     * registry prepended by the name of each parent registry in order, separated by
+     * the {@link #PATH_SEPARATOR}.
      *
      * @return The path of this registry.
      */
@@ -349,7 +357,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             curr = curr.getRegistry();
 
         }
-        return path.size() > 1 ? String.join( Character.toString( PATH_SEPARATOR ), path ) : "/";
+        return path.size() > 1 ? String.join( Character.toString( PATH_SEPARATOR ), path )
+                : Character.toString( PATH_SEPARATOR );
 
     }
 
@@ -408,32 +417,36 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      */
     protected void transferSubRegistries( CommandRegistry registry ) {
 
-        LOG.trace( "Transferring subregistries and placeholders from \"{}\" to \"{}\".", registry.getPath(),
-                getPath() );
+        synchronized ( CommandRegistry.class ) {
 
-        /* Transfer subregistries */
-        Iterator<CommandRegistry> subRegistryIter = registry.subRegistries.values().iterator();
-        while ( subRegistryIter.hasNext() ) {
+            LOG.trace( "Transferring subregistries and placeholders from \"{}\" to \"{}\".", registry.getPath(),
+                    getPath() );
 
-            CommandRegistry subRegistry = subRegistryIter.next();
-            this.subRegistries.put( subRegistry.getName(), subRegistry );
-            subRegistry.setRegistry( this ); // Add to this registry.
-            subRegistryIter.remove(); // Remove from the last one.
+            /* Transfer subregistries */
+            Iterator<CommandRegistry> subRegistryIter = registry.subRegistries.values().iterator();
+            while ( subRegistryIter.hasNext() ) {
+
+                CommandRegistry subRegistry = subRegistryIter.next();
+                subRegistryIter.remove(); // Remove from previous registry.
+                subRegistry.setRegistry( this ); // Add to this registry.
+                this.subRegistries.put( subRegistry.getName(), subRegistry );
+
+            }
+
+            /* Transfer placeholders */
+            Iterator<PlaceholderCommandRegistry> placeholderIter = registry.placeholders.values().iterator();
+            while ( placeholderIter.hasNext() ) {
+
+                PlaceholderCommandRegistry placeholder = placeholderIter.next();
+                placeholderIter.remove(); // Remove from previous registry.
+                placeholder.setRegistry( this ); // Add to this registry.
+                this.placeholders.put( placeholder.getName(), placeholder );
+
+            }
+            setLastChanged( System.currentTimeMillis() );
+            registry.setLastChanged( System.currentTimeMillis() );
 
         }
-
-        /* Transfer placeholders */
-        Iterator<PlaceholderCommandRegistry> placeholderIter = registry.placeholders.values().iterator();
-        while ( placeholderIter.hasNext() ) {
-
-            PlaceholderCommandRegistry placeholder = placeholderIter.next();
-            this.placeholders.put( placeholder.getName(), placeholder );
-            placeholder.setRegistry( this ); // Add to this registry.
-            placeholderIter.remove(); // Remove from the last one.
-
-        }
-        setLastChanged( System.currentTimeMillis() );
-        registry.setLastChanged( System.currentTimeMillis() );
 
     }
 
@@ -456,15 +469,26 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
         if ( registry == this ) {
             throw new IllegalArgumentException( "Attempted to register a registry into itself." );
         }
-        String name = registry.getName();
-        if ( subRegistries.containsKey( name ) ) {
-            return; // If already registered, do nothing.
+
+        synchronized ( subRegistries ) {
+
+            String name = registry.getName();
+            if ( subRegistries.containsKey( name ) ) {
+                return; // If already registered, do nothing.
+            }
+            subRegistries.put( name, registry );
+
         }
-        subRegistries.put( name, registry );
-        if ( registry.getRegistry() != null ) { // Unregister from previous registry if any.
-            registry.getRegistry().unregisterSubRegistry( registry );
+
+        synchronized ( registry ) {
+
+            if ( registry.getRegistry() != null ) { // Unregister from previous registry if any.
+                registry.getRegistry().unregisterSubRegistry( registry );
+            }
+            registry.setRegistry( this );
+
         }
-        registry.setRegistry( this );
+
         LOG.info( "Adding subregistry \"{}\" to \"{}\".", name, getPath() );
         setLastChanged( System.currentTimeMillis() );
 
@@ -479,9 +503,13 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      */
     protected void unregisterSubRegistry( CommandRegistry registry ) {
 
-        if ( subRegistries.remove( registry.getName() ) != null ) {
-            registry.setRegistry( null );
-            LOG.info( "Removing subregistry \"{}\" from \"{}\".", registry.getName(), getPath() );
+        synchronized ( subRegistries ) {
+
+            if ( subRegistries.remove( registry.getName() ) != null ) {
+                registry.setRegistry( null );
+                LOG.info( "Removing subregistry \"{}\" from \"{}\".", registry.getName(), getPath() );
+            }
+
         }
         setLastChanged( System.currentTimeMillis() );
 
@@ -501,19 +529,23 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     private CommandRegistry getSubRegistry( String name, Supplier<CommandRegistry> registryMaker )
             throws NullPointerException, IllegalArgumentException {
 
-        CommandRegistry registry = subRegistries.get( name );
-        if ( registry == null ) { // No subregistry yet.
-            registry = registryMaker.get();
-            LOG.info( "Creating subregistry \"{}\" in \"{}\".", name, getPath() );
+        synchronized ( subRegistries ) {
 
-            PlaceholderCommandRegistry placeholder = placeholders.remove( name );
-            if ( placeholder != null ) { // Registry has a placeholder.
-                LOG.debug( "Absorbing placeholder." );
-                registry.transferSubRegistries( placeholder );
+            CommandRegistry registry = subRegistries.get( name );
+            if ( registry == null ) { // No subregistry yet.
+                registry = registryMaker.get();
+                LOG.info( "Creating subregistry \"{}\" in \"{}\".", name, getPath() );
+
+                PlaceholderCommandRegistry placeholder = placeholders.remove( name );
+                if ( placeholder != null ) { // Registry has a placeholder.
+                    LOG.debug( "Absorbing placeholder." );
+                    registry.transferSubRegistries( placeholder );
+                }
+                registerSubRegistry( registry );
             }
-            registerSubRegistry( registry );
+            return registry;
+
         }
-        return registry;
 
     }
 
@@ -560,22 +592,30 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             throw new NullPointerException( "Subregistry name cannot be null." );
         }
 
-        CommandRegistry registry = subRegistries.get( name );
-        if ( registry != null ) {
-            return registry; // Has an actual registry.
-        }
+        synchronized ( subRegistries ) {
 
-        registry = placeholders.get( name );
-        if ( registry != null ) {
-            return registry; // Has a placeholder.
-        }
+            CommandRegistry registry = subRegistries.get( name );
+            if ( registry != null ) {
+                return registry; // Has an actual registry.
+            }
 
-        // Create a new placeholder.
-        PlaceholderCommandRegistry placeholder = new PlaceholderCommandRegistry( name );
-        LOG.info( "Creating placeholder for \"{}\" in \"{}\".", name, getPath() );
-        placeholders.put( name, placeholder );
-        placeholder.setRegistry( this );
-        return placeholder;
+            synchronized ( placeholders ) {
+
+                registry = placeholders.get( name );
+                if ( registry != null ) {
+                    return registry; // Has a placeholder.
+                }
+
+                // Create a new placeholder.
+                PlaceholderCommandRegistry placeholder = new PlaceholderCommandRegistry( name );
+                LOG.info( "Creating placeholder for \"{}\" in \"{}\".", name, getPath() );
+                placeholders.put( name, placeholder );
+                placeholder.setRegistry( this );
+                return placeholder;
+
+            }
+
+        }
 
     }
 
@@ -738,23 +778,28 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             throw new NullPointerException( "Name cannot be null." );
         }
 
-        CommandRegistry subRegistry = subRegistries.get( name );
-        if ( subRegistry == null ) {
-            return null; // No subregistry found.
+        synchronized ( subRegistries ) {
+
+            CommandRegistry subRegistry = subRegistries.get( name );
+            if ( subRegistry == null ) {
+                return null; // No subregistry found.
+            }
+            unregisterSubRegistry( subRegistry );
+            if ( subRegistry.subRegistries.isEmpty() && subRegistry.placeholders.isEmpty() ) { // No sub-subregistries
+                                                                                               // or
+                                                                                               // placeholders.
+                // Delete all ancestors that are placeholders and became irrelevant.
+                cleanPlaceholders();
+            } else { // Needs to keep the sub-subregistries and placeholders.
+                LOG.debug( "Leaving placeholder." );
+                PlaceholderCommandRegistry placeholder = new PlaceholderCommandRegistry( name );
+                placeholder.transferSubRegistries( subRegistry );
+                placeholders.put( name, placeholder );
+                placeholder.setRegistry( this );
+            }
+            return subRegistry;
+
         }
-        unregisterSubRegistry( subRegistry );
-        if ( subRegistry.subRegistries.isEmpty() && subRegistry.placeholders.isEmpty() ) { // No sub-subregistries or
-                                                                                           // placeholders.
-            // Delete all ancestors that are placeholders and became irrelevant.
-            cleanPlaceholders();
-        } else { // Needs to keep the sub-subregistries and placeholders.
-            LOG.debug( "Leaving placeholder." );
-            PlaceholderCommandRegistry placeholder = new PlaceholderCommandRegistry( name );
-            placeholder.transferSubRegistries( subRegistry );
-            placeholders.put( name, placeholder );
-            placeholder.setRegistry( this );
-        }
-        return subRegistry;
 
     }
 
@@ -779,11 +824,17 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             throw new NullPointerException( "Name cannot be null." );
         }
 
-        CommandRegistry subRegistry = subRegistries.get( name );
-        if ( subRegistry == null ) {
-            return null; // No subregistry found.
+        CommandRegistry subRegistry;
+        synchronized ( subRegistries ) {
+
+            subRegistry = subRegistries.get( name );
+            if ( subRegistry == null ) {
+                return null; // No subregistry found.
+            }
+            unregisterSubRegistry( subRegistry );
+
         }
-        unregisterSubRegistry( subRegistry );
+
         // Delete all ancestors that are placeholders and became irrelevant.
         cleanPlaceholders();
         return subRegistry;
@@ -1024,15 +1075,17 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     public CommandRegistry getRoot() {
 
         CommandRegistry cur = this;
-        while ( cur.getRegistry() != null ) {
-            cur = cur.getRegistry();
+        CommandRegistry parent = cur.getRegistry();
+        while ( parent != null ) {
+            cur = parent;
+            parent = cur.getRegistry();
         }
         return cur;
 
     }
 
     @Override
-    public void setRegistry( CommandRegistry registry ) {
+    public synchronized void setRegistry( CommandRegistry registry ) {
 
         this.parentRegistry = registry;
 
@@ -1070,7 +1123,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
         if ( getPrefix() != null ) {
             return getPrefix();
         } else {
-            return getRegistry() != null ? getRegistry().getEffectivePrefix() : CommandRegistry.DEFAULT_PREFIX;
+            CommandRegistry parent = getRegistry();
+            return parent != null ? parent.getEffectivePrefix() : CommandRegistry.DEFAULT_PREFIX;
         }
 
     }
@@ -1119,7 +1173,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      * context of a command.
      * <p>
      * By default there is no check operation, so the registry is active for any
-     * context. This state can be restored by passing in null to this method.
+     * context. This state can be restored by passing in <tt>null</tt> to this
+     * method.
      * <p>
      * If a registry is not active under a command context, then a command called
      * under that context will not be executed, thus having the same effect as if it
@@ -1137,19 +1192,24 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      * is enabled.
      *
      * @param contextCheck
-     *            The check to run on the context of commands. If null, removes the
-     *            current context check.
+     *            The check to run on the context of commands. If <tt>null</tt>,
+     *            removes the current context check.
      * @see #contextCheck(CommandContext)
      */
     public void setContextCheck( Predicate<CommandContext> contextCheck ) {
 
-        this.contextCheck = contextCheck;
-        contextChecks.clear();
-        if ( contextCheck != null ) { // set context check.
-            LOG.debug( "Setting context check for \"{}\".", getPath() );
-            contextChecks.add( contextCheck );
-        } else { // Remove context check.
-            LOG.debug( "Removing all context checks for \"{}\".", getPath() );
+        synchronized ( contextChecks ) {
+
+            contextChecks.clear();
+            if ( contextCheck != null ) { // set context check.
+                this.contextCheck = contextCheck;
+                LOG.debug( "Setting context check for \"{}\".", getPath() );
+                contextChecks.add( contextCheck );
+            } else { // Remove context check.
+                this.contextCheck = NO_CHECK;
+                LOG.debug( "Removing all context checks for \"{}\".", getPath() );
+            }
+
         }
 
     }
@@ -1176,13 +1236,17 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             throw new NullPointerException( "Context check to be added cannot be null." );
         }
 
-        LOG.debug( "Adding context check for \"{}\".", getPath() );
-        if ( this.contextCheck == null ) { // This is the first context check.
-            this.contextCheck = contextCheck;
-        } else { // This is not the first context check.
-            this.contextCheck = this.contextCheck.and( contextCheck );
+        synchronized ( contextChecks ) {
+
+            LOG.debug( "Adding context check for \"{}\".", getPath() );
+            if ( contextChecks.isEmpty() ) { // This is the first context check.
+                this.contextCheck = contextCheck;
+            } else { // This is not the first context check.
+                this.contextCheck = this.contextCheck.and( contextCheck );
+            }
+            contextChecks.add( contextCheck );
+
         }
-        contextChecks.add( contextCheck );
 
     }
 
@@ -1204,21 +1268,27 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             throw new NullPointerException( "Context check to be removed cannot be null." );
         }
 
-        LOG.debug( "Removing context check for \"{}\".", getPath() );
+        synchronized ( contextChecks ) {
 
-        contextChecks.remove( contextCheck );
-        if ( contextChecks.isEmpty() ) {
-            this.contextCheck = null; // No more context checks.
-            return;
-        } else {
-            /* Remakes context check from remaining checks */
-            Iterator<Predicate<CommandContext>> iter = contextChecks.iterator();
-            this.contextCheck = iter.next();
-            while ( iter.hasNext() ) {
+            LOG.debug( "Removing context check for \"{}\".", getPath() );
 
-                this.contextCheck = this.contextCheck.and( contextCheck );
+            if ( contextChecks.remove( contextCheck ) ) {
+                if ( contextChecks.isEmpty() ) {
+                    this.contextCheck = NO_CHECK; // No more context checks.
+                    return;
+                } else {
+                    /* Remakes context check from remaining checks */
+                    Iterator<Predicate<CommandContext>> iter = contextChecks.iterator();
+                    Predicate<CommandContext> composedCheck = iter.next();
+                    while ( iter.hasNext() ) {
 
+                        composedCheck = composedCheck.and( contextCheck );
+
+                    }
+                    this.contextCheck = composedCheck;
+                }
             }
+
         }
 
     }
@@ -1230,12 +1300,17 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      * If there are multiple context checks set, the returned object is a logical
      * AND of all the set context checks.
      *
-     * @return The check being ran on command contexts, or null if no check is set.
+     * @return The check being ran on command contexts, or <tt>null</tt> if no check
+     *         is set.
      * @see #addContextCheck(Predicate)
      */
     public Predicate<CommandContext> getContextCheck() {
 
-        return contextCheck;
+        synchronized ( contextChecks ) {
+
+            return contextChecks.isEmpty() ? null : contextCheck;
+
+        }
 
     }
 
@@ -1247,7 +1322,11 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      */
     public List<Predicate<CommandContext>> getContextChecks() {
 
-        return new ArrayList<>( contextChecks );
+        synchronized ( contextChecks ) {
+
+            return new ArrayList<>( contextChecks );
+
+        }
 
     }
 
@@ -1270,15 +1349,15 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      * 
      * @param context
      *            The context to check if the registry is active for.
-     * @return true if this registry is active under the given context (passed
-     *         context check).<br>
-     *         false if it is not active (failed context check).
+     * @return <tt>true</tt> if this registry is active under the given context
+     *         (passed context check).<br>
+     *         <tt>false</tt> if it is not active (failed context check).
      * @see #setContextCheck(Predicate)
      */
     public boolean contextCheck( CommandContext context ) {
 
-        return ( ( contextCheck == null ) || contextCheck.test( context ) )
-                && ( ( getRegistry() == null ) || getRegistry().contextCheck( context ) );
+        CommandRegistry parent = getRegistry();
+        return contextCheck.test( context ) && ( ( parent == null ) || parent.contextCheck( context ) );
 
     }
 
@@ -1301,8 +1380,7 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     @Override
     public int compareTo( CommandRegistry cr ) {
 
-        int compare = this.getName().compareTo( cr.getName() );
-        return ( compare != 0 ) ? compare : this.getQualifier().compareTo( cr.getQualifier() );
+        return this.getName().compareTo( cr.getName() );
 
     }
 
@@ -1330,10 +1408,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      */
     public boolean registerCommand( ICommand command ) throws NullPointerException {
 
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Attempting to register command " + getCommandString( command ) + " to \"" + getQualifiedName()
-                    + "\"." );
-        }
+        LOG.info( "Attempting to register command {} to \"{}\".", getCommandString( command ), getPath() );
+
         /* Check for fail cases */
         boolean fail = false;
         if ( command.isSubCommand() ) {
@@ -1346,36 +1422,42 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             return false; // Error found.
         }
 
-        /* Add to main table */
-        if ( command.getRegistry() != null ) { // Unregister from current registry if any.
-            command.getRegistry().unregisterCommand( command );
-        }
-        command.setRegistry( this );
-        commands.put( command.getName(), command ); // Add command to main table.
+        synchronized ( commands ) {
 
-        /* Add identifiers to the appropriate table */
-        Collection<String> identifiers;
-        Map<String, PriorityQueue<ICommand>> commandTable;
-        if ( command.getPrefix() != null ) { // Command specifies a prefix.
-            identifiers = command.getSignatures();
-            commandTable = withPrefix; // Add signatures to table of commands with prefix.
-        } else { // Command does not specify a prefix.
-            identifiers = command.getAliases();
-            commandTable = noPrefix; // Add aliases to table of commands without prefix.
-        }
-        for ( String identifier : identifiers ) { // For each identifier (signature or alias).
+            synchronized ( command ) {
 
-            PriorityQueue<ICommand> queue = commandTable.get( identifier ); // Get queue of commands with
-            if ( queue == null ) { // that identifier.
-                queue = new PriorityQueue<>(); // If none, initialize it.
-                commandTable.put( identifier, queue );
+                if ( command.getRegistry() != null ) { // Unregister from current registry if any.
+                    command.getRegistry().unregisterCommand( command );
+                }
+                command.setRegistry( this );
+
             }
-            queue.add( command ); // Add command to list of commands with that identifier.
+
+            commands.put( command.getName(), command ); // Add command to main table.
+
+            /* Add identifiers to the appropriate table */
+            Collection<String> identifiers;
+            Map<String, PriorityQueue<ICommand>> commandTable;
+            if ( command.getPrefix() != null ) { // Command specifies a prefix.
+                identifiers = command.getSignatures();
+                commandTable = withPrefix; // Add signatures to table of commands with prefix.
+            } else { // Command does not specify a prefix.
+                identifiers = command.getAliases();
+                commandTable = noPrefix; // Add aliases to table of commands without prefix.
+            }
+            for ( String identifier : identifiers ) { // For each identifier (signature or alias).
+
+                PriorityQueue<ICommand> queue = commandTable.get( identifier ); // Get queue of commands with
+                if ( queue == null ) { // that identifier.
+                    queue = new PriorityQueue<>(); // If none, initialize it.
+                    commandTable.put( identifier, queue );
+                }
+                queue.add( command ); // Add command to list of commands with that identifier.
+
+            }
 
         }
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Registered command \"" + command.getName() + "\"." );
-        }
+        LOG.info( "Registered command \"{}\".", command.getName() );
         setLastChanged( System.currentTimeMillis() );
         return true;
 
@@ -1454,37 +1536,37 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             return false; // Received null command.
         }
         if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Attempting to deregister command " + getCommandString( command ) + " from \""
-                    + getQualifiedName() + "\"." );
+            LOG.info( "Attempting to deregister command {} from \"{}\".", getCommandString( command ), getPath() );
         }
-        if ( commands.get( command.getName() ) != command ) {
-            if ( LOG.isInfoEnabled() ) {
-                LOG.error( "Failed to deregister command \"" + command.getName() + "\"." );
+
+        synchronized ( commands ) {
+
+            if ( commands.get( command.getName() ) != command ) {
+                LOG.error( "Failed to deregister command \"{}\".", command.getName() );
+                return false; // No command with this name, or the command registered with this name was not
+            } // the one given.
+            commands.remove( command.getName() );
+
+            /* Remove identifiers from the appropriate table */
+            Collection<String> identifiers;
+            Map<String, PriorityQueue<ICommand>> commandTable;
+            if ( command.getPrefix() != null ) { // Command specifies a prefix.
+                identifiers = command.getSignatures();
+                commandTable = withPrefix; // Add signatures to table of commands with prefix.
+            } else { // Command does not specify a prefix.
+                identifiers = command.getAliases();
+                commandTable = noPrefix; // Add aliases to table of commands without prefix.
             }
-            return false; // No command with this name, or the command registered with this name was not
-        } // the one given.
-        commands.remove( command.getName() );
+            for ( String identifier : identifiers ) { // For each identifier (signature or alias).
 
-        /* Remove identifiers from the appropriate table */
-        Collection<String> identifiers;
-        Map<String, PriorityQueue<ICommand>> commandTable;
-        if ( command.getPrefix() != null ) { // Command specifies a prefix.
-            identifiers = command.getSignatures();
-            commandTable = withPrefix; // Add signatures to table of commands with prefix.
-        } else { // Command does not specify a prefix.
-            identifiers = command.getAliases();
-            commandTable = noPrefix; // Add aliases to table of commands without prefix.
-        }
-        for ( String identifier : identifiers ) { // For each identifier (signature or alias).
+                commandTable.get( identifier ).remove( command ); // Remove command from the queue of commands with
+                                                                  // that identifier.
+            }
 
-            commandTable.get( identifier ).remove( command ); // Remove command from the queue of commands with
-                                                              // that identifier.
         }
 
         command.setRegistry( null );
-        if ( LOG.isInfoEnabled() ) {
-            LOG.info( "Deregistered command \"" + command.getName() + "\"." );
-        }
+        LOG.info( "Deregistered command \"{}\".", command.getName() );
         setLastChanged( System.currentTimeMillis() );
         return true;
 
@@ -1521,7 +1603,7 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      */
     public void clear() {
 
-        LOG.info( "Clearing all commands in registry {}.", getQualifiedName() );
+        LOG.info( "Clearing all commands in registry {}.", getPath() );
         commands.clear();
         withPrefix.clear();
         noPrefix.clear();
@@ -1580,7 +1662,7 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
         if ( command != null ) {
             return command; // Found command in this registry.
         }
-        for ( CommandRegistry subRegistry : getSubRegistries() ) { // Check each subregistry.
+        for ( CommandRegistry subRegistry : subRegistries.values() ) { // Check each subregistry.
 
             command = subRegistry.getCommand( name );
             if ( command != null ) {
@@ -1613,7 +1695,7 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     public NavigableSet<ICommand> getCommands() {
 
         NavigableSet<ICommand> commands = getRegisteredCommands();
-        for ( CommandRegistry subRegistry : getSubRegistries() ) {
+        for ( CommandRegistry subRegistry : subRegistries.values() ) {
             // Add commands from subregistries.
             commands.addAll( subRegistry.getCommands() );
 
@@ -1629,16 +1711,16 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
      * @param signature
      *            Signature to be matched.
      * @param enableLogging
-     *            Whether log messages should be enabled. Set this to false when
-     *            doing multiple queries programmatically to avoid even more spam at
-     *            the trace level.
-     * @return The command with the given signature, or null if none found in this
-     *         registry or one of its subregistries.
+     *            Whether log messages should be enabled. Set this to <tt>false</tt>
+     *            when doing multiple queries programmatically to avoid even more
+     *            spam at the trace level.
+     * @return The command with the given signature, or <tt>null</tt> if none found
+     *         in this registry or one of its subregistries.
      */
     public ICommand parseCommand( String signature, boolean enableLogging ) {
 
         if ( enableLogging ) {
-            LOG.trace( "Parsing \"{}\" in registry \"{}\".", signature, getQualifiedName() );
+            LOG.trace( "Parsing \"{}\" in registry \"{}\".", signature, getPath() );
         }
         ICommand command = null;
 
@@ -1660,14 +1742,14 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
         }
         if ( ( command != null ) && !command.isOverrideable() ) {
             if ( enableLogging ) {
-                LOG.trace( "Registry \"{}\" found: \"{}\" (not overrideable).", getQualifiedName(), command.getName() );
+                LOG.trace( "Registry \"{}\" found: \"{}\" (not overrideable).", getPath(), command.getName() );
             }
             return command; // Found a command and it can't be overriden.
         }
 
         /* Check if a subregistry has the command */
         ICommand subCommand = null;
-        for ( CommandRegistry subRegistry : getSubRegistries() ) {
+        for ( CommandRegistry subRegistry : subRegistries.values() ) {
 
             ICommand candidate = subRegistry.parseCommand( signature, enableLogging );
             if ( ( candidate != null ) && ( ( subCommand == null ) || ( candidate.compareTo( subCommand ) < 0 ) ) ) {
@@ -1679,8 +1761,8 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
             command = subCommand; // A command from a subregistry always has higher precedence than
         } // the current registry.
 
-        if ( enableLogging && LOG.isTraceEnabled() ) {
-            LOG.trace( "Registry \"{}\" found: {}.", getQualifiedName(),
+        if ( enableLogging ) {
+            LOG.trace( "Registry \"{}\" found: {}.", getPath(),
                     ( command == null ) ? null : ( "\"" + command.getName() + "\"" ) );
         }
         return command; // Returns what was found in this registry. Will be null if not found in this
@@ -1720,8 +1802,9 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     protected void setLastChanged( long lastChanged ) {
 
         this.lastChanged = lastChanged;
-        if ( getRegistry() != null ) {
-            getRegistry().setLastChanged( lastChanged );
+        CommandRegistry parent = getRegistry();
+        if ( parent != null ) {
+            parent.setLastChanged( lastChanged );
         }
 
     }
