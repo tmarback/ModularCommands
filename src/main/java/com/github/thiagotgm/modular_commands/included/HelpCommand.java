@@ -91,15 +91,33 @@ public class HelpCommand {
     private static final Color EMBED_COLOR = Color.WHITE;
 
     private static final Pattern OPERATION_PATTERN = Pattern.compile( "(.+?)\\s*([+-])\\s*(.+)" );
-    private static final Pattern USAGE_PLACEHOLDER_PATTERN = Pattern.compile( "((?:\\\\\\\\)*)(\\\\)?\\{\\s*(.+?)\\s*\\}" );
+    private static final Pattern USAGE_PLACEHOLDER_PATTERN = Pattern
+            .compile( "((?:\\\\\\\\)*)(\\\\)?\\{\\s*(.+?)\\s*\\}" );
     private static final Map<Pattern, Function<Placeholder, String>> USAGE_PLACEHOLDERS;
 
+    /**
+     * A possible placeholder in the usage string.
+     * 
+     * @version 1.0
+     * @author ThiagoTGM
+     * @since 2018-09-26
+     */
     private static class Placeholder {
 
         public final MatchResult match;
         public final List<ICommand> commandChain;
         public final Map<ICommand, List<String>> signatureBuffer;
 
+        /**
+         * Creates a new instance.
+         *
+         * @param match
+         *            The match within the placeholder.
+         * @param commandChain
+         *            The command chain being inspected.
+         * @param signatureBuffer
+         *            The buffer of main command signatures.
+         */
         public Placeholder( MatchResult match, List<ICommand> commandChain,
                 Map<ICommand, List<String>> signatureBuffer ) {
 
@@ -111,6 +129,18 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Retrieves the non-overridden aliases of the given command.
+     *
+     * @param command
+     *            The command to inspect.
+     * @param parent
+     *            The parent of the command. May be <tt>null</tt> if the command is
+     *            a main command.
+     * @param signatureBuffer
+     *            The buffer of main command signatures.
+     * @return The non-overridden aliases.
+     */
     private static List<String> getAliases( ICommand command, ICommand parent,
             Map<ICommand, List<String>> signatureBuffer ) {
 
@@ -136,6 +166,20 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Formats the aliases of the given command for displaying.
+     * <p>
+     * Makes a comma-separated list of the aliases, between curly braces.
+     *
+     * @param command
+     *            The command to inspect.
+     * @param parent
+     *            The parent of the command. May be <tt>null</tt> if the command is
+     *            a main command.
+     * @param signatureBuffer
+     *            The buffer of main command signatures.
+     * @return The formatted alias list.
+     */
     private static String formatAliases( ICommand command, ICommand parent,
             Map<ICommand, List<String>> signatureBuffer ) {
 
@@ -145,12 +189,26 @@ public class HelpCommand {
 
     }
 
-    private static int evaluateOperand( String operandStr, int size ) {
+    /**
+     * Evaluates the string expression given as an algebraic expression.
+     * <p>
+     * Supported values are integers, the operations + and -, and <tt>size</tt>,
+     * which is replaced by the given size.
+     *
+     * @param expression
+     *            The expression to evaluate.
+     * @param size
+     *            The value to replace occurrences of <tt>size</tt> with.
+     * @return The value of the expression.
+     * @throws NumberFormatException
+     *             if the given expression is invalid.
+     */
+    private static int evaluateExpression( String expression, int size ) throws NumberFormatException {
 
-        Matcher m = OPERATION_PATTERN.matcher( operandStr.trim() );
-        if ( m.matches() ) {
-            int op1 = evaluateOperand( m.group( 1 ), size );
-            int op2 = evaluateOperand( m.group( 3 ), size );
+        Matcher m = OPERATION_PATTERN.matcher( expression.trim() );
+        if ( m.matches() ) { // Is an operation.
+            int op1 = evaluateExpression( m.group( 1 ), size ); // Evaluate each operand.
+            int op2 = evaluateExpression( m.group( 3 ), size );
             switch ( m.group( 2 ) ) {
 
                 case "+":
@@ -163,34 +221,46 @@ public class HelpCommand {
                     return -1;
 
             }
-        } else {
-            if ( operandStr.equals( "size" ) ) {
-                return size;
+        } else { // Is a value.
+            if ( expression.equals( "size" ) ) {
+                return size; // Replace with size.
             } else {
-                try {
-                    return Integer.parseInt( operandStr );
-                } catch ( NumberFormatException e ) {
-                    return -1;
-                }
+                return Integer.parseInt( expression ); // Parse as an integer.
             }
         }
 
     }
 
+    /**
+     * Parses the index to use.
+     *
+     * @param idxStr
+     *            The string match that should be evaluated for the index.
+     * @param size
+     *            The size to replace occurrences of <tt>size</tt> with.
+     * @return The index, or -1 if the matched string is not a valid expression or
+     *         results in an index out of range (smaller than 0 or greater than
+     *         size).
+     */
     private static int parseIndex( MatchResult idxStr, int size ) {
 
         if ( idxStr.group( 1 ) == null ) {
             return size - 1;
         }
 
-        int idx = evaluateOperand( idxStr.group( 1 ), size );
+        int idx;
+        try {
+            idx = evaluateExpression( idxStr.group( 1 ), size );
+        } catch ( NumberFormatException e ) {
+            return -1; // Invalid expression.
+        }
         return idx < size ? idx : -1;
 
     }
 
     private static final String INDEX = "(?:\\[(.+)\\])?";
 
-    static {
+    static { // Initializes placeholder expressions.
 
         Map<String, Function<Placeholder, String>> placeholders = new HashMap<>();
 
@@ -229,6 +299,19 @@ public class HelpCommand {
         // Compile patterns and store.
         USAGE_PLACEHOLDERS = Collections.unmodifiableMap( placeholders.entrySet().stream()
                 .collect( Collectors.toMap( e -> Pattern.compile( e.getKey() ), e -> e.getValue() ) ) );
+
+    }
+
+    /**
+     * Converts the given string to a quote format in markdown.
+     *
+     * @param str
+     *            The string.
+     * @return The quoted string.
+     */
+    private static String quote( String str ) {
+
+        return String.format( "`%s`", str );
 
     }
 
@@ -375,6 +458,15 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Parses the usage string.
+     *
+     * @param commandChain
+     *            The command chain being inspected.
+     * @return The The usage string for the subcommand that the chain represented,
+     *         with all <b>valid</b> placeholders replaced by the appropriate
+     *         values. May be empty if the command has an empty usage.
+     */
     private String parseUsage( List<ICommand> commandChain ) {
 
         String usage = commandChain.get( commandChain.size() - 1 ).getUsage();
@@ -429,7 +521,7 @@ public class HelpCommand {
      * @return The string that fully describes the command.
      */
     private EmbedObject formatCommandLong( List<ICommand> commandChain ) {
-        
+
         ICommand command = commandChain.get( commandChain.size() - 1 );
         ICommand parent = commandChain.size() > 1 ? commandChain.get( commandChain.size() - 2 ) : null;
 
@@ -447,7 +539,7 @@ public class HelpCommand {
         /* Add prefix if this is a main command */
         if ( !command.isSubCommand() ) {
             String title = command.getPrefix() == null ? "Inherited Prefix" : "Prefix";
-            builder.appendField( title, command.getEffectivePrefix(), false );
+            builder.appendField( title, quote( command.getEffectivePrefix() ), false );
         }
 
         /* Add aliases */
@@ -472,12 +564,12 @@ public class HelpCommand {
         if ( aliases.isEmpty() ) {
             return null; // Command has no callable aliases.
         }
-        builder.appendField( "Aliases", aliases.toString(), false );
+        builder.appendField( "Aliases", quote( aliases.toString() ), false );
 
         /* Add usage */
         String usage = parseUsage( commandChain );
         if ( !usage.isEmpty() ) {
-            builder.appendField( "Usage", usage, false );
+            builder.appendField( "Usage", quote( usage ), false );
         }
 
         /* Add subcommands */
@@ -492,23 +584,20 @@ public class HelpCommand {
             }
 
         }
-        String subcommands;
-        if ( subCommandAliases.isEmpty() ) {
-            subcommands = "N/A";
-        } else {
-            String subCommands = subCommandAliases.toString();
-            subcommands = subCommands.substring( 1, subCommands.length() - 1 );
+        if ( !subCommandAliases.isEmpty() ) {
+            String subcommands = subCommandAliases.toString();
+            subcommands = quote( subcommands.substring( 1, subcommands.length() - 1 ) );
+            builder.appendField( "Subcommands", subcommands, false );
         }
-        builder.appendField( "Subcommands", subcommands, false );
 
         /* Add permissions */
         EnumSet<Permissions> channelPermissions = command.getRequiredPermissions();
         if ( !channelPermissions.isEmpty() ) {
-            builder.appendField( "Required permissions in channel", channelPermissions.toString(), false );
+            builder.appendField( "Required permissions in channel", quote( channelPermissions.toString() ), false );
         }
         EnumSet<Permissions> guildPermissions = command.getRequiredGuildPermissions();
         if ( !guildPermissions.isEmpty() ) {
-            builder.appendField( "Required permissions in server", guildPermissions.toString(), false );
+            builder.appendField( "Required permissions in server", quote( guildPermissions.toString() ), false );
         }
 
         /* Add modifiers */
