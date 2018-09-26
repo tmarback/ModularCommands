@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.Stack;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -49,7 +50,6 @@ import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
 
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.internal.json.objects.EmbedObject;
-import sx.blah.discord.handle.obj.IMessage;
 import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.EmbedBuilder;
 import sx.blah.discord.util.MessageBuilder;
@@ -74,15 +74,14 @@ public class HelpCommand {
 
     private static final String BLOCK_PREFIX = "```\n";
     private static final String BLOCK_SUFFIX = "```";
-    private static final int BLOCK_EXTRA = BLOCK_PREFIX.length() + BLOCK_SUFFIX.length();
-    private static final int BLOCK_SIZE = IMessage.MAX_MESSAGE_LENGTH - BLOCK_EXTRA;
 
-    private static final String LIST_TITLE = "[COMMAND LIST]\n";
-    private static final String SUBREGISTRY_TITLE = "[REGISTRY %s - COMMAND LIST]\n";
-    private static final String REGISTRY_TITLE = "[REGISTRY DETAILS]\n";
+    private static final String LIST_TITLE = "COMMAND LIST";
+    private static final String LIST_BLOCK_TITLE = "COMMAND LIST (%d/%d)";
+    private static final String SUBREGISTRY_TITLE = "REGISTRY %s - COMMAND LIST";
+    private static final String REGISTRY_TITLE = "REGISTRY DETAILS";
     private static final String DISABLED_TAG = "[DISABLED] ";
 
-    private static final String EMPTY_REGISTRY = "<no commands>\n";
+    private static final String EMPTY_REGISTRY = "<no commands>";
 
     private static final Pattern LINE_SPLITTER_PATTERN = Pattern.compile( "\\s*\n\\s*" );
 
@@ -446,12 +445,17 @@ public class HelpCommand {
         if ( signatureList.isEmpty() ) {
             return null; // Command has no callable signatures.
         }
-        String signatures = signatureList.toString(); // Get signature list.
+        // Get signature list.
+        String signatures = signatureList.stream().map( s -> quote( s ) ).collect( Collectors.toList() ).toString();
         StringBuilder builder = new StringBuilder();
-        if ( !command.isEffectivelyEnabled() ) {
-            builder.append( DISABLED_TAG );
+        boolean disabled = !command.isEffectivelyEnabled();
+        if ( disabled ) {
+            builder.append( "~~" );
         }
         builder.append( signatures, 1, signatures.length() - 1 ); // Remove brackets.
+        if ( disabled ) {
+            builder.append( "~~" );
+        }
         builder.append( " - " );
         builder.append( parseDescription( command )[0] );
         return builder.toString();
@@ -670,50 +674,45 @@ public class HelpCommand {
      * Formats a collection of commands into a list, where each line describes a
      * single command.
      * <p>
-     * All blocks are small enough to fit into a single message with the
-     * {@link #BLOCK_PREFIX} and {@link #BLOCK_SUFFIX}. If the first block needs to
-     * be smaller, the reduction to its maximum size can be specified.
+     * All blocks have at most the given size.
      *
      * @param commands
      *            The commands to make a list of.
-     * @param firstBlockReduction
-     *            How much the maximum size of the first block is smaller than the
-     *            normal block size.
+     * @param sizeLimit
+     *            The maximum size of each block.
      * @return The formatted command list split in blocks.
+     * @throws IllegalArgumentException
+     *             if there is a command whose formatted form is larger than the
+     *             given size limit.
      */
-    private List<String> formatCommandList( Collection<ICommand> commands, int firstBlockReduction ) {
+    private List<String> formatCommandList( Collection<ICommand> commands, int sizeLimit )
+            throws IllegalArgumentException {
 
         /* Gets the formatted commands and sorts them */
-        SortedSet<String> commandStrings = new TreeSet<>();
-        for ( ICommand command : commands ) {
-
-            String formatted = formatCommandShort( command );
-            if ( formatted != null ) { // Include the command if it has callable signatures.
-                commandStrings.add( formatted );
-            }
-
-        }
+        SortedSet<String> commandStrings = commands.stream().map( c -> formatCommandShort( c ) )
+                .filter( f -> f != null ).collect( Collectors.toCollection( TreeSet::new ) );
 
         /* Adds all formatted commands into different lines */
         List<String> blocks = new ArrayList<>();
         StringBuilder builder = new StringBuilder();
-        int maxBlockLength = BLOCK_SIZE - firstBlockReduction;
         for ( String commandString : commandStrings ) {
 
-            if ( ( builder.length() + commandString.length() + 1 ) > maxBlockLength ) {
-                // Reached max block length.
-                if ( blocks.isEmpty() ) { // Update max lenght to the other blocks.
-                    maxBlockLength = BLOCK_SIZE;
-                }
-                blocks.add( builder.toString() ); // Record current block.
-                builder = new StringBuilder(); // Start another block.
+            if ( commandString.length() > sizeLimit ) {
+                throw new IllegalArgumentException( "Command description is too large." );
             }
-            builder.append( commandString );
-            builder.append( '\n' );
+            if ( builder.length() + commandString.length() + ( builder.length() == 0 ? 0 : 1 ) >= sizeLimit ) {
+                // Reached max block length.
+                blocks.add( builder.toString() ); // Record current block.
+                builder = new StringBuilder();
+            }
+            if ( builder.length() > 0 ) { // Already has a line.
+                builder.append( '\n' ); // Make a new line.
+            }
+            builder.append( commandString ); // Append line.
 
         }
         if ( builder.length() > 0 ) {
-            blocks.add( builder.toString() ); // Record last block.
+            blocks.add( builder.toString() );
         }
 
         if ( blocks.isEmpty() ) {
@@ -744,21 +743,25 @@ public class HelpCommand {
 
         if ( context.getArgs().isEmpty() ) { // No command specified.
             RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true );
-            List<String> blocks = formatCommandList( registry.getCommands(), LIST_TITLE.length() );
+            AtomicInteger curBlock = new AtomicInteger( 1 );
+            EmbedBuilder blockBuilder = new EmbedBuilder().withColor( EMBED_COLOR );
+            List<String> strBlocks = formatCommandList( registry.getCommands(),
+                    EmbedBuilder.DESCRIPTION_CONTENT_LIMIT );
+            List<EmbedObject> blocks = strBlocks.stream()
+                    .map( b -> blockBuilder.withTitle( strBlocks.size() > 1
+                            ? String.format( LIST_BLOCK_TITLE, curBlock.getAndIncrement(), strBlocks.size() )
+                            : LIST_TITLE ).withDesc( b ).build() )
+                    .collect( Collectors.toList() );
             MessageBuilder builder = context.getReplyBuilder();
-            final String first = BLOCK_PREFIX + LIST_TITLE + blocks.get( 0 ) + BLOCK_SUFFIX;
-            request.doAction( () -> {
-                builder.withContent( first ).build();
-                return true;
-            } );
-            for ( int i = 1; i < blocks.size(); i++ ) {
-
-                final String next = BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX;
+            request.doAction( () -> true );
+            for ( EmbedObject block : blocks ) {
+                
                 request.andThen( () -> {
-                    builder.withContent( next ).build();
+                    
+                    builder.withEmbed( block ).build();
                     return true;
+                    
                 } );
-                builder.withContent( next ).build();
 
             }
             request.execute();
