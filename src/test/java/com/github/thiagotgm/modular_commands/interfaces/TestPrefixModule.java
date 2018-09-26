@@ -34,7 +34,7 @@ public class TestPrefixModule implements IModule {
     @Override
     public boolean enable( IDiscordClient client ) {
 
-        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
+        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this.getClass() );
         reg.registerCommand( new LowPriorityCommand() );
         reg.registerCommand( new HighPriorityCommand() );
         reg.setPrefix( "pre||" );

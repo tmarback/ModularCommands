@@ -34,7 +34,7 @@ public class TestModuleModule implements IModule {
     @Override
     public boolean enable( IDiscordClient client ) {
 
-        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
+        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this.getClass() );
         reg.registerCommand( new ModuleCommand() );
         reg.registerCommand( new SuccessfulOverrideCommand() );
         reg.registerCommand( new FailedOverrideCommand() );

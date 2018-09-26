@@ -30,32 +30,27 @@ import sx.blah.discord.api.IDiscordClient;
  */
 public class ClientCommandRegistry extends CommandRegistry {
     
-    /** Qualifier for this registry type. */
+    /**
+     * Qualifier for this registry type.
+     * 
+     * @deprecated Not used anymore.
+     */
+    @Deprecated
     public static final String QUALIFIER = "client";
     
-    /** Name for all instances of this class. */
-    private static final String NAME = "Core";
+    private final IDiscordClient client;
     
     /**
      * Initializes a registry linked to the given client.
      *
      * @param client The client that the registry should be linked to.
      * @throws NullPointerException if the client received is null.
-     * @see CommandRegistry#CommandRegistry(Object)
      */
     public ClientCommandRegistry( IDiscordClient client ) throws NullPointerException {
 
-        super( client );
-        
-        this.essential = true;
+        super( "", true );
+        this.client = client;
 
-    }
-    
-    @Override
-    public IDiscordClient getLinkedObject() {
-        
-        return (IDiscordClient) super.getLinkedObject();
-        
     }
     
     /**
@@ -66,35 +61,18 @@ public class ClientCommandRegistry extends CommandRegistry {
      */
     public IDiscordClient getClient() {
         
-        return getLinkedObject();
-        
-    }
-
-    @Override
-    public String getName() {
-
-        return NAME;
-        
-    }
-
-    @Override
-    public String getQualifier() {
-
-        return QUALIFIER;
+        return client;
         
     }
     
     /**
-     * Retrieves the <i>effective</i> prefix of the calling instance.<br>
-     * If the calling instance has no declared prefix, uses the
-     * {@link CommandRegistry#DEFAULT_PREFIX default prefix}.
-     *
-     * @return The effective prefix used for this instance.
+     * @deprecated Use {@link #getClient()} instead.
      */
+    @Deprecated
     @Override
-    public String getEffectivePrefix() {
+    public IDiscordClient getLinkedObject() {
         
-        return ( getPrefix() != null ) ? getPrefix() : CommandRegistry.DEFAULT_PREFIX;
+        return getClient();
         
     }
 

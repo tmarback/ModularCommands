@@ -28,22 +28,21 @@ import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 
 /**
  * Indicates that a {@link CommandRegistry} made after the annotated class
- * should be initialized to have the specified prefix.
- *
+ * should have a name other than the name of the class.
+ * 
  * @version 1.0
  * @author ThiagoTGM
- * @since 2017-07-25
+ * @since 2018-09-25
  */
 @Documented
 @Retention( RUNTIME )
 @Target( TYPE )
-public @interface HasPrefix {
+public @interface Named {
 
     /**
-     * Retrieves the prefix that a registry made after the annotated type should be
-     * initialized to have.
+     * Retrieves the name that a registry made after the annotated type should have.
      *
-     * @return The prefix.
+     * @return The registry name.
      */
     String value();
 

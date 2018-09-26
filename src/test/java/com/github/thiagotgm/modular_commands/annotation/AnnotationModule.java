@@ -33,12 +33,13 @@ import sx.blah.discord.modules.IModule;
 @HasPrefix( "!" )
 public class AnnotationModule implements IModule {
 
+    /** Name of the module. */
     public static final String NAME = "Annotation module";
     
     @Override
     public boolean enable( IDiscordClient client ) {
 
-        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
+        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this.getClass() );
         reg.registerAnnotatedCommands( new AnnotatedCommands() );
         reg.registerAnnotatedCommands( new MoreAnnotatedCommands() );
         reg.registerAnnotatedCommands( new StatCommand() );

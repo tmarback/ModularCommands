@@ -27,8 +27,8 @@ import java.lang.annotation.Target;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 
 /**
- * Indicates that a {@link CommandRegistry} linked to an instance of the
- * annotated class should be initialized to be essential.
+ * Indicates that a {@link CommandRegistry} made after the annotated class
+ * should be initialized to be essential.
  *
  * @version 1.0
  * @author ThiagoTGM

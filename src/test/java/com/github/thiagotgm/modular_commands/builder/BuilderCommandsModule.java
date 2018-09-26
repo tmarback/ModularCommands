@@ -54,7 +54,7 @@ public class BuilderCommandsModule implements IModule {
                     
                 }).build();
         
-        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this );
+        CommandRegistry reg = CommandRegistry.getRegistry( client ).getSubRegistry( this.getClass() );
         reg.registerCommand( c1 );
         reg.registerCommand( c2 );
         

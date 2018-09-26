@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
@@ -68,7 +67,6 @@ public class HelpCommand {
     
     private static final String LIST_TITLE = "[COMMAND LIST]\n";
     private static final String SUBREGISTRY_TITLE = "[%s - COMMAND LIST]\n";
-    private static final String SUBREGISTRY_PATH_DELIMITER = "::";
     private static final String COMMAND_TITLE = "[COMMAND DETAILS]\n";
     private static final String REGISTRY_TITLE = "[REGISTRY DETAILS]\n";
     private static final String DISABLED_TAG = "[DISABLED] ";
@@ -356,11 +354,6 @@ public class HelpCommand {
         builder.append( registry.getName() );
         builder.append( '\n' );
         
-        /* Add registry type */
-        builder.append( "Type: " );
-        builder.append( registry.getQualifier() );
-        builder.append( '\n' );
-        
         /* Add prefix */
         String prefix = registry.getPrefix();
         if ( prefix != null ) { // Has a prefix.
@@ -539,7 +532,7 @@ public class HelpCommand {
         /* Get target registry */
         CommandRegistry target = registry;
         Iterator<String> args = context.getArgs().iterator();
-        if ( !args.next().equals( registry.getQualifiedName() ) ) {
+        if ( !args.next().equals( registry.getName() ) ) {
             return false; // First arg is not root registry.
         }
         while ( args.hasNext() ) {
@@ -590,15 +583,7 @@ public class HelpCommand {
                     .shouldBufferRequests( true );
             
             /* Get registry path */
-            List<String> pathList = new LinkedList<>();
-            CommandRegistry cur = registry;
-            while ( cur != null ) { // Get all parents.
-                
-                pathList.add( 0, cur.getQualifiedName() ); // Add parent to beginning of pathlist.
-                cur = cur.getRegistry();
-                
-            }
-            String path = String.join( SUBREGISTRY_PATH_DELIMITER, pathList );
+            String path = registry.getPath();
             
             /* Makes the title, and appends after the leftover block if there's space */
             String title = String.format( SUBREGISTRY_TITLE, path );

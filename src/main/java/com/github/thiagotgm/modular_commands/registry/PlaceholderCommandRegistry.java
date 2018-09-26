@@ -21,56 +21,34 @@ import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 
 /**
- * A placeholder for a command registry that does not currently exist, but may be created
- * in the future.
+ * A placeholder for a command registry that does not currently exist, but may
+ * be created in the future.
  * <p>
- * Does not allow registering commands, but allows creating and retrieving subregistries
- * that will be transfered to the actual registry later.
+ * Does not allow registering commands, but allows creating and retrieving
+ * subregistries that will be transfered to the actual registry later.
  *
- * @version 1.0
+ * @version 1.1
  * @author ThiagoTGM
  * @since 2017-07-31
  */
 public class PlaceholderCommandRegistry extends CommandRegistry {
-    
-    private final String qualifier;
-    private final String name;
 
     /**
      * Creates a placeholder for a registry that has the given qualifier and name.
      *
-     * @param qualifier The qualifier of the registry the placeholder represents.
-     * @param name The name of the registry the placeholder represents.
-     * @throws NullPointerException if either argument is null.
+     * @param name
+     *            The name of the registry the placeholder represents.
+     * @throws NullPointerException
+     *             if either argument is null.
+     * @throws IllegalArgumentException
+     *             if the given name contains '{@value #PATH_SEPARATOR}'.
      */
-    public PlaceholderCommandRegistry( String qualifier, String name )
-            throws NullPointerException {
-        
-        super();
-        
-        if ( ( qualifier == null ) || ( name == null ) ) {
-            throw new NullPointerException( "Arguments cannot be null." );
-        }
-        
-        this.qualifier = qualifier;
-        this.name = name;
-        
+    public PlaceholderCommandRegistry( String name ) throws NullPointerException, IllegalArgumentException {
+
+        super( name, false );
+
     }
 
-    @Override
-    public String getName() {
-
-        return name;
-        
-    }
-
-    @Override
-    public String getQualifier() {
-
-        return qualifier;
-        
-    }
-    
     /**
      * Placeholder registries are not counted in the registry hierarchy, so changes
      * to a placeholder are irrelevant.<br>
@@ -78,21 +56,23 @@ public class PlaceholderCommandRegistry extends CommandRegistry {
      */
     @Override
     public void setLastChanged( long lastChanged ) {
-        
+
         return;
-        
+
     }
-    
+
     /**
-     * Placeholder registries cannot register commands. This method throws an exception.
+     * Placeholder registries cannot register commands. This method throws an
+     * exception.
      *
-     * @throws UnsupportedOperationException if called.
+     * @throws UnsupportedOperationException
+     *             if called.
      */
     @Override
     public boolean registerCommand( ICommand command ) throws UnsupportedOperationException {
-        
+
         throw new UnsupportedOperationException( "A placeholder registry cannot register commands." );
-        
+
     }
 
 }

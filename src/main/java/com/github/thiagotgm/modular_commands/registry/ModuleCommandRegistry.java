@@ -26,7 +26,10 @@ import sx.blah.discord.modules.IModule;
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-13
+ * 
+ * @deprecated Class-specific registries are not used anymore.
  */
+@Deprecated
 public class ModuleCommandRegistry extends CommandRegistry {
     
     /** Qualifier for this registry type. */
@@ -37,11 +40,10 @@ public class ModuleCommandRegistry extends CommandRegistry {
      *
      * @param module The module that the registry should be linked to.
      * @throws NullPointerException if the module received is null.
-     * @see CommandRegistry#CommandRegistry(Object)
      */
     public ModuleCommandRegistry( IModule module ) throws NullPointerException {
 
-        super( module );
+        super( module.getClass() );
 
     }
     
@@ -60,33 +62,6 @@ public class ModuleCommandRegistry extends CommandRegistry {
     public IModule getModule() {
 
         return getLinkedObject();
-        
-    }
-    
-    /**
-     * Sets whether this registry is essential.
-     *
-     * @param essential If true, the registry is marked as essential. If false, it is marked
-     *                  as not essential.
-     * @see #isEssential()
-     */
-    public void setEssential( boolean essential ) {
-        
-        this.essential = essential;
-        
-    }
-
-    @Override
-    public String getName() {
-
-        return getModule().getName();
-        
-    }
-    
-    @Override
-    public String getQualifier() {
-        
-        return QUALIFIER;
         
     }
 

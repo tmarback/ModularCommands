@@ -183,7 +183,7 @@ public class EnableCommand {
         /* Get target registry */
         CommandRegistry target = CommandRegistry.getRegistry( context.getEvent().getClient() );
         Iterator<String> args = context.getArgs().iterator();               // Start with root.
-        if ( !args.next().equals( target.getQualifiedName() ) ) {
+        if ( !args.next().equals( target.getName() ) ) {
             context.setHelper( Reason.NOT_FOUND );
             return false; // First arg not root registry.
         }
