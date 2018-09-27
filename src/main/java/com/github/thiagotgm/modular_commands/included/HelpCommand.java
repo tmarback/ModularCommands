@@ -67,7 +67,10 @@ public class HelpCommand {
 
     private static final Logger LOG = LoggerFactory.getLogger( HelpCommand.class );
 
-    public static final String MAIN_COMMAND_NAME = "Default Help Command";
+    /**
+     * Name of the default help command.
+     */
+    public static final String MAIN_COMMAND_NAME = "Command Help";
     private static final String REGISTRY_LIST_SUBCOMMAND_NAME = "Registry List";
     private static final String REGISTRY_DETAILS_SUBCOMMAND_NAME = "Registry Details";
     private static final String PUBLIC_HELP_SUBCOMMAND_NAME = "Public Default Help Command";
@@ -77,9 +80,10 @@ public class HelpCommand {
 
     private static final String LIST_TITLE = "COMMAND LIST";
     private static final String LIST_BLOCK_TITLE = "COMMAND LIST (%d/%d)";
-    private static final String SUBREGISTRY_TITLE = "REGISTRY %s - COMMAND LIST";
+    private static final String REGISTRY_PREFIX = "REGISTRY %s - ";
+    private static final String REGISTRY_LIST_TITLE = REGISTRY_PREFIX + LIST_TITLE;
+    private static final String REGISTRY_LIST_BLOCK_TITLE = REGISTRY_PREFIX + LIST_BLOCK_TITLE;
     private static final String REGISTRY_TITLE = "REGISTRY DETAILS";
-    private static final String DISABLED_TAG = "[DISABLED] ";
 
     private static final String EMPTY_REGISTRY = "<no commands>";
 
@@ -314,6 +318,19 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Applies a strikethrough effect to the given string in markdown.
+     *
+     * @param str
+     *            The string.
+     * @return The string with a strikethrough effect.
+     */
+    private static String strikethrough( String str ) {
+
+        return String.format( "~~%s~~", str );
+
+    }
+
     private ClientCommandRegistry registry;
     private volatile long lastUpdated;
     private Map<ICommand, List<String>> buffer;
@@ -448,14 +465,11 @@ public class HelpCommand {
         // Get signature list.
         String signatures = signatureList.stream().map( s -> quote( s ) ).collect( Collectors.toList() ).toString();
         StringBuilder builder = new StringBuilder();
-        boolean disabled = !command.isEffectivelyEnabled();
-        if ( disabled ) {
-            builder.append( "~~" );
+        signatures = signatures.substring( 1, signatures.length() - 1 ); // Remove brackets.
+        if ( !command.isEffectivelyEnabled() ) { // Strikethrough to show disabled.
+            signatures = strikethrough( signatures );
         }
-        builder.append( signatures, 1, signatures.length() - 1 ); // Remove brackets.
-        if ( disabled ) {
-            builder.append( "~~" );
-        }
+        builder.append( signatures );
         builder.append( " - " );
         builder.append( parseDescription( command )[0] );
         return builder.toString();
@@ -742,25 +756,30 @@ public class HelpCommand {
         update( context );
 
         if ( context.getArgs().isEmpty() ) { // No command specified.
-            RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true );
+            RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true )
+                    .setAsync( true );
             AtomicInteger curBlock = new AtomicInteger( 1 );
-            EmbedBuilder blockBuilder = new EmbedBuilder().withColor( EMBED_COLOR );
+            EmbedBuilder blockBuilder = new EmbedBuilder().withColor( EMBED_COLOR ).withFooterText(
+                    "Pass in another command as an argument ot this command to see info on that particular "
+                            + "command! For example, try using this command as the argument to itself~" );
             List<String> strBlocks = formatCommandList( registry.getCommands(),
                     EmbedBuilder.DESCRIPTION_CONTENT_LIMIT );
-            List<EmbedObject> blocks = strBlocks.stream()
-                    .map( b -> blockBuilder.withTitle( strBlocks.size() > 1
-                            ? String.format( LIST_BLOCK_TITLE, curBlock.getAndIncrement(), strBlocks.size() )
-                            : LIST_TITLE ).withDesc( b ).build() )
+            List<EmbedObject> blocks = strBlocks
+                    .stream().map(
+                            b -> blockBuilder
+                                    .withTitle( strBlocks.size() > 1 ? String.format( LIST_BLOCK_TITLE,
+                                            curBlock.getAndIncrement(), strBlocks.size() ) : LIST_TITLE )
+                                    .withDesc( b ).build() )
                     .collect( Collectors.toList() );
             MessageBuilder builder = context.getReplyBuilder();
             request.doAction( () -> true );
             for ( EmbedObject block : blocks ) {
-                
+
                 request.andThen( () -> {
-                    
+
                     builder.withEmbed( block ).build();
                     return true;
-                    
+
                 } );
 
             }
@@ -854,61 +873,38 @@ public class HelpCommand {
 
         Stack<CommandRegistry> registries = new Stack<>();
         registries.push( registry );
-        final MessageBuilder builder = context.getReplyBuilder();
 
-        String lastBlock = "";
+        EmbedBuilder blockBuilder = new EmbedBuilder().withColor( EMBED_COLOR );
+        List<EmbedObject> blocks = new LinkedList<>();
         while ( !registries.isEmpty() ) { // For each registry.
 
             CommandRegistry registry = registries.pop();
-            RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true );
 
             /* Get registry path */
-            String path = registry.getPath();
-
-            /* Makes the title, and appends after the leftover block if there's space */
-            String title = String.format( SUBREGISTRY_TITLE, path );
+            String path = quote( registry.getPath() );
             if ( !registry.isEffectivelyEnabled() ) {
-                title = DISABLED_TAG + title;
+                path = strikethrough( path );
             }
-            List<String> blocks = null;
-            if ( !lastBlock.isEmpty() ) { // There is a leftover block.
-                blocks = formatCommandList( registry.getRegisteredCommands(), // Try to fit it before
-                        title.length() + lastBlock.length() + 1 ); // the title.
-                if ( !blocks.get( 0 ).isEmpty() ) { // There's enough space for the leftover block.
-                    title = lastBlock + "\n" + title; // Send it before the title.
-                } else { // No space. Send the leftover block on its own.
-                    blocks = null;
-                    final String leftover = BLOCK_PREFIX + lastBlock + BLOCK_SUFFIX;
-                    ;
-                    new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true ).doAction( () -> {
-                        builder.withContent( leftover ).build();
-                        return true;
-                    } ).execute();
+
+            List<String> strBlocks = formatCommandList( registry.getRegisteredCommands(),
+                    EmbedBuilder.FIELD_CONTENT_LIMIT );
+            int curBlock = 1;
+            for ( String strBlock : strBlocks ) {
+
+                String title = strBlocks.size() > 1
+                        ? String.format( REGISTRY_LIST_BLOCK_TITLE, path, curBlock++, strBlocks.size() )
+                        : String.format( REGISTRY_LIST_TITLE, path );
+
+                if ( ( blockBuilder.getFieldCount() >= EmbedBuilder.FIELD_COUNT_LIMIT ) // Won't fit in current block.
+                        || ( blockBuilder.getTotalVisibleCharacters() + title.length()
+                                + strBlock.length() > EmbedBuilder.MAX_CHAR_LIMIT ) ) {
+                    blocks.add( blockBuilder.build() ); // Flush current block.
+                    blockBuilder.clearFields(); // Start new block.
                 }
-            }
-            lastBlock = "";
-            if ( blocks == null ) { // Blocks haven't been initialized yet, or tried
-                blocks = formatCommandList( registry.getRegisteredCommands(), // with the
-                        title.length() ); // leftover and there was no space.
-            }
 
-            /* Makes and sends the command list for the current registry */
-            blocks.set( 0, title + blocks.get( 0 ) ); // Add title to the first block.
-            request.doAction( () -> {
-                return true;
-            } );
-            for ( int i = 0; i < blocks.size() - 1; i++ ) { // Message all blocks except the last.
-
-                final String next = BLOCK_PREFIX + blocks.get( i ) + BLOCK_SUFFIX;
-                request.andThen( () -> {
-                    builder.withContent( next ).build();
-                    return true;
-                } );
-                builder.withContent( next ).build();
+                blockBuilder.appendField( title, strBlock, false );
 
             }
-            request.execute();
-            lastBlock = blocks.get( blocks.size() - 1 );
 
             for ( CommandRegistry subRegistry : registry.getSubRegistries().descendingSet() ) {
                 // Add subregistries to the stack in reverse order.
@@ -917,16 +913,25 @@ public class HelpCommand {
             }
 
         }
-        if ( !lastBlock.isEmpty() ) { // There was a block leftover.
-            final String leftover = BLOCK_PREFIX + lastBlock + BLOCK_SUFFIX;
-            ;
-            new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true ).doAction( () -> { // Print
-                                                                                                           // leftover
-                                                                                                           // block.
-                builder.withContent( leftover ).build();
-                return true;
-            } ).execute();
+        if ( blockBuilder.getFieldCount() > 0 ) { // Has unfinished block.
+            blocks.add( blockBuilder.build() ); // Flush last block.
         }
+
+        RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true )
+                .setAsync( true );
+        MessageBuilder builder = context.getReplyBuilder();
+        request.doAction( () -> true );
+        for ( EmbedObject block : blocks ) { // Send blocks.
+
+            request.andThen( () -> {
+
+                builder.withEmbed( block ).build();
+                return true;
+
+            } );
+
+        }
+        request.execute();
 
     }
 
