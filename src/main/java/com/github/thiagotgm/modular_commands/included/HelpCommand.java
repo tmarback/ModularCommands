@@ -75,16 +75,11 @@ public class HelpCommand {
     private static final String REGISTRY_DETAILS_SUBCOMMAND_NAME = "Registry Details";
     private static final String PUBLIC_HELP_SUBCOMMAND_NAME = "Public Default Help Command";
 
-    private static final String BLOCK_PREFIX = "```\n";
-    private static final String BLOCK_SUFFIX = "```";
-
     private static final String LIST_TITLE = "COMMAND LIST";
-    private static final String LIST_BLOCK_TITLE = "COMMAND LIST (%d/%d)";
+    private static final String LIST_BLOCK_TITLE = LIST_TITLE + " (%d/%d)";
     private static final String REGISTRY_PREFIX = "REGISTRY %s - ";
     private static final String REGISTRY_LIST_TITLE = REGISTRY_PREFIX + LIST_TITLE;
     private static final String REGISTRY_LIST_BLOCK_TITLE = REGISTRY_PREFIX + LIST_BLOCK_TITLE;
-    private static final String REGISTRY_TITLE = "REGISTRY DETAILS";
-
     private static final String EMPTY_REGISTRY = "<no commands>";
 
     private static final Pattern LINE_SPLITTER_PATTERN = Pattern.compile( "\\s*\n\\s*" );
@@ -652,35 +647,30 @@ public class HelpCommand {
      *            The registry to format.
      * @return The string that fully describes the registry.
      */
-    private String formatRegistry( CommandRegistry registry ) {
+    private EmbedObject formatRegistry( CommandRegistry registry ) {
 
         /* Add registry name */
-        StringBuilder builder = new StringBuilder( "Name: " );
-        builder.append( registry.getName() );
-        builder.append( '\n' );
+        EmbedBuilder builder = new EmbedBuilder().withColor( EMBED_COLOR ).withTitle( quote( registry.getPath() ) );
 
         /* Add prefix */
-        String prefix = registry.getPrefix();
-        if ( prefix != null ) { // Has a prefix.
-            builder.append( "Prefix: " );
-            builder.append( prefix );
-        } else { // Only has inherited prefix.
-            builder.append( "Inherited Prefix: " );
-            builder.append( registry.getEffectivePrefix() );
-        }
-        builder.append( '\n' );
+        String title = registry.getPrefix() == null ? "Inherited Prefix" : "Prefix";
+        builder.appendField( title, quote( registry.getEffectivePrefix() ), false );
 
-        /* Add some options */
+        /* Add modifiers */
+        List<String> modifiers = new LinkedList<>();
         if ( registry.isEssential() ) {
-            builder.append( "- Essential\n" );
+            modifiers.add( "- Essential" );
         }
         if ( !registry.isEnabled() ) {
-            builder.append( "- Disabled\n" );
+            modifiers.add( "- Disabled" );
         } else if ( !registry.isEffectivelyEnabled() ) {
-            builder.append( "- Parent registry disabled\n" );
+            modifiers.add( "- Parent registry disabled" );
+        }
+        if ( !modifiers.isEmpty() ) {
+            builder.appendField( "Modifiers", String.join( "\n", modifiers ), false );
         }
 
-        return builder.toString();
+        return builder.build();
 
     }
 
@@ -824,34 +814,21 @@ public class HelpCommand {
             subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME } )
     public boolean moduleDetailsCommand( CommandContext context ) {
 
-        if ( context.getArgs().isEmpty() ) {
-            return false; // No args.
-        }
-
         update( context );
 
         /* Get target registry */
         CommandRegistry target = registry;
-        Iterator<String> args = context.getArgs().iterator();
-        if ( !args.next().equals( registry.getName() ) ) {
-            return false; // First arg is not root registry.
-        }
-        while ( args.hasNext() ) {
+        for ( String arg : context.getArgs() ) {
 
-            target = target.getSubRegistry( args.next() );
-            if ( target == null ) {
+            if ( !target.hasSubRegistry( arg ) ) {
                 return false; // Arg specified a non-existing subregistry.
             }
+            target = target.getSubRegistry( arg );
 
         }
 
         /* Send details */
-        MessageBuilder builder = context.getReplyBuilder();
-        builder.withContent( BLOCK_PREFIX );
-        builder.appendContent( REGISTRY_TITLE );
-        builder.appendContent( formatRegistry( target ) );
-        builder.appendContent( BLOCK_SUFFIX );
-        builder.build(); // Send message.
+        context.getReplyBuilder().withEmbed( formatRegistry( target ) ).build(); // Send message.
 
         return true;
 
