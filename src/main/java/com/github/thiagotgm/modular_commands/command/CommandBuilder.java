@@ -134,7 +134,7 @@ public class CommandBuilder {
         this.NSFW = false;
         this.overrideable = true;
         this.executeParent = false;
-        this.requiresParentPermissions = true;
+        this.requiresParentPermissions = false;
         this.requiredPermissions = EnumSet.noneOf( Permissions.class );
         this.requiredGuildPermissions = EnumSet.noneOf( Permissions.class );
         this.subCommands = new ArrayList<>();

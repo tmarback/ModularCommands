@@ -473,7 +473,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * Retrieves whether the caller of this command must also satisfy the permission
      * requirements of its parent command.
      * <p>
-     * By default, returns true.
+     * By default, returns <tt>false</tt>.
      * <p>
      * OBS: If this requires the parent's permissions, but the parent also specifies
      * that its parent's permissions are required, those also become required for
@@ -481,13 +481,13 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * or the first ancestor that specifies its parent's permissions are not
      * required.
      *
-     * @return true if this command requires that the permission requirements for
-     *         its parent command are also satisfied.<br>
-     *         false if only this command's requirements need to be met.
+     * @return <tt>true</tt> if this command requires that the permission
+     *         requirements for its parent command are also satisfied.<br>
+     *         <tt>false</tt> if only this command's requirements need to be met.
      */
     default boolean requiresParentPermissions() {
 
-        return true;
+        return false;
     }
 
     /**

@@ -42,31 +42,34 @@ import sx.blah.discord.util.RateLimitException;
  * Default implementation of the ICommand interface.<br>
  * All the settings are specified on construction, and they are permanent.
  * <p>
- * May optionally allow adding or removing subcommands after construction (specified through
- * an argument to the constructor).<br>
+ * May optionally allow adding or removing subcommands after construction
+ * (specified through an argument to the constructor).<br>
  * Also may be specified as essential or non-essential in the constructor.
  * <p>
- * The set returned by {@link #getAliases()} is immutable, so attempting to modify them throws
- * an exception.<br>
- * The set returned by {@link #getSubCommands()} is the same if, on construction,
- * it was specified that the subcommand set cannot be altered (the {@link #addSubCommand(ICommand)}
- * and {@link #removeSubCommand(ICommand)} methods will also throw exceptions). However, if on
- * construction it was specified that the subcommand set <i>can</i> be altered, the set returned
- * will be modifiable (and synchronized), and the add and remove methods can be used. Using the add
- * and remove methods is strongly recommended over altering the set directly.<br>
+ * The set returned by {@link #getAliases()} is immutable, so attempting to
+ * modify them throws an exception.<br>
+ * The set returned by {@link #getSubCommands()} is the same if, on
+ * construction, it was specified that the subcommand set cannot be altered (the
+ * {@link #addSubCommand(ICommand)} and {@link #removeSubCommand(ICommand)}
+ * methods will also throw exceptions). However, if on construction it was
+ * specified that the subcommand set <i>can</i> be altered, the set returned
+ * will be modifiable (and synchronized), and the add and remove methods can be
+ * used. Using the add and remove methods is strongly recommended over altering
+ * the set directly.<br>
  * The EnumSets returned by {@link #getRequiredPermissions()} and
- * {@link #getRequiredGuildPermissions()}, on the other hand, return copies of the permission
- * sets, so they can always be modified, with any modifications not reflecting on the internal
- * permission sets.<br>
- * This way, subsequent calls to these methods are guaranteed to <b>always</b> return the
- * exact same sets, with the exception of the subcommands set if modifications to it are allowed.
+ * {@link #getRequiredGuildPermissions()}, on the other hand, return copies of
+ * the permission sets, so they can always be modified, with any modifications
+ * not reflecting on the internal permission sets.<br>
+ * This way, subsequent calls to these methods are guaranteed to <b>always</b>
+ * return the exact same sets, with the exception of the subcommands set if
+ * modifications to it are allowed.
  *
  * @version 1.0.0
  * @author ThiagoTGM
  * @since 2017-07-17
  */
 public class Command implements ICommand {
-    
+
     private volatile boolean enabled;
     private final boolean essential;
     private final String prefix;
@@ -99,103 +102,117 @@ public class Command implements ICommand {
     /**
      * Constructs a new Command with the given settings.
      * 
-     * @param essential Whether the command is {@link #isEssential() essential}
-     *                  (essential commands cannot be disabled).
-     * @param prefix The prefix used to call the command. If <b>null</b>, the command will use the
-     *               registry's prefix.
-     * @param name The name of the command.
-     * @param aliases The aliases used to call the command.
-     * @param subCommand Whether the command is a subcommand.
-     * @param description The description of this command.
-     * @param usage An usage example of this command.
-     * @param commandOperation The operation that should be executed when the command is executed.
-     * @param onSuccessDelay The delay between a successful execution and the execution of the
-     *                       onSuccess operation.
-     * @param onSuccessOperation The operation to be executed after a successful execution of the command.
-     * @param onFailureOperation The operation to be executed if the command could not be
-     *                           successfully executed.
-     * @param replyPrivately Whether the command should always send a reply to the caller on a private
-     *                       channel instead of the channel that the command came from.
-     * @param ignorePublic Whether the command should ignore calls made from public channels.
-     * @param ignorePrivate Whether the command should ignore calls made from private channels.
-     * @param ignoreBots Whether the command should ignore calls made by bot users.
-     * @param deleteCommand Whether the message that deleted the command should be deleted after a
-     *                      successful execution.
-     * @param requiresOwner Whether only the owner of the bot account can call the command.
-     * @param NSFW Whether the command can only be called from a NSFW-marked channel.
-     * @param overrideable Whether the command can be overriden by a command in a subregistry.
-     * @param executeParent Whether the parent command of the command should be executed before the
-     *                      command is executed.
-     * @param requiresParentPermissions Whether the permission requirements of the command's parent
-     *                                  command also need to be satisfied to execute the command.
-     * @param requiredPermissions The <i>channel-overriden</i> permissions that a user needs to
-     *                            have to call the command.
-     * @param requiredGuildPermissions The <i>server-wide</i> permissions that a user needs to
-     *                                 have to call the command.
-     * @param subCommands The subcommands of the command.
-     * @param canModifySubCommands Whether the subcommand set is allowed to be modified after
-     *                             construction.
-     * @param priority The priority of the command.
-     * @throws NullPointerException if any of the non-primitive arguments is null.
-     * @throws IllegalArgumentException if one of these cases is true:
-     *         <ul>
-     *           <li>The command is a subcommand, and it specifies a prefix (prefix is non-null)
-     *               (main command-only property);</li>
-     *           <li>The name is an empty string;</li>
-     *           <li>No alias was specified;</li>
-     *           <li>The empty string or <b>null</b> was included as an alias;</li>
-     *           <li><b>null</b> was included as a subcommand;</li>
-     *           <li>There are subcommands with the same name.</li>
-     *           <li>onSuccessDelay is a negative value.</li>
-     *         </ul>
+     * @param essential
+     *            Whether the command is {@link #isEssential() essential} (essential
+     *            commands cannot be disabled).
+     * @param prefix
+     *            The prefix used to call the command. If <b>null</b>, the command
+     *            will use the registry's prefix.
+     * @param name
+     *            The name of the command.
+     * @param aliases
+     *            The aliases used to call the command.
+     * @param subCommand
+     *            Whether the command is a subcommand.
+     * @param description
+     *            The description of this command.
+     * @param usage
+     *            An usage example of this command.
+     * @param commandOperation
+     *            The operation that should be executed when the command is
+     *            executed.
+     * @param onSuccessDelay
+     *            The delay between a successful execution and the execution of the
+     *            onSuccess operation.
+     * @param onSuccessOperation
+     *            The operation to be executed after a successful execution of the
+     *            command.
+     * @param onFailureOperation
+     *            The operation to be executed if the command could not be
+     *            successfully executed.
+     * @param replyPrivately
+     *            Whether the command should always send a reply to the caller on a
+     *            private channel instead of the channel that the command came from.
+     * @param ignorePublic
+     *            Whether the command should ignore calls made from public channels.
+     * @param ignorePrivate
+     *            Whether the command should ignore calls made from private
+     *            channels.
+     * @param ignoreBots
+     *            Whether the command should ignore calls made by bot users.
+     * @param deleteCommand
+     *            Whether the message that deleted the command should be deleted
+     *            after a successful execution.
+     * @param requiresOwner
+     *            Whether only the owner of the bot account can call the command.
+     * @param NSFW
+     *            Whether the command can only be called from a NSFW-marked channel.
+     * @param overrideable
+     *            Whether the command can be overriden by a command in a
+     *            subregistry.
+     * @param executeParent
+     *            Whether the parent command of the command should be executed
+     *            before the command is executed.
+     * @param requiresParentPermissions
+     *            Whether the permission requirements of the command's parent
+     *            command also need to be satisfied to execute the command.
+     * @param requiredPermissions
+     *            The <i>channel-overriden</i> permissions that a user needs to have
+     *            to call the command.
+     * @param requiredGuildPermissions
+     *            The <i>server-wide</i> permissions that a user needs to have to
+     *            call the command.
+     * @param subCommands
+     *            The subcommands of the command.
+     * @param canModifySubCommands
+     *            Whether the subcommand set is allowed to be modified after
+     *            construction.
+     * @param priority
+     *            The priority of the command.
+     * @throws NullPointerException
+     *             if any of the non-primitive arguments is null.
+     * @throws IllegalArgumentException
+     *             if one of these cases is true:
+     *             <ul>
+     *             <li>The command is a subcommand, and it specifies a prefix
+     *             (prefix is non-null) (main command-only property);</li>
+     *             <li>The name is an empty string;</li>
+     *             <li>No alias was specified;</li>
+     *             <li>The empty string or <b>null</b> was included as an
+     *             alias;</li>
+     *             <li><b>null</b> was included as a subcommand;</li>
+     *             <li>There are subcommands with the same name.</li>
+     *             <li>onSuccessDelay is a negative value.</li>
+     *             </ul>
      */
-    public Command( boolean essential,
-                    String prefix,
-                    String name,
-                    Collection<String> aliases,
-                    boolean subCommand,
-                    String description,
-                    String usage,
-                    Predicate<CommandContext> commandOperation,
-                    long onSuccessDelay,
-                    Consumer<CommandContext> onSuccessOperation,
-                    BiConsumer<CommandContext, FailureReason> onFailureOperation,
-                    boolean replyPrivately,
-                    boolean ignorePublic,
-                    boolean ignorePrivate,
-                    boolean ignoreBots,
-                    boolean deleteCommand,
-                    boolean requiresOwner,
-                    boolean NSFW,
-                    boolean overrideable,
-                    boolean executeParent,
-                    boolean requiresParentPermissions,
-                    EnumSet<Permissions> requiredPermissions,
-                    EnumSet<Permissions> requiredGuildPermissions,
-                    Collection<ICommand> subCommands,
-                    boolean canModifySubCommands,
-                    int priority )
-                            throws NullPointerException, IllegalArgumentException {
-        
-        if ( ( name == null ) || ( aliases == null ) || ( description == null ) || ( usage == null ) ||
-             ( commandOperation == null ) || ( onSuccessOperation == null ) || ( onFailureOperation == null ) ||
-             ( requiredPermissions == null ) || ( requiredGuildPermissions == null ) ||
-             ( subCommands == null ) ) {
+    public Command( boolean essential, String prefix, String name, Collection<String> aliases, boolean subCommand,
+            String description, String usage, Predicate<CommandContext> commandOperation, long onSuccessDelay,
+            Consumer<CommandContext> onSuccessOperation, BiConsumer<CommandContext, FailureReason> onFailureOperation,
+            boolean replyPrivately, boolean ignorePublic, boolean ignorePrivate, boolean ignoreBots,
+            boolean deleteCommand, boolean requiresOwner, boolean NSFW, boolean overrideable, boolean executeParent,
+            boolean requiresParentPermissions, EnumSet<Permissions> requiredPermissions,
+            EnumSet<Permissions> requiredGuildPermissions, Collection<ICommand> subCommands,
+            boolean canModifySubCommands, int priority ) throws NullPointerException, IllegalArgumentException {
+
+        if ( ( name == null ) || ( aliases == null ) || ( description == null ) || ( usage == null )
+                || ( commandOperation == null ) || ( onSuccessOperation == null ) || ( onFailureOperation == null )
+                || ( requiredPermissions == null ) || ( requiredGuildPermissions == null )
+                || ( subCommands == null ) ) {
             throw new NullPointerException( "No argument other than prefix can be null." );
         }
-        
+
         if ( subCommand && ( prefix != null ) ) {
             throw new IllegalArgumentException( "Subcommand cannot specify a prefix." );
         }
-        
+
         if ( name.isEmpty() ) {
             throw new IllegalArgumentException( "The name cannot be an empty string." );
         }
-        
+
         if ( aliases.isEmpty() ) {
             throw new IllegalArgumentException( "At least one alias must be specified." );
         }
-        
+
         if ( aliases.contains( "" ) ) {
             throw new IllegalArgumentException( "The empty string cannot be an alias." );
         }
@@ -206,7 +223,7 @@ public class Command implements ICommand {
         } catch ( NullPointerException e ) {
             // Collection does not allow null in the first place.
         }
-        
+
         try {
             if ( subCommands.contains( null ) ) {
                 throw new IllegalArgumentException( "null cannot be a subcommand." );
@@ -216,18 +233,18 @@ public class Command implements ICommand {
         }
         Set<String> usedNames = new HashSet<>(); // Keeps track of already used subcommand names.
         for ( ICommand command : subCommands ) { // Check each subcommand.
-            
+
             if ( usedNames.contains( command.getName() ) ) { // Repeated name found.
                 throw new IllegalArgumentException( "Two subcommands cannot have the same name." );
             }
             usedNames.add( command.getName() ); // Name is not repeated. Add it to the list.
-            
+
         }
-        
+
         if ( onSuccessDelay < 0 ) {
             throw new IllegalArgumentException( "onSuccess delay cannot be a negative value." );
         }
-        
+
         this.enabled = true;
         this.essential = essential;
         this.prefix = prefix;
@@ -260,19 +277,20 @@ public class Command implements ICommand {
         }
         this.canModifySubCommands = canModifySubCommands;
         this.priority = priority;
-        
+
     }
-    
+
     /**
      * Constructs a new Command with the same properties as the given Command.
      * <p>
-     * OBS: The same Executer and FailureHandler instances are used for execute(), onSuccess(),
-     * and onFailure().
+     * OBS: The same Executer and FailureHandler instances are used for execute(),
+     * onSuccess(), and onFailure().
      *
-     * @param c The Command to copy the properties of.
+     * @param c
+     *            The Command to copy the properties of.
      */
     public Command( Command c ) {
-        
+
         this.enabled = true;
         this.essential = c.essential;
         this.prefix = c.prefix;
@@ -305,14 +323,14 @@ public class Command implements ICommand {
         }
         this.canModifySubCommands = c.canModifySubCommands;
         this.priority = c.priority;
-        
+
     }
 
     @Override
     public boolean isEnabled() {
 
         return enabled;
-        
+
     }
 
     @Override
@@ -322,70 +340,70 @@ public class Command implements ICommand {
             throw new IllegalStateException( "Cannot disable an essential Command." );
         }
         this.enabled = enabled;
-        
+
     }
 
     @Override
     public boolean isEssential() {
 
         return essential;
-        
+
     }
 
     @Override
     public String getPrefix() {
 
         return prefix;
-        
+
     }
 
     @Override
     public CommandRegistry getRegistry() {
 
         return registry;
-        
+
     }
 
     @Override
     public void setRegistry( CommandRegistry registry ) {
 
         this.registry = registry;
-        
+
     }
 
     @Override
     public String getName() {
 
         return name;
-        
+
     }
 
     @Override
     public NavigableSet<String> getAliases() {
 
         return aliases;
-        
+
     }
 
     @Override
     public boolean isSubCommand() {
 
         return subCommand;
-        
+
     }
 
     @Override
     public String getDescription() {
 
         return description;
-        
+
     }
 
     @Override
     public String getUsage() {
 
         return usage;
-        
+
     }
 
     @Override
@@ -393,14 +411,14 @@ public class Command implements ICommand {
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         return commandOperation.test( context );
-        
+
     }
 
     @Override
     public long getOnSuccessDelay() {
 
         return onSuccessDelay;
-        
+
     }
 
     @Override
@@ -408,7 +426,7 @@ public class Command implements ICommand {
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         onSuccessOperation.accept( context );
-        
+
     }
 
     @Override
@@ -416,102 +434,102 @@ public class Command implements ICommand {
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         onFailureOperation.accept( context, reason );
-        
+
     }
 
     @Override
     public boolean replyPrivately() {
 
         return replyPrivately;
-        
+
     }
 
     @Override
     public boolean ignorePublic() {
 
         return ignorePublic;
-        
+
     }
 
     @Override
     public boolean ignorePrivate() {
 
         return ignorePrivate;
-        
+
     }
 
     @Override
     public boolean ignoreBots() {
 
         return ignoreBots;
-        
+
     }
 
     @Override
     public boolean deleteCommand() {
 
         return deleteCommand;
-        
+
     }
 
     @Override
     public boolean requiresOwner() {
 
         return requiresOwner;
-        
+
     }
 
     @Override
     public boolean isNSFW() {
 
         return NSFW;
-        
+
     }
 
     @Override
     public boolean isOverrideable() {
 
         return overrideable;
-        
+
     }
 
     @Override
     public boolean executeParent() {
 
         return executeParent;
-        
+
     }
 
     @Override
     public boolean requiresParentPermissions() {
 
         return requiresParentPermissions;
-        
+
     }
 
     @Override
     public EnumSet<Permissions> getRequiredPermissions() {
 
         return EnumSet.copyOf( requiredPermissions );
-        
+
     }
 
     @Override
     public EnumSet<Permissions> getRequiredGuildPermissions() {
 
         return EnumSet.copyOf( requiredGuildPermissions );
-        
+
     }
 
     @Override
     public synchronized NavigableSet<ICommand> getSubCommands() {
 
         return subCommands;
-        
+
     }
 
     @Override
-    public synchronized boolean addSubCommand( ICommand subCommand ) 
+    public synchronized boolean addSubCommand( ICommand subCommand )
             throws UnsupportedOperationException, IllegalArgumentException {
 
         if ( !canModifySubCommands ) {
@@ -524,7 +542,7 @@ public class Command implements ICommand {
             return false;
         }
         return subCommands.add( subCommand );
-        
+
     }
 
     @Override
@@ -538,21 +556,21 @@ public class Command implements ICommand {
             throw new IllegalArgumentException( "Argument is not a subcommand." );
         }
         return subCommands.remove( subCommand );
-        
+
     }
 
     @Override
     public int getPriority() {
 
         return priority;
-        
+
     }
 
     @Override
     public int hashCode() {
 
         return name.hashCode();
-        
+
     }
 
     @Override
@@ -574,7 +592,7 @@ public class Command implements ICommand {
         builder.append( usage );
         builder.append( "\">" );
         return builder.toString();
-        
+
     }
 
 }

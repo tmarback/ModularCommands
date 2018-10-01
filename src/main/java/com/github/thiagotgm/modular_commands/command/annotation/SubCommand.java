@@ -241,12 +241,12 @@ public @interface SubCommand {
      * Retrieves whether the permission requirements for the parent command must be
      * satisfied in addition to the command's own requirements.
      * <p>
-     * By default, returns true.
+     * By default, returns <tt>false</tt>.
      *
      * @return Whether the parent command's permissions are also required.
      * @see ICommand#requiresParentPermissions()
      */
-    boolean requiresParentPermissions() default true;
+    boolean requiresParentPermissions() default false;
 
     /**
      * Retrieves the (channel-overriden) permissions that the calling user must have
