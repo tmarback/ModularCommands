@@ -750,7 +750,7 @@ public class HelpCommand {
                     .setAsync( true );
             AtomicInteger curBlock = new AtomicInteger( 1 );
             EmbedBuilder blockBuilder = new EmbedBuilder().withColor( EMBED_COLOR ).withFooterText(
-                    "Pass in another command as an argument ot this command to see info on that particular "
+                    "Pass in another command as an argument to this command to see info on that particular "
                             + "command! For example, try using this command as the argument to itself~" );
             List<String> strBlocks = formatCommandList( registry.getCommands(),
                     EmbedBuilder.DESCRIPTION_CONTENT_LIMIT );
@@ -816,19 +816,11 @@ public class HelpCommand {
 
         update( context );
 
-        /* Get target registry */
-        CommandRegistry target = registry;
-        for ( String arg : context.getArgs() ) {
-
-            if ( !target.hasSubRegistry( arg ) ) {
-                return false; // Arg specified a non-existing subregistry.
-            }
-            target = target.getSubRegistry( arg );
-
+        CommandRegistry target = CommandUtils.parseRegistry( context.getArgs(), registry );
+        if ( target == null ) {
+            return false; // Specified non-existing registry.
         }
-
-        /* Send details */
-        context.getReplyBuilder().withEmbed( formatRegistry( target ) ).build(); // Send message.
+        context.getReplyBuilder().withEmbed( formatRegistry( target ) ).build();
 
         return true;
 
