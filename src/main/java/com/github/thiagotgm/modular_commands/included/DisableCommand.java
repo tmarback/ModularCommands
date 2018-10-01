@@ -32,9 +32,19 @@ import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
  */
 public class DisableCommand {
 
+    /**
+     * Name of the default disable command.
+     */
     public static final String COMMAND_NAME = "Disable Command";
     private static final String SUBCOMMAND_NAME = "Disable Registry";
 
+    /**
+     * Disables the specified command.
+     *
+     * @param context
+     *            The context of execution.
+     * @return <tt>true</tt> if executed successfully.
+     */
     @MainCommand(
             name = COMMAND_NAME,
             aliases = { "disable" },
@@ -72,6 +82,13 @@ public class DisableCommand {
 
     }
 
+    /**
+     * Disables the specified registry.
+     *
+     * @param context
+     *            The context of execution.
+     * @return <tt>true</tt> if executed successfully.
+     */
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },

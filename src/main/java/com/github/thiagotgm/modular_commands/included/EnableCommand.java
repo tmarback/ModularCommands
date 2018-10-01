@@ -32,9 +32,19 @@ import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
  */
 public class EnableCommand {
 
+    /**
+     * Name of the default enable command.
+     */
     public static final String COMMAND_NAME = "Enable Command";
     private static final String SUBCOMMAND_NAME = "Enable Registry";
 
+    /**
+     * Enables the specified command.
+     *
+     * @param context
+     *            The context of execution.
+     * @return <tt>true</tt> if executed successfully.
+     */
     @MainCommand(
             name = COMMAND_NAME,
             aliases = { "enable" },
@@ -69,6 +79,13 @@ public class EnableCommand {
 
     }
 
+    /**
+     * Enables the specified registry.
+     *
+     * @param context
+     *            The context of execution.
+     * @return <tt>true</tt> if executed successfully.
+     */
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },

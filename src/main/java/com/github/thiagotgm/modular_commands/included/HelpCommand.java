@@ -624,6 +624,14 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Shows the help page of a specified command, or the list of commands if no
+     * command is specified.
+     *
+     * @param context
+     *            The context of execution.
+     * @return <tt>true</tt> if executed successfully.
+     */
     @MainCommand(
             name = MAIN_COMMAND_NAME,
             aliases = { "help" },
@@ -686,6 +694,13 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Shows the information of the specified registry.
+     *
+     * @param context
+     *            The context of execution.
+     * @return <tt>true</tt> if executed successfully.
+     */
     @SubCommand(
             name = REGISTRY_DETAILS_SUBCOMMAND_NAME,
             aliases = { "registry" },
@@ -715,6 +730,12 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Shows the list of registries and the commands registered in each registry.
+     *
+     * @param context
+     *            The context of execution.
+     */
     @SubCommand(
             name = REGISTRY_LIST_SUBCOMMAND_NAME,
             aliases = { "registries" },
@@ -794,6 +815,11 @@ public class HelpCommand {
 
     }
 
+    /**
+     * Sends the reply in the calling channel instead of a private message.
+     *
+     * @param context The context of execution.
+     */
     @SubCommand(
             name = PUBLIC_HELP_SUBCOMMAND_NAME,
             aliases = { "here" },
