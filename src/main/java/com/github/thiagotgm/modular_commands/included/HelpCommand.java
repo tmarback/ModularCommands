@@ -37,17 +37,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
 import com.github.thiagotgm.modular_commands.api.ICommand;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
 import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
-import com.github.thiagotgm.modular_commands.registry.ClientCommandRegistry;
-
-import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.internal.json.objects.EmbedObject;
 import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.EmbedBuilder;
@@ -63,8 +57,6 @@ import sx.blah.discord.util.RequestBuilder;
  * @since 2017-07-25
  */
 public class HelpCommand {
-
-    private static final Logger LOG = LoggerFactory.getLogger( HelpCommand.class );
 
     /**
      * Name of the default help command.
@@ -103,7 +95,7 @@ public class HelpCommand {
 
         public final MatchResult match;
         public final List<ICommand> commandChain;
-        public final Map<ICommand, List<String>> signatureBuffer;
+        public final CommandRegistry registry;
 
         /**
          * Creates a new instance.
@@ -112,15 +104,14 @@ public class HelpCommand {
          *            The match within the placeholder.
          * @param commandChain
          *            The command chain being inspected.
-         * @param signatureBuffer
-         *            The buffer of main command signatures.
+         * @param registry
+         *            The registry where the main command is registered.
          */
-        public Placeholder( MatchResult match, List<ICommand> commandChain,
-                Map<ICommand, List<String>> signatureBuffer ) {
+        public Placeholder( MatchResult match, List<ICommand> commandChain, CommandRegistry registry ) {
 
             this.match = match;
             this.commandChain = Collections.unmodifiableList( commandChain );
-            this.signatureBuffer = Collections.unmodifiableMap( signatureBuffer );
+            this.registry = registry;
 
         }
 
@@ -134,12 +125,14 @@ public class HelpCommand {
      * @param parent
      *            The parent of the command. May be <tt>null</tt> if the command is
      *            a main command.
-     * @param signatureBuffer
-     *            The buffer of main command signatures.
+     * @param registry
+     *            The registry that the command is registered in, or a parent of
+     *            said registry. Used if the command is a main command, to check if
+     *            certain aliases are overridden. May be <tt>null</tt> if the
+     *            command is a sub command.
      * @return The non-overridden aliases.
      */
-    private static List<String> getAliases( ICommand command, ICommand parent,
-            Map<ICommand, List<String>> signatureBuffer ) {
+    private static List<String> getAliases( ICommand command, ICommand parent, CommandRegistry registry ) {
 
         List<String> aliases = new ArrayList<>( command.getAliases().size() );
         if ( command.isSubCommand() ) {
@@ -151,11 +144,12 @@ public class HelpCommand {
 
             }
         } else {
-            List<String> signatureList = signatureBuffer.get( command );
-            int prefixSize = command.getEffectivePrefix().length();
-            for ( String signature : signatureList ) {
-                // Get each callable alias.
-                aliases.add( signature.substring( prefixSize ) );
+            String prefix = command.getEffectivePrefix();
+            for ( String alias : command.getAliases() ) { // Check if each alias is overridden.
+
+                if ( registry.parseCommand( prefix + alias, false ) == command ) {
+                    aliases.add( alias ); // Alias was not overridden.
+                }
 
             }
         }
@@ -173,14 +167,16 @@ public class HelpCommand {
      * @param parent
      *            The parent of the command. May be <tt>null</tt> if the command is
      *            a main command.
-     * @param signatureBuffer
-     *            The buffer of main command signatures.
+     * @param registry
+     *            The registry that the command is registered in, or a parent of
+     *            said registry. Used if the command is a main command, to check if
+     *            certain aliases are overridden. May be <tt>null</tt> if the
+     *            command is a sub command.
      * @return The formatted alias list.
      */
-    private static String formatAliases( ICommand command, ICommand parent,
-            Map<ICommand, List<String>> signatureBuffer ) {
+    private static String formatAliases( ICommand command, ICommand parent, CommandRegistry registry ) {
 
-        List<String> aliases = getAliases( command, parent, signatureBuffer );
+        List<String> aliases = getAliases( command, parent, registry );
         String aliasString = String.join( ", ", aliases );
         return aliases.size() > 1 ? String.format( "{%s}", aliasString ) : aliasString;
 
@@ -271,7 +267,7 @@ public class HelpCommand {
 
             ICommand command = p.commandChain.get( index );
             ICommand parent = index > 0 ? p.commandChain.get( index - 1 ) : null;
-            return formatAliases( command, parent, p.signatureBuffer );
+            return formatAliases( command, parent, p.registry );
 
         } );
         placeholders.put( "signature" + INDEX, p -> {
@@ -285,8 +281,7 @@ public class HelpCommand {
             List<String> aliases = new ArrayList<>( commands.size() );
             for ( int i = 0; i < commands.size(); i++ ) {
 
-                aliases.add(
-                        formatAliases( commands.get( i ), i > 0 ? commands.get( i - 1 ) : null, p.signatureBuffer ) );
+                aliases.add( formatAliases( commands.get( i ), i > 0 ? commands.get( i - 1 ) : null, p.registry ) );
 
             }
             return commands.get( 0 ).getEffectivePrefix() + String.join( " ", aliases );
@@ -325,97 +320,6 @@ public class HelpCommand {
 
     }
 
-    private ClientCommandRegistry registry;
-    private volatile long lastUpdated;
-    private Map<ICommand, List<String>> buffer;
-
-    /**
-     * Constructs a new instance.
-     */
-    public HelpCommand() {
-
-        this.registry = null;
-        this.lastUpdated = 0;
-
-    }
-
-    /**
-     * Builds the command-signature buffer to reflect the current state of the
-     * registry.
-     */
-    private void bufferCommandList() {
-
-        LOG.info( "Buffering command aliases." );
-        buffer = new HashMap<>(); // Initialize new buffer.
-        bufferRegistry( registry ); // Start buffering from the root registry.
-        lastUpdated = System.currentTimeMillis(); // Record update time.
-        LOG.info( "Buffering finished." );
-
-    }
-
-    /**
-     * Buffers the commands from a given registry and its subregistries.
-     *
-     * @param registry
-     *            The registry to get commands from.
-     */
-    private void bufferRegistry( CommandRegistry registry ) {
-
-        for ( ICommand command : registry.getCommands() ) { // Check each command in the
-
-            List<String> signatures = new ArrayList<>( command.getAliases().size() );
-            for ( String signature : command.getSignatures() ) { // Check each of the command
-                                                                 // signatures.
-                if ( this.registry.parseCommand( signature, false ) == command ) {
-                    signatures.add( signature ); // Signature is callable. Record it.
-                }
-
-            }
-            buffer.put( command, signatures ); // Store valid signatures in buffer.
-
-        }
-
-        for ( CommandRegistry subRegistry : registry.getSubRegistries() ) {
-
-            bufferRegistry( subRegistry ); // Buffer subregistries.
-
-        }
-
-    }
-
-    /**
-     * Checks if the current buffer is up-to-date, and rebuilds it if it is not.
-     * <p>
-     * After the call to this method, the buffer will reflect the current state of
-     * the registry the command is registered to.
-     *
-     * @param curRegistry
-     *            The registry that the command is currently registered to.
-     */
-    private synchronized void ensureUpdatedBuffer( ClientCommandRegistry curRegistry ) {
-
-        if ( ( registry != curRegistry ) || // Registry updated or changed registries
-                ( registry.getLastChanged() > lastUpdated ) ) { // since last buffer was made.
-            registry = curRegistry;
-            bufferCommandList(); // Update buffer.
-        }
-
-    }
-
-    /**
-     * Ensures all buffered data is up to date before executing a command.
-     *
-     * @param context
-     *            The context of the command being executed.
-     */
-    private void update( CommandContext context ) {
-
-        IDiscordClient client = context.getEvent().getClient();
-        ClientCommandRegistry curRegistry = CommandRegistry.getRegistry( client );
-        ensureUpdatedBuffer( curRegistry ); // Check if the buffer is up-to-date.
-
-    }
-
     /**
      * Parses a command's description into multiple lines.
      * <p>
@@ -446,18 +350,22 @@ public class HelpCommand {
      * Formats a command into a single line that shortly describes it.
      *
      * @param command
-     *            The command to format.
-     * @return A string that describes the command in a single line, or null if the
-     *         command has no callable signatures.
+     *            The command to format. Is always a main command.
+     * @return A string that describes the command in a single line, or
+     *         <tt>null</tt> if the command has no callable signatures.
+     * @param registry
+     *            The registry that the command is registered in, or a parent of
+     *            said registry. Used to check if certain aliases are overridden.
      */
-    private String formatCommandShort( ICommand command ) {
+    private String formatCommandShort( ICommand command, CommandRegistry registry ) {
 
-        List<String> signatureList = buffer.get( command );
-        if ( signatureList.isEmpty() ) {
+        List<String> aliases = getAliases( command, null, registry );
+        if ( aliases.isEmpty() ) {
             return null; // Command has no callable signatures.
         }
         // Get signature list.
-        String signatures = signatureList.stream().map( s -> quote( s ) ).collect( Collectors.toList() ).toString();
+        String prefix = command.getEffectivePrefix();
+        String signatures = aliases.stream().map( a -> quote( prefix + a ) ).collect( Collectors.toList() ).toString();
         StringBuilder builder = new StringBuilder();
         signatures = signatures.substring( 1, signatures.length() - 1 ); // Remove brackets.
         if ( !command.isEffectivelyEnabled() ) { // Strikethrough to show disabled.
@@ -475,11 +383,14 @@ public class HelpCommand {
      *
      * @param commandChain
      *            The command chain being inspected.
+     * @param registry
+     *            The registry that the main command is registered in, or a parent
+     *            of said registry. Used to check if certain aliases are overridden.
      * @return The The usage string for the subcommand that the chain represented,
      *         with all <b>valid</b> placeholders replaced by the appropriate
      *         values. May be empty if the command has an empty usage.
      */
-    private String parseUsage( List<ICommand> commandChain ) {
+    private String parseUsage( List<ICommand> commandChain, CommandRegistry registry ) {
 
         String usage = commandChain.get( commandChain.size() - 1 ).getUsage();
         Matcher m = USAGE_PLACEHOLDER_PATTERN.matcher( usage );
@@ -501,7 +412,8 @@ public class HelpCommand {
                     if ( match.matches() ) { // Matched placeholder.
                         matched = true;
                         builder.append( // Insert substituted value.
-                                e.getValue().apply( new Placeholder( match.toMatchResult(), commandChain, buffer ) ) );
+                                e.getValue()
+                                        .apply( new Placeholder( match.toMatchResult(), commandChain, registry ) ) );
                         break;
                     }
 
@@ -522,17 +434,16 @@ public class HelpCommand {
     /**
      * Formats a command into all the information a user might need.
      *
-     * @param command
-     *            The command to format.
-     * @param parent
-     *            The parent command. Can be just null if the command is a main
-     *            command.
-     * @param mainCommand
-     *            The parent of the command that is a main command. Can be the
-     *            command itself.
+     * @param commandChain
+     *            The command to format, along with its parents.
+     * @param registry
+     *            The registry that the command is registered in, or a parent of
+     *            said registry. Used if the command is a main command, to check if
+     *            certain aliases are overridden. May be <tt>null</tt> if the
+     *            command is a sub command.
      * @return The string that fully describes the command.
      */
-    private EmbedObject formatCommandLong( List<ICommand> commandChain ) {
+    private EmbedObject formatCommandLong( List<ICommand> commandChain, CommandRegistry registry ) {
 
         ICommand command = commandChain.get( commandChain.size() - 1 );
         ICommand parent = commandChain.size() > 1 ? commandChain.get( commandChain.size() - 2 ) : null;
@@ -555,31 +466,14 @@ public class HelpCommand {
         }
 
         /* Add aliases */
-        List<String> aliases = new ArrayList<>( command.getAliases().size() );
-        if ( command.isSubCommand() ) {
-            for ( String alias : command.getAliases() ) {
-
-                if ( parent.getSubCommand( alias ) == command ) {
-                    aliases.add( alias );
-                }
-
-            }
-        } else {
-            List<String> signatureList = buffer.get( command );
-            int prefixSize = command.getEffectivePrefix().length();
-            for ( String signature : signatureList ) {
-                // Get each callable alias.
-                aliases.add( signature.substring( prefixSize ) );
-
-            }
-        }
+        List<String> aliases = getAliases( command, parent, registry );
         if ( aliases.isEmpty() ) {
             return null; // Command has no callable aliases.
         }
         builder.appendField( "Aliases", quote( aliases.toString() ), false );
 
         /* Add usage */
-        String usage = parseUsage( commandChain );
+        String usage = parseUsage( commandChain, registry );
         if ( !usage.isEmpty() ) {
             builder.appendField( "Usage", quote( usage ), false );
         }
@@ -590,7 +484,7 @@ public class HelpCommand {
         } );
         for ( ICommand subCommand : command.getSubCommands() ) {
 
-            aliases = getAliases( subCommand, command, buffer );
+            aliases = getAliases( subCommand, command, registry );
             if ( !aliases.isEmpty() ) { // This subcommand had callable aliases.
                 subCommandAliases.add( aliases );
             }
@@ -683,16 +577,20 @@ public class HelpCommand {
      *            The commands to make a list of.
      * @param sizeLimit
      *            The maximum size of each block.
+     * @param registry
+     *            The registry that the commands are registered in, or a parent of
+     *            said registry. Used to check if certain aliases of a command are
+     *            overridden.
      * @return The formatted command list split in blocks.
      * @throws IllegalArgumentException
      *             if there is a command whose formatted form is larger than the
      *             given size limit.
      */
-    private List<String> formatCommandList( Collection<ICommand> commands, int sizeLimit )
+    private List<String> formatCommandList( Collection<ICommand> commands, int sizeLimit, CommandRegistry registry )
             throws IllegalArgumentException {
 
         /* Gets the formatted commands and sorts them */
-        SortedSet<String> commandStrings = commands.stream().map( c -> formatCommandShort( c ) )
+        SortedSet<String> commandStrings = commands.stream().map( c -> formatCommandShort( c, registry ) )
                 .filter( f -> f != null ).collect( Collectors.toCollection( TreeSet::new ) );
 
         /* Adds all formatted commands into different lines */
@@ -744,17 +642,17 @@ public class HelpCommand {
             failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean helpCommand( CommandContext context ) {
 
-        update( context );
+        CommandRegistry registry = CommandRegistry.getRegistry( context.getEvent().getClient() );
 
         if ( context.getArgs().isEmpty() ) { // No command specified.
-            RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true )
+            RequestBuilder request = new RequestBuilder( context.getEvent().getClient() ).shouldBufferRequests( true )
                     .setAsync( true );
             AtomicInteger curBlock = new AtomicInteger( 1 );
             EmbedBuilder blockBuilder = new EmbedBuilder().withColor( EMBED_COLOR ).withFooterText(
                     "Pass in another command as an argument to this command to see info on that particular "
                             + "command! For example, try using this command as the argument to itself~" );
-            List<String> strBlocks = formatCommandList( registry.getCommands(),
-                    EmbedBuilder.DESCRIPTION_CONTENT_LIMIT );
+            List<String> strBlocks = formatCommandList( registry.getCommands(), EmbedBuilder.DESCRIPTION_CONTENT_LIMIT,
+                    registry );
             List<EmbedObject> blocks = strBlocks
                     .stream().map(
                             b -> blockBuilder
@@ -781,7 +679,7 @@ public class HelpCommand {
                 context.setHelper( "There is no command that matches the given signature!" );
                 return false; // No command with that signature.
             }
-            context.getReplyBuilder().withEmbed( formatCommandLong( commandChain ) ).build();
+            context.getReplyBuilder().withEmbed( formatCommandLong( commandChain, registry ) ).build();
         }
 
         return true;
@@ -804,7 +702,7 @@ public class HelpCommand {
             failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean registryDetailsCommand( CommandContext context ) {
 
-        update( context );
+        CommandRegistry registry = CommandRegistry.getRegistry( context.getEvent().getClient() );
 
         CommandRegistry target = CommandUtils.parseRegistry( context.getArgs(), registry );
         if ( target == null ) {
@@ -830,7 +728,7 @@ public class HelpCommand {
             failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public void registryListCommand( CommandContext context ) {
 
-        update( context );
+        CommandRegistry registry = CommandRegistry.getRegistry( context.getEvent().getClient() );
 
         Stack<CommandRegistry> registries = new Stack<>();
         registries.push( registry );
@@ -839,16 +737,16 @@ public class HelpCommand {
         List<EmbedObject> blocks = new LinkedList<>();
         while ( !registries.isEmpty() ) { // For each registry.
 
-            CommandRegistry registry = registries.pop();
+            CommandRegistry target = registries.pop();
 
             /* Get registry path */
-            String path = quote( registry.getPath() );
-            if ( !registry.isEffectivelyEnabled() ) {
+            String path = quote( target.getPath() );
+            if ( !target.isEffectivelyEnabled() ) {
                 path = strikethrough( path );
             }
 
-            List<String> strBlocks = formatCommandList( registry.getRegisteredCommands(),
-                    EmbedBuilder.FIELD_CONTENT_LIMIT );
+            List<String> strBlocks = formatCommandList( target.getRegisteredCommands(),
+                    EmbedBuilder.FIELD_CONTENT_LIMIT, registry );
             int curBlock = 1;
             for ( String strBlock : strBlocks ) {
 
@@ -867,7 +765,7 @@ public class HelpCommand {
 
             }
 
-            for ( CommandRegistry subRegistry : registry.getSubRegistries().descendingSet() ) {
+            for ( CommandRegistry subRegistry : target.getSubRegistries().descendingSet() ) {
                 // Add subregistries to the stack in reverse order.
                 registries.push( subRegistry );
 
@@ -878,7 +776,7 @@ public class HelpCommand {
             blocks.add( blockBuilder.build() ); // Flush last block.
         }
 
-        RequestBuilder request = new RequestBuilder( this.registry.getClient() ).shouldBufferRequests( true )
+        RequestBuilder request = new RequestBuilder( context.getEvent().getClient() ).shouldBufferRequests( true )
                 .setAsync( true );
         MessageBuilder builder = context.getReplyBuilder();
         request.doAction( () -> true );
