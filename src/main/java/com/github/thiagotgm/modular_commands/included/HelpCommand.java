@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -740,7 +739,9 @@ public class HelpCommand {
             priority = Integer.MAX_VALUE,
             canModifySubCommands = false,
             subCommands = { REGISTRY_LIST_SUBCOMMAND_NAME, REGISTRY_DETAILS_SUBCOMMAND_NAME,
-                    PUBLIC_HELP_SUBCOMMAND_NAME } )
+                    PUBLIC_HELP_SUBCOMMAND_NAME },
+            successHandler = ICommand.STANDARD_SUCCESS_HANDLER,
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean helpCommand( CommandContext context ) {
 
         update( context );
@@ -775,24 +776,10 @@ public class HelpCommand {
             }
             request.execute();
         } else { // A command was specified.
-            Iterator<String> args = context.getArgs().iterator();
-            ICommand command = registry.parseCommand( args.next(), false );
-            if ( command == null ) {
+            List<ICommand> commandChain = CommandUtils.parseCommand( context.getArgs(), registry );
+            if ( commandChain == null ) {
+                context.setHelper( "There is no command that matches the given signature!" );
                 return false; // No command with that signature.
-            }
-
-            List<ICommand> commandChain = new ArrayList<>( context.getArgs().size() );
-            commandChain.add( command );
-            while ( args.hasNext() ) { // Identify subcommands.
-
-                command = command.getSubCommand( args.next() );
-                if ( command == null ) {
-                    context.getReplyBuilder().withContent( "There is no command that matches the given signature!" )
-                            .build();
-                    return false; // No subcommand with the argument alias.
-                }
-                commandChain.add( command );
-
             }
             context.getReplyBuilder().withEmbed( formatCommandLong( commandChain ) ).build();
         }
@@ -813,14 +800,15 @@ public class HelpCommand {
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
-            subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME } )
+            subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME },
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean registryDetailsCommand( CommandContext context ) {
 
         update( context );
 
         CommandRegistry target = CommandUtils.parseRegistry( context.getArgs(), registry );
         if ( target == null ) {
-            context.getReplyBuilder().withContent( "There is no registry that matches the given path!" ).build();
+            context.setHelper( "There is no registry that matches the given path!" );
             return false; // Specified non-existing registry.
         }
         context.getReplyBuilder().withEmbed( formatRegistry( target ) ).build();
@@ -838,7 +826,8 @@ public class HelpCommand {
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
-            subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME } )
+            subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME },
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public void registryListCommand( CommandContext context ) {
 
         update( context );
@@ -915,7 +904,8 @@ public class HelpCommand {
                     + "as calling without the \"here\" modifier.",
             usage = "{}help [subcommand] here [arguments]",
             canModifySubCommands = false,
-            executeParent = true )
+            executeParent = true,
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public void publicHelpCommand( CommandContext context ) {
 
         // Do nothing.

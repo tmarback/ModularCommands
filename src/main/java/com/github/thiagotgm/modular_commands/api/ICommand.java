@@ -295,7 +295,9 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
 
             case COMMAND_OPERATION_FAILED:
                 if ( context.getHelper().isPresent() ) {
-                    context.getReplyBuilder().withContent( context.getHelper().get().toString() ).build();
+                    message = context.getHelper().get().toString();
+                } else {
+                    return; // Abort.
                 }
                 break;
 

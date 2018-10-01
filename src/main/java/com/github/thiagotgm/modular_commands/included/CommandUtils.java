@@ -92,9 +92,10 @@ class CommandUtils {
      *            The args to parse.
      * @param registry
      *            The registry to search in.
-     * @return The command specified by the given arguments in the given registry,
-     *         or <tt>null</tt> if there is no command in the given registry that
-     *         corresponds to the given arguments.
+     * @return The full command chain (main command and subcommands) specified by
+     *         the given arguments in the given registry, or <tt>null</tt> if there
+     *         is no command in the given registry that corresponds to the given
+     *         arguments.
      */
     public static List<ICommand> parseCommand( List<String> args, CommandRegistry registry ) {
 
