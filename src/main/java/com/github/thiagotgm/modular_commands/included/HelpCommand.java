@@ -787,6 +787,8 @@ public class HelpCommand {
 
                 command = command.getSubCommand( args.next() );
                 if ( command == null ) {
+                    context.getReplyBuilder().withContent( "There is no command that matches the given signature!" )
+                            .build();
                     return false; // No subcommand with the argument alias.
                 }
                 commandChain.add( command );
@@ -812,12 +814,13 @@ public class HelpCommand {
             replyPrivately = true,
             canModifySubCommands = false,
             subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME } )
-    public boolean moduleDetailsCommand( CommandContext context ) {
+    public boolean registryDetailsCommand( CommandContext context ) {
 
         update( context );
 
         CommandRegistry target = CommandUtils.parseRegistry( context.getArgs(), registry );
         if ( target == null ) {
+            context.getReplyBuilder().withContent( "There is no registry that matches the given path!" ).build();
             return false; // Specified non-existing registry.
         }
         context.getReplyBuilder().withEmbed( formatRegistry( target ) ).build();
@@ -836,7 +839,7 @@ public class HelpCommand {
             replyPrivately = true,
             canModifySubCommands = false,
             subCommands = { PUBLIC_HELP_SUBCOMMAND_NAME } )
-    public void moduleListCommand( CommandContext context ) {
+    public void registryListCommand( CommandContext context ) {
 
         update( context );
 
