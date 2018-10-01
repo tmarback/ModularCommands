@@ -1140,7 +1140,7 @@ public class CommandRegistry implements Disableable, Prefixed, Comparable<Comman
     public void setEnabled( boolean enabled ) throws IllegalStateException {
 
         if ( isEssential() && !enabled ) {
-            throw new IllegalStateException( "Attempted to disabled an essential registry." );
+            throw new IllegalStateException( "Attempted to disable an essential registry." );
         }
         LOG.debug( "Setting {} to {}.", getPath(), enabled ? "enabled" : "disabled" );
         this.enabled = enabled;

@@ -37,70 +37,54 @@ public class AnnotatedCommands {
             subCommands = { "Annotated sub command" },
             successHandler = "handle",
             description = "This is a sample command. Does nothing.\n  \tSecond line.",
-            usage = "?ano"
-            )
+            usage = "?ano" )
     public void reply( CommandContext context ) {
-        
+
         context.getReplyBuilder().withContent( "Annotated!" ).build();
-        
+
     }
-    
+
     @SubCommand(
             name = "Annotated sub command",
             aliases = { "hana" },
             onSuccessDelay = 5000,
-            successHandler = "handle"
-            )
+            successHandler = "handle",
+            usage = "{signature}" )
     public void sub( CommandContext context ) {
-        
+
         context.getReplyBuilder().withContent( "*cries*" ).build();
-        
+
     }
-    
-    @MainCommand(
-            name = "Unloadable main command",
-            aliases = { "ano" },
-            subCommands = { "null" }
-            )
+
+    @MainCommand( name = "Unloadable main command", aliases = { "ano" }, subCommands = { "null" } )
     public void fail( CommandContext context ) {
-        
+
         context.getReplyBuilder().withContent( "Annotated!" ).build();
-        
+
     }
-    
-    @SubCommand(
-            name = "Unloadable sub command",
-            aliases = { "ano" },
-            subCommands = { "null" }
-            )
+
+    @SubCommand( name = "Unloadable sub command", aliases = { "ano" }, subCommands = { "null" } )
     public void fail2( CommandContext context ) {
-        
+
         context.getReplyBuilder().withContent( "Annotated!" ).build();
-        
+
     }
-    
+
     @SuccessHandler( "handle" )
     public void success( CommandContext context ) {
-        
+
         context.getReplyBuilder().withContent( "Success!" ).build();
-        
+
     }
-    
-    @MainCommand(
-            name = "Incorrect main command",
-            aliases = { "wrong" }
-            )
-    public void wrong( CommandContext context, boolean thing ) { }
-    
-    @MainCommand(
-            name = "Prefixed annotated command",
-            aliases = { "king" },
-            prefix = ">-<|"
-            )
+
+    @MainCommand( name = "Incorrect main command", aliases = { "wrong" } )
+    public void wrong( CommandContext context, boolean thing ) {}
+
+    @MainCommand( name = "Prefixed annotated command", aliases = { "king" }, prefix = ">-<|" )
     public void kingKong( CommandContext context ) {
-        
+
         context.getReplyBuilder().withContent( "kong!" ).build();
-        
+
     }
 
 }
