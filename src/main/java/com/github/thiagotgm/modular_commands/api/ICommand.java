@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.NavigableSet;
 import java.util.TreeSet;
 
+import com.github.thiagotgm.modular_commands.command.annotation.FailureHandler;
+import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
+
 import sx.blah.discord.handle.obj.Permissions;
 import sx.blah.discord.util.DiscordException;
 import sx.blah.discord.util.MissingPermissionsException;
@@ -193,6 +196,36 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
             throws RateLimitException, MissingPermissionsException, DiscordException {}
 
     /**
+     * The identifier of the {@link #standardOnSuccess(CommandContext) standard
+     * success handler} to use it with annotated commands.
+     */
+    static final String STANDARD_SUCCESS_HANDLER = "Standard success handler";
+
+    /**
+     * A standard {@link #onSuccess(CommandContext)} operation. If the context has a
+     * helper object, sends it in the reply message (using
+     * {@link Object#toString()}). Else, does nothing.
+     *
+     * @param context
+     *            Context where the command was called from.
+     * @throws RateLimitException
+     *             if the operation failed due to rate limiting.
+     * @throws MissingPermissionsException
+     *             If the bot does not have the required permissions.
+     * @throws DiscordException
+     *             If a miscellaneous error was encountered.
+     */
+    @SuccessHandler( STANDARD_SUCCESS_HANDLER )
+    static void standardOnSuccess( CommandContext context )
+            throws RateLimitException, MissingPermissionsException, DiscordException {
+
+        if ( context.getHelper().isPresent() ) {
+            context.getReplyBuilder().withContent( context.getHelper().get().toString() ).build();
+        }
+
+    }
+
+    /**
      * Executes a post-processing operation after a failed invocation of the command
      * (for one of the reasons specified by {@link FailureReason}).
      * <p>
@@ -216,6 +249,76 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      */
     default void onFailure( CommandContext context, FailureReason reason )
             throws RateLimitException, MissingPermissionsException, DiscordException {}
+
+    /**
+     * The identifier of the {@link #standardOnFailure(CommandContext,FailureReason)
+     * standard failure handler} to use it with annotated commands.
+     */
+    static final String STANDARD_FAILURE_HANDLER = "Standard failure handler";
+
+    /**
+     * A standard {@link #onFailure(CommandContext,FailureReason)} operation. If the
+     * command execution failed by returning <tt>false</tt>, then if the context has
+     * a helper object, sends it in the reply message (using
+     * {@link Object#toString()}), else does nothing. For any other failure reason,
+     * sends a reply that indicates the type of error that occurred.
+     *
+     * @param context
+     *            Context where the command was called from.
+     * @param reason
+     *            Reason why the command invocation failed.
+     * @throws RateLimitException
+     *             if the operation failed due to rate limiting.
+     * @throws MissingPermissionsException
+     *             If the bot does not have the required permissions.
+     * @throws DiscordException
+     *             If a miscellaneous error was encountered.
+     */
+    @FailureHandler( STANDARD_FAILURE_HANDLER )
+    static void standardOnFailure( CommandContext context, FailureReason reason )
+            throws RateLimitException, MissingPermissionsException, DiscordException {
+
+        String message = "";
+        switch ( reason ) {
+
+            case BOT_MISSING_PERMISSIONS:
+                message = "Sorry, I don't have the permissions to do that.";
+                break;
+
+            case CHANNEL_NOT_NSFW:
+                message = "You can only use this command in a NSFW channel!";
+                break;
+
+            case COMMAND_OPERATION_EXCEPTION:
+                message = "Sorry, I ran into an error while executing the command.";
+                break;
+
+            case COMMAND_OPERATION_FAILED:
+                if ( context.getHelper().isPresent() ) {
+                    context.getReplyBuilder().withContent( context.getHelper().get().toString() ).build();
+                }
+                break;
+
+            case DISCORD_ERROR:
+                message = "Sorry, there was an error in my connection with Discord.";
+                break;
+
+            case USER_MISSING_GUILD_PERMISSIONS:
+                message = "You don't have the necessary permissions in the server to use this command!";
+                break;
+
+            case USER_MISSING_PERMISSIONS:
+                message = "You don't have the necessary permissions in the channel to use this command!";
+                break;
+
+            case USER_NOT_OWNER:
+                message = "Only my owner can use this command!";
+                break;
+
+        }
+        context.getReplyBuilder().withContent( message ).build();
+
+    }
 
     /**
      * Retrieves whether the command reply to the caller should be done on a private

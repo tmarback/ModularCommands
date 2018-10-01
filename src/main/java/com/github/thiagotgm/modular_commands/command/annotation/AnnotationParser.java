@@ -46,102 +46,106 @@ import sx.blah.discord.util.RateLimitException;
 /**
  * Provides a way to parse annotated methods to obtain commands.
  * <p>
- * An instance of this class can parse all the annotated main commands, subcommands, success handlers,
- * and failure handlers of a single object instance. The commands and handlers parsed will call the methods
- * from the instance they were parsed from whenever they are invoked.
+ * An instance of this class can parse all the annotated main commands,
+ * subcommands, success handlers, and failure handlers of a single object
+ * instance. The commands and handlers parsed will call the methods from the
+ * instance they were parsed from whenever they are invoked.
  * <p>
- * Handlers can be registered to be used across multiple Objects by marking their annotated methods static 
- * and registering them with {@link #registerAnnotatedHandlers(Class)}.
+ * Handlers can be registered to be used across multiple Objects by marking
+ * their annotated methods static and registering them with
+ * {@link #registerAnnotatedHandlers(Class)}.
  *
  * @version 1.0
  * @author ThiagoTGM
  * @since 2017-07-19
  */
 public final class AnnotationParser {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger( AnnotationParser.class );
-    
+
     private static final Class<?>[] COMMAND_PARAM_TYPES = { CommandContext.class };
     private static final Class<?>[] SUCCESS_HANDLER_PARAM_TYPES = { CommandContext.class };
-    private static final Class<?>[] FAILURE_HANDLER_PARAM_TYPES =
-        { CommandContext.class, FailureReason.class };
-    
+    private static final Class<?>[] FAILURE_HANDLER_PARAM_TYPES = { CommandContext.class, FailureReason.class };
+
     private static final Map<String, Consumer<CommandContext>> registeredSuccessHandlers;
     private static final Map<String, BiConsumer<CommandContext, FailureReason>> registeredFailureHandlers;
-    
+
     static {
-        
+
         registeredSuccessHandlers = new HashMap<>();
         registeredFailureHandlers = new HashMap<>();
-        
+
+        registerAnnotatedHandlers( ICommand.class ); // Register default handlers.
+
     }
-    
+
     private final Object obj;
     private final Map<String, ICommand> subCommands;
     private final Map<String, Consumer<CommandContext>> successHandlers;
     private final Map<String, BiConsumer<CommandContext, FailureReason>> failureHandlers;
     private volatile boolean done;
     private final List<ICommand> mainCommands;
-    
+
     private final Map<String, Method> toParseMethods;
     private final Map<String, SubCommand> toParseAnnotations;
 
     /**
-     * Constructs a new instance that extracts annotated commands from the given object.
+     * Constructs a new instance that extracts annotated commands from the given
+     * object.
      * 
-     * @param obj The object to parse commands from.
+     * @param obj
+     *            The object to parse commands from.
      */
     public AnnotationParser( Object obj ) {
-        
+
         this.obj = obj;
         this.subCommands = new HashMap<>();
         this.successHandlers = new HashMap<>();
         this.failureHandlers = new HashMap<>();
         this.done = false;
         this.mainCommands = new LinkedList<>();
-        
+
         this.toParseMethods = new HashMap<>();
         this.toParseAnnotations = new HashMap<>();
 
     }
-    
+
     /**
-     * Parses a main command from the given method and the given annotation that was present
-     * on the method.
+     * Parses a main command from the given method and the given annotation that was
+     * present on the method.
      *
-     * @param method The method to use as the main command operation.
-     * @param annotation The annotation that marked the method.
-     * @return The main command described by the given annotation that executes the given method.
-     * @throws IllegalArgumentException if the method given or one of the values in the annotation
-     *                                  are invalid.
+     * @param method
+     *            The method to use as the main command operation.
+     * @param annotation
+     *            The annotation that marked the method.
+     * @return The main command described by the given annotation that executes the
+     *         given method.
+     * @throws IllegalArgumentException
+     *             if the method given or one of the values in the annotation are
+     *             invalid.
      */
-    private ICommand parseMainCommand( Method method, MainCommand annotation )
-            throws IllegalArgumentException {
-        
+    private ICommand parseMainCommand( Method method, MainCommand annotation ) throws IllegalArgumentException {
+
         LOG.trace( "Parsing annotated main command \"{}\".", annotation.name() );
-        
+
         if ( !Arrays.equals( method.getParameterTypes(), COMMAND_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
             throw new IllegalArgumentException( "Method is static." );
         }
-        
+
         /* Get main command properties */
         CommandBuilder builder = new CommandBuilder( annotation.name() );
-        builder.essential( annotation.essential() )
-               .withAliases( annotation.aliases() );
+        builder.essential( annotation.essential() ).withAliases( annotation.aliases() );
         if ( !annotation.prefix().isEmpty() ) {
             builder.withPrefix( annotation.prefix() );
         }
-        builder.withDescription( annotation.description() )
-               .withUsage( annotation.usage() )
-               .onExecute( ( context ) -> {
-                   
-                   return call( method, obj, context );
-                   
-               })
-               .withOnSuccessDelay( annotation.onSuccessDelay() );
+        builder.withDescription( annotation.description() ).withUsage( annotation.usage() ).onExecute( ( context ) -> {
+
+            return call( method, obj, context );
+
+        } ).withOnSuccessDelay( annotation.onSuccessDelay() );
         if ( !annotation.successHandler().isEmpty() ) {
             /* Check if there is a SuccessHandler with the specified name */
             if ( successHandlers.containsKey( annotation.successHandler() ) ) {
@@ -149,8 +153,8 @@ public final class AnnotationParser {
             } else if ( registeredSuccessHandlers.containsKey( annotation.successHandler() ) ) {
                 builder.onSuccess( registeredSuccessHandlers.get( annotation.successHandler() ) );
             } else {
-                throw new IllegalArgumentException( "Invalid success handler \"" + annotation.successHandler()
-                        + "\"." );
+                throw new IllegalArgumentException(
+                        "Invalid success handler \"" + annotation.successHandler() + "\"." );
             }
         }
         if ( !annotation.failureHandler().isEmpty() ) {
@@ -160,21 +164,17 @@ public final class AnnotationParser {
             } else if ( registeredFailureHandlers.containsKey( annotation.failureHandler() ) ) {
                 builder.onFailure( registeredFailureHandlers.get( annotation.failureHandler() ) );
             } else {
-                throw new IllegalArgumentException( "Invalid failure handler \"" + annotation.failureHandler()
-                        + "\"." );
+                throw new IllegalArgumentException(
+                        "Invalid failure handler \"" + annotation.failureHandler() + "\"." );
             }
         }
-        
+
         /* Get command options */
-        builder.replyPrivately( annotation.replyPrivately() )
-               .ignorePublic( annotation.ignorePublic() )
-               .ignorePrivate( annotation.ignorePrivate() )
-               .ignoreBots( annotation.ignoreBots() )
-               .deleteCommand( annotation.deleteCommand() )
-               .requiresOwner( annotation.requiresOwner() )
-               .NSFW( annotation.NSFW() )
-               .overrideable( annotation.overrideable() );
-        
+        builder.replyPrivately( annotation.replyPrivately() ).ignorePublic( annotation.ignorePublic() )
+                .ignorePrivate( annotation.ignorePrivate() ).ignoreBots( annotation.ignoreBots() )
+                .deleteCommand( annotation.deleteCommand() ).requiresOwner( annotation.requiresOwner() )
+                .NSFW( annotation.NSFW() ).overrideable( annotation.overrideable() );
+
         /* Get required permissions */
         EnumSet<Permissions> permissions = EnumSet.noneOf( Permissions.class );
         permissions.addAll( Arrays.asList( annotation.requiredPermissions() ) );
@@ -182,63 +182,61 @@ public final class AnnotationParser {
         EnumSet<Permissions> guildPermissions = EnumSet.noneOf( Permissions.class );
         guildPermissions.addAll( Arrays.asList( annotation.requiredGuildPermissions() ) );
         builder.withRequiredGuildPermissions( guildPermissions );
-        
+
         /* Get subcommands and priority */
         if ( annotation.subCommands().length > 0 ) { // Subcommands were specified.
             List<ICommand> subCommands = new ArrayList<>( annotation.subCommands().length );
             for ( String subCommand : annotation.subCommands() ) { // Parse each subcommand.
-                
+
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
                 }
                 LOG.info( "\"{}\": Registering subcommand \"{}\".", annotation.name(), subCommand );
                 subCommands.add( this.subCommands.get( subCommand ) );
-                
+
             }
             builder.withSubCommands( subCommands );
         }
-        builder.canModifySubCommands( annotation.canModifySubCommands() )
-               .withPriority( annotation.priority() );
-        
+        builder.canModifySubCommands( annotation.canModifySubCommands() ).withPriority( annotation.priority() );
+
         /* Build the command */
         return builder.build();
-        
+
     }
-    
+
     /**
-     * Parses a subcommand from the given method and the given annotation that was present
-     * on the method.
+     * Parses a subcommand from the given method and the given annotation that was
+     * present on the method.
      *
-     * @param method The method to use as the main command operation.
-     * @param annotation The annotation that marked the method.
-     * @return The subcommand described by the given annotation that executes the given method.
-     * @throws IllegalArgumentException if the method given or one of the values in the annotation
-     *                                  are invalid.
+     * @param method
+     *            The method to use as the main command operation.
+     * @param annotation
+     *            The annotation that marked the method.
+     * @return The subcommand described by the given annotation that executes the
+     *         given method.
+     * @throws IllegalArgumentException
+     *             if the method given or one of the values in the annotation are
+     *             invalid.
      */
-    private ICommand parseSubCommand( Method method, SubCommand annotation )
-            throws IllegalArgumentException {
-        
+    private ICommand parseSubCommand( Method method, SubCommand annotation ) throws IllegalArgumentException {
+
         LOG.trace( "Parsing annotated subcommand \"{}\".", annotation.name() );
-        
+
         if ( !Arrays.equals( method.getParameterTypes(), COMMAND_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
             throw new IllegalArgumentException( "Method is static." );
         }
-        
+
         /* Get main command properties */
         CommandBuilder builder = new CommandBuilder( annotation.name() ).subCommand( true );
-        builder.essential( annotation.essential() )
-               .withAliases( annotation.aliases() );
-        builder.withDescription( annotation.description() )
-               .withUsage( annotation.usage() )
-               .onExecute( ( context ) -> {
-                   
-                   return call( method, obj, context );
-                   
-               })
-               .withOnSuccessDelay( annotation.onSuccessDelay() );
+        builder.essential( annotation.essential() ).withAliases( annotation.aliases() );
+        builder.withDescription( annotation.description() ).withUsage( annotation.usage() ).onExecute( ( context ) -> {
+
+            return call( method, obj, context );
+
+        } ).withOnSuccessDelay( annotation.onSuccessDelay() );
         if ( !annotation.successHandler().isEmpty() ) {
             /* Check if there is a SuccessHandler with the specified name */
             if ( successHandlers.containsKey( annotation.successHandler() ) ) {
@@ -246,8 +244,8 @@ public final class AnnotationParser {
             } else if ( registeredSuccessHandlers.containsKey( annotation.successHandler() ) ) {
                 builder.onSuccess( registeredSuccessHandlers.get( annotation.successHandler() ) );
             } else {
-                throw new IllegalArgumentException( "Invalid success handler \"" + annotation.successHandler()
-                        + "\"." );
+                throw new IllegalArgumentException(
+                        "Invalid success handler \"" + annotation.successHandler() + "\"." );
             }
         }
         if ( !annotation.failureHandler().isEmpty() ) {
@@ -257,22 +255,18 @@ public final class AnnotationParser {
             } else if ( registeredFailureHandlers.containsKey( annotation.failureHandler() ) ) {
                 builder.onFailure( registeredFailureHandlers.get( annotation.failureHandler() ) );
             } else {
-                throw new IllegalArgumentException( "Invalid failure handler \"" + annotation.failureHandler()
-                        + "\"." );
+                throw new IllegalArgumentException(
+                        "Invalid failure handler \"" + annotation.failureHandler() + "\"." );
             }
         }
-        
+
         /* Get command options */
-        builder.replyPrivately( annotation.replyPrivately() )
-               .ignorePublic( annotation.ignorePublic() )
-               .ignorePrivate( annotation.ignorePrivate() )
-               .ignoreBots( annotation.ignoreBots() )
-               .deleteCommand( annotation.deleteCommand() )
-               .requiresOwner( annotation.requiresOwner() )
-               .NSFW( annotation.NSFW() )
-               .executeParent( annotation.executeParent() )
-               .requiresParentPermissions( annotation.requiresParentPermissions() );
-        
+        builder.replyPrivately( annotation.replyPrivately() ).ignorePublic( annotation.ignorePublic() )
+                .ignorePrivate( annotation.ignorePrivate() ).ignoreBots( annotation.ignoreBots() )
+                .deleteCommand( annotation.deleteCommand() ).requiresOwner( annotation.requiresOwner() )
+                .NSFW( annotation.NSFW() ).executeParent( annotation.executeParent() )
+                .requiresParentPermissions( annotation.requiresParentPermissions() );
+
         /* Get required permissions */
         EnumSet<Permissions> permissions = EnumSet.noneOf( Permissions.class );
         permissions.addAll( Arrays.asList( annotation.requiredPermissions() ) );
@@ -280,103 +274,108 @@ public final class AnnotationParser {
         EnumSet<Permissions> guildPermissions = EnumSet.noneOf( Permissions.class );
         guildPermissions.addAll( Arrays.asList( annotation.requiredGuildPermissions() ) );
         builder.withRequiredGuildPermissions( guildPermissions );
-        
+
         /* Get subcommands and priority */
         if ( annotation.subCommands().length > 0 ) { // Subcommands were specified.
             List<ICommand> subCommands = new ArrayList<>( annotation.subCommands().length );
             for ( String subCommand : annotation.subCommands() ) { // Parse each subcommand.
-                
+
                 if ( subCommand.equals( annotation.name() ) ) {
                     throw new IllegalArgumentException( "Subcommand cannot be its own subcommand." );
                 }
                 if ( !this.subCommands.containsKey( subCommand ) ) { // Check subcommand exists.
                     throw new IllegalArgumentException( "Invalid subcommand \"" + subCommand + "\"." );
                 }
-                LOG.info( "\"{}\" (subcommand): Registering subcommand \"{}\".", annotation.name(),
-                        subCommand );
+                LOG.info( "\"{}\" (subcommand): Registering subcommand \"{}\".", annotation.name(), subCommand );
                 subCommands.add( this.subCommands.get( subCommand ) );
-                
+
             }
             builder.withSubCommands( subCommands );
         }
-        builder.canModifySubCommands( annotation.canModifySubCommands() )
-               .withPriority( annotation.priority() );
-        
+        builder.canModifySubCommands( annotation.canModifySubCommands() ).withPriority( annotation.priority() );
+
         /* Build the command */
         return builder.build();
-        
+
     }
-    
+
     /**
-     * Parses a success handler from the given method and the given annotation that was present
-     * on the method.
+     * Parses a success handler from the given method and the given annotation that
+     * was present on the method.
      *
-     * @param method The method to use as the handler operation.
-     * @param annotation The annotation that marked the method.
+     * @param method
+     *            The method to use as the handler operation.
+     * @param annotation
+     *            The annotation that marked the method.
      * @return A Consumer that runs the given method.
-     * @throws IllegalArgumentException if the method is invalid.
+     * @throws IllegalArgumentException
+     *             if the method is invalid.
      */
     private Consumer<CommandContext> parseSuccessHandler( Method method, SuccessHandler annotation )
             throws IllegalArgumentException {
-        
+
         LOG.trace( "Parsing annotated success handler \"{}\".", annotation.value() );
-        
+
         if ( !Arrays.equals( method.getParameterTypes(), SUCCESS_HANDLER_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
             throw new IllegalArgumentException( "Method is static." );
         }
-        
+
         return ( context ) -> {
-            
+
             call( method, obj, context );
-            
+
         };
-        
+
     }
-    
+
     /**
-     * Parses a failure handler from the given method and the given annotation that was present
-     * on the method.
+     * Parses a failure handler from the given method and the given annotation that
+     * was present on the method.
      *
-     * @param method The method to use as the handler operation.
-     * @param annotation The annotation that marked the method.
+     * @param method
+     *            The method to use as the handler operation.
+     * @param annotation
+     *            The annotation that marked the method.
      * @return A BiConsumer that runs the given method.
-     * @throws IllegalArgumentException if the method is invalid.
+     * @throws IllegalArgumentException
+     *             if the method is invalid.
      */
-    private BiConsumer<CommandContext, FailureReason> parseFailureHandler( Method method,
-            FailureHandler annotation )
+    private BiConsumer<CommandContext, FailureReason> parseFailureHandler( Method method, FailureHandler annotation )
             throws IllegalArgumentException {
-        
+
         LOG.trace( "Parsing annotated failure handler \"{}\".", annotation.value() );
-        
+
         if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
         if ( Modifier.isStatic( method.getModifiers() ) ) {
             throw new IllegalArgumentException( "Method is static." );
         }
-        
+
         return ( context, reason ) -> {
-            
+
             call( method, obj, context, reason );
-            
+
         };
-        
+
     }
-    
+
     /**
      * Parses all the main commands in the object.
      */
     private void parseMainCommands() {
-        
+
         LOG.trace( "Parsing annotated main commands." );
-        
+
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
-            /* Find each @MainCommand in the class and parse the commands that they declare */
+            /*
+             * Find each @MainCommand in the class and parse the commands that they declare
+             */
             for ( MainCommand annotation : method.getDeclaredAnnotationsByType( MainCommand.class ) ) {
-                
+
                 try {
                     ICommand mainCommand = parseMainCommand( method, annotation );
                     mainCommands.add( mainCommand ); // Add command if successfully parsed.
@@ -385,83 +384,85 @@ public final class AnnotationParser {
                         LOG.error( "\"" + annotation.name() + "\": Could not parse main command.", e );
                     }
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     /**
      * Parses all the subcommands in the object.
      */
     private void parseSubCommands() {
-        
+
         LOG.trace( "Parsing annotated subcommands." );
-        
+
         /* Get each subcommand that needs to be parsed */
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
- 
+
             for ( SubCommand annotation : method.getDeclaredAnnotationsByType( SubCommand.class ) ) {
-                
+
                 if ( toParseMethods.containsKey( annotation.name() ) ) {
                     LOG.error( "Subcommand with repeated name :\"{}\".", annotation.name() );
                 } else {
-                    toParseMethods.put( annotation.name(),  method );
+                    toParseMethods.put( annotation.name(), method );
                     toParseAnnotations.put( annotation.name(), annotation );
                 }
-                
+
             }
-            
+
         }
-        
+
         /* Keep parsing subcommands until no more to parse */
         while ( !toParseMethods.isEmpty() ) {
-            
+
             String next = toParseMethods.keySet().iterator().next(); // Get next subcommand to parse.
             Method method = toParseMethods.remove( next );
             SubCommand annotation = toParseAnnotations.remove( next );
             parseWithDependencies( method, annotation );
-            
+
         }
-        
+
     }
-    
+
     /**
-     * Parses a subcommand, and all of its own subcommands (dependencies), recursively.
+     * Parses a subcommand, and all of its own subcommands (dependencies),
+     * recursively.
      * <p>
-     * e.g., solves the dependencies of the given subcommand, and if successful, parses the
-     * subcommand.
+     * e.g., solves the dependencies of the given subcommand, and if successful,
+     * parses the subcommand.
      *
-     * @param method The method that is marked as the subcommand.
-     * @param annotation The annotation that specifies the subcommand.
-     * @return true if the subcommand (and thus all of its dependencies) were parsed sucessfully.<br>
-     *         false if the subcommand could not be parsed (either due to an issue with the subcommand
-     *         itself or one of its dependencies).
+     * @param method
+     *            The method that is marked as the subcommand.
+     * @param annotation
+     *            The annotation that specifies the subcommand.
+     * @return true if the subcommand (and thus all of its dependencies) were parsed
+     *         sucessfully.<br>
+     *         false if the subcommand could not be parsed (either due to an issue
+     *         with the subcommand itself or one of its dependencies).
      */
     private boolean parseWithDependencies( Method method, SubCommand annotation ) {
-        
+
         /* Parse sub-subcommands (dependencies) */
         for ( String subCommandName : annotation.subCommands() ) {
-            
+
             if ( subCommands.containsKey( subCommandName ) ) {
                 continue; // Subcommand already parsed.
             }
             if ( !toParseMethods.containsKey( subCommandName ) ) {
-                LOG.error( "\"{}\": Invalid subcommand \"{}\".", annotation.name(),
-                        subCommandName );
+                LOG.error( "\"{}\": Invalid subcommand \"{}\".", annotation.name(), subCommandName );
                 return false; // Subcommand is not in the to-parse list, thus it doesn't exist
-            }                 // or a dependency loop exists.
+            } // or a dependency loop exists.
             Method subCommandMethod = toParseMethods.remove( subCommandName );
             SubCommand subCommandAnnotation = toParseAnnotations.remove( subCommandName );
             if ( !parseWithDependencies( subCommandMethod, subCommandAnnotation ) ) { // Parse subcommand.
-                LOG.error( "\"{}\": Failed to parse subcommand \"{}\".", annotation.name(),
-                        subCommandName );
+                LOG.error( "\"{}\": Failed to parse subcommand \"{}\".", annotation.name(), subCommandName );
                 return false; // Could not parse sub-subcommand.
             }
-            
+
         }
-        
+
         /* Sub-subcommands parsed successfully, now try parsing subcommand */
         try {
             ICommand command = parseSubCommand( method, annotation );
@@ -472,27 +473,27 @@ public final class AnnotationParser {
             }
             return false;
         }
-        
+
         return true; // Parsed successfully.
-        
+
     }
-    
+
     /**
      * Parses all the success handlers in the object.
      */
     private void parseSuccessHandlers() {
-        
+
         LOG.trace( "Parsing annotated success handlers." );
         /* Check each method */
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
-            
+
             if ( Modifier.isStatic( method.getModifiers() ) ) {
                 continue; // Static methods are used for registrable handlers.
             }
-            
+
             SuccessHandler annotation = method.getDeclaredAnnotation( SuccessHandler.class );
             if ( annotation != null ) { // Method has the annotation.
-                
+
                 if ( successHandlers.containsKey( annotation.value() ) ) {
                     LOG.error( "Success handler with repeated name :\"{}\".", annotation.value() );
                 } else {
@@ -503,97 +504,100 @@ public final class AnnotationParser {
                         LOG.error( "Could not parse success handler.", e );
                     }
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     /**
      * Parses all the failure handlers in the object.
      */
     private void parseFailureHandlers() {
-        
+
         LOG.trace( "Parsing annotated failure handlers." );
         /* Check each method */
         for ( Method method : obj.getClass().getDeclaredMethods() ) {
-            
+
             if ( Modifier.isStatic( method.getModifiers() ) ) {
                 continue; // Static methods are used for registrable handlers.
             }
-            
+
             FailureHandler annotation = method.getDeclaredAnnotation( FailureHandler.class );
             if ( annotation != null ) { // Method has the annotation.
-                
+
                 if ( failureHandlers.containsKey( annotation.value() ) ) {
                     LOG.error( "Failure handler with repeated name :\"{}\".", annotation.value() );
                 } else {
                     try { // Try to parse the handler.
-                        BiConsumer<CommandContext, FailureReason> handler =
-                                parseFailureHandler( method, annotation );
+                        BiConsumer<CommandContext, FailureReason> handler = parseFailureHandler( method, annotation );
                         failureHandlers.put( annotation.value(), handler );
                     } catch ( IllegalArgumentException e ) {
                         LOG.error( "Could not parse failure handler.", e );
                     }
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     /**
-     * Parses all the commands and handlers in the object, retrieving the main commands that were
-     * parsed.
+     * Parses all the commands and handlers in the object, retrieving the main
+     * commands that were parsed.
      * <p>
-     * After the first time this is called, this can be called again without any processing required
-     * (the parsed commands and handlers are buffered).
+     * After the first time this is called, this can be called again without any
+     * processing required (the parsed commands and handlers are buffered).
      *
      * @return The main commands parsed from this object.
      */
     public synchronized List<ICommand> parse() {
-        
+
         if ( done ) {
             return new ArrayList<>( mainCommands );
         }
-        
+
         LOG.debug( "Parsing annotated members of instance of class {}.", obj.getClass().getName() );
-        
+
         parseFailureHandlers();
         parseSuccessHandlers();
         parseSubCommands();
         parseMainCommands();
-        
+
         LOG.debug( "Finished parsing annotated members." );
-        
+
         done = true;
         return new ArrayList<>( mainCommands );
-        
+
     }
-    
+
     /* Code for registering handlers for later use */
-    
+
     /**
      * Registers a method as a success handler to be used while parsing ICommands.
      * <p>
-     * After this, if an ICommand is being parsed and it specifies the name of this handler as
-     * a success handler, and there is no other success handler with the same name in the object
-     * that the command is being parsed from, this handler will then be used.
+     * After this, if an ICommand is being parsed and it specifies the name of this
+     * handler as a success handler, and there is no other success handler with the
+     * same name in the object that the command is being parsed from, this handler
+     * will then be used.
      * <p>
      * The method given will be called whenever the handler is invoked.
      *
-     * @param method The method to be called by the success handler. Must be static.
-     * @param annotation The annotation that marked the method.
-     * @throws IllegalArgumentException if there is already a registered success handler with the specified
-     *                                  name or the method is invalid.
+     * @param method
+     *            The method to be called by the success handler. Must be static.
+     * @param annotation
+     *            The annotation that marked the method.
+     * @throws IllegalArgumentException
+     *             if there is already a registered success handler with the
+     *             specified name or the method is invalid.
      */
     private static void registerSuccessHandler( Method method, SuccessHandler annotation )
             throws IllegalArgumentException {
-        
+
         LOG.info( "Registering annotated success handler \"{}\".", annotation.value() );
-        
+
         if ( !Arrays.equals( method.getParameterTypes(), COMMAND_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
@@ -601,37 +605,40 @@ public final class AnnotationParser {
             throw new IllegalArgumentException( "Method is not static." );
         }
         if ( registeredSuccessHandlers.containsKey( annotation.value() ) ) {
-            throw new IllegalArgumentException(
-                    "There is already a registered success handler with this name." );
+            throw new IllegalArgumentException( "There is already a registered success handler with this name." );
         }
-        
+
         registeredSuccessHandlers.put( annotation.value(), ( context ) -> {
-            
+
             call( method, null, context );
-            
-        });
-        
+
+        } );
+
     }
-    
+
     /**
      * Registers a method as a failure handler to be used while parsing ICommands.
      * <p>
-     * After this, if an ICommand is being parsed and it specifies the name of this handler as
-     * a failure handler, and there is no other failure handler with the same name in the object
-     * that the command is being parsed from, this handler will then be used.
+     * After this, if an ICommand is being parsed and it specifies the name of this
+     * handler as a failure handler, and there is no other failure handler with the
+     * same name in the object that the command is being parsed from, this handler
+     * will then be used.
      * <p>
      * The method given will be called whenever the handler is invoked.
      *
-     * @param method The method to be called by the failure handler. Must be static.
-     * @param annotation The annotation that marked the method.
-     * @throws IllegalArgumentException if there is already a registered failure handler with the specified
-     *                                  name or the method is invalid.
+     * @param method
+     *            The method to be called by the failure handler. Must be static.
+     * @param annotation
+     *            The annotation that marked the method.
+     * @throws IllegalArgumentException
+     *             if there is already a registered failure handler with the
+     *             specified name or the method is invalid.
      */
     private static void registerFailureHandler( Method method, FailureHandler annotation )
             throws IllegalArgumentException {
-        
+
         LOG.info( "Registering annotated failure handler \"{}\".", annotation.value() );
-        
+
         if ( !Arrays.equals( method.getParameterTypes(), FAILURE_HANDLER_PARAM_TYPES ) ) {
             throw new IllegalArgumentException( "Method parameters are not valid." );
         }
@@ -639,119 +646,145 @@ public final class AnnotationParser {
             throw new IllegalArgumentException( "Method is not static." );
         }
         if ( registeredFailureHandlers.containsKey( annotation.value() ) ) {
-            throw new IllegalArgumentException(
-                    "There is already a registered failure handler with this name." );
+            throw new IllegalArgumentException( "There is already a registered failure handler with this name." );
         }
-        
+
         registeredFailureHandlers.put( annotation.value(), ( context, reason ) -> {
-            
+
             call( method, null, context, reason );
-            
-        });
-        
+
+        } );
+
     }
-    
+
     /**
      * Registers all the success handlers in the given class.
      * 
-     * @param target Class to parse handlers from.
+     * @param target
+     *            Class to parse handlers from.
      */
     private static void registerSuccessHandlers( Class<?> target ) {
+
+        LOG.trace( "Parsing static success handlers." );
+        
         /* Check each method */
-        for ( Method method : target.getClass().getDeclaredMethods() ) {
-            
+        for ( Method method : target.getDeclaredMethods() ) {
+
+            LOG.trace( "Considering method {}.", method.getName() );
             if ( !Modifier.isStatic( method.getModifiers() ) ) {
+                LOG.trace( "Method is not static." );
                 continue; // Instance methods are used for parseable handlers.
             }
-            
+
             SuccessHandler annotation = method.getDeclaredAnnotation( SuccessHandler.class );
             if ( annotation != null ) { // Method has the annotation.
-                
+
                 try { // Try to parse the handler.
                     registerSuccessHandler( method, annotation );
                 } catch ( IllegalArgumentException e ) {
                     LOG.error( "Could not register success handler.", e );
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     /**
      * Registers all the failure handlers in the given class.
      * 
-     * @param target Class to parse handlers from.
+     * @param target
+     *            Class to parse handlers from.
      */
     private static void registerFailureHandlers( Class<?> target ) {
+
+        LOG.trace( "Parsing static failure handlers." );
+        
         /* Check each method */
-        for ( Method method : target.getClass().getDeclaredMethods() ) {
-            
+        for ( Method method : target.getDeclaredMethods() ) {
+
+            LOG.trace( "Considering method {}.", method.getName() );
             if ( !Modifier.isStatic( method.getModifiers() ) ) {
+                LOG.trace( "Method is not static." );
                 continue; // Instance methods are used for parseable handlers.
             }
-            
+
             FailureHandler annotation = method.getDeclaredAnnotation( FailureHandler.class );
             if ( annotation != null ) { // Method has the annotation.
-                
+
                 try { // Try to parse the handler.
                     registerFailureHandler( method, annotation );
                 } catch ( IllegalArgumentException e ) {
                     LOG.error( "Could not register failure handler.", e );
                 }
-                
+
             }
-            
+
         }
-        
+
     }
-    
+
     /**
-     * Parses static methods marked as SuccessHandlers or FailureHandlers to use them when parsing
-     * methods.
+     * Parses static methods marked as SuccessHandlers or FailureHandlers to use
+     * them when parsing methods.
      * <p>
-     * After registering a, if an ICommand is being parsed and it specifies the name of the registered
-     * handler as a handler, and there is no other handler of the appropriate type (success or
-     * failure) with the same name in the object that the command is being parsed from, the registered
-     * handler will then be used.
+     * After registering a handler, if an <tt>ICommand</tt> is being parsed and it
+     * specifies the name of the registered handler as a handler, and there is no
+     * other non-static handler of the appropriate type (success or failure) with
+     * the same name in the object that the command is being parsed from, the
+     * registered handler will then be used.
      * <p>
-     * The methods annotated as handlers will be called whenever the associated handler is invoked.
+     * The methods annotated as handlers will be called whenever the associated
+     * handler is invoked.
      *
-     * @param target The class to get annotated handlers from.
+     * @param target
+     *            The class to get annotated handlers from.
      */
     public static void registerAnnotatedHandlers( Class<?> target ) {
         
+        LOG.debug( "Parsing annotated static handlers in class {}.", target.getName() );
+
         registerSuccessHandlers( target );
         registerFailureHandlers( target );
         
+        LOG.debug( "Finished parsing annotated static handlers." );
+
     }
-    
+
     /* Support method for calling methods and specifying thrown exceptions */
-    
+
     /**
-     * Calls the method on the given object with the given arguments, filtering out errors beyond the
-     * expected exceptions.
+     * Calls the method on the given object with the given arguments, filtering out
+     * errors beyond the expected exceptions.
      *
-     * @param method Method to be called.
-     * @param obj Object to call the method on.
-     * @param args Args to call the method with.
+     * @param method
+     *            Method to be called.
+     * @param obj
+     *            Object to call the method on.
+     * @param args
+     *            Args to call the method with.
      * @return If the method returned a boolean value, returns that value.<br>
-     *         If it had no return or any other type or return, returns true (as long as
-     *         the method was invoked successfully/without any exceptions).
-     * @throws RateLimitException if the method threw a RateLimitException.
-     * @throws MissingPermissionsException if the method threw a MissingPermissionsException.
-     * @throws DiscordException if the method threw a DiscordException.
-     * @throws RuntimeException if the method threw an unexpected unchecked exception, throws that
-     *                          exception again. If it threw an unexpected checked exception, or
-     *                          {@link Method#invoke(Object, Object...)} threw a
-     *                          {@link IllegalAccessException} or {@link IllegalArgumentException},
-     *                          throws a RuntimeException whose cause is the exception thrown by
-     *                          {@link Method#invoke(Object, Object...) invoke()}.
+     *         If it had no return or any other type or return, returns true (as
+     *         long as the method was invoked successfully/without any exceptions).
+     * @throws RateLimitException
+     *             if the method threw a RateLimitException.
+     * @throws MissingPermissionsException
+     *             if the method threw a MissingPermissionsException.
+     * @throws DiscordException
+     *             if the method threw a DiscordException.
+     * @throws RuntimeException
+     *             if the method threw an unexpected unchecked exception, throws
+     *             that exception again. If it threw an unexpected checked
+     *             exception, or {@link Method#invoke(Object, Object...)} threw a
+     *             {@link IllegalAccessException} or
+     *             {@link IllegalArgumentException}, throws a RuntimeException whose
+     *             cause is the exception thrown by
+     *             {@link Method#invoke(Object, Object...) invoke()}.
      */
     private static boolean call( Method method, Object obj, Object... args )
             throws RateLimitException, MissingPermissionsException, DiscordException, RuntimeException {
-        
+
         Object returnValue;
         try { // Try calling the method.
             returnValue = method.invoke( obj, args );
@@ -774,13 +807,14 @@ public final class AnnotationParser {
         } catch ( IllegalAccessException | IllegalArgumentException e ) {
             throw new RuntimeException( "Could not call execution method.", e );
         }
-        
+
         if ( returnValue instanceof Boolean ) { // Returned a boolean value, so return that too.
             return ( (Boolean) returnValue ).booleanValue();
-        } else { // Returned something else (or didn't return anything), but finished executing sucessfully.
+        } else { // Returned something else (or didn't return anything), but finished executing
+                 // successfully.
             return true;
         }
-        
+
     }
 
 }

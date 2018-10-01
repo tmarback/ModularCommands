@@ -147,6 +147,7 @@ public @interface MainCommand {
      *
      * @return The name of the onSuccess operation, or an empty string if none.
      * @see ICommand#onSuccess(CommandContext)
+     * @see ICommand#STANDARD_SUCCESS_HANDLER
      * @see SuccessHandler
      */
     String successHandler() default "";
@@ -159,6 +160,7 @@ public @interface MainCommand {
      *
      * @return The name of the onFailure operation, or an empty string if none.
      * @see ICommand#onFailure(CommandContext,FailureReason)
+     * @see ICommand#STANDARD_FAILURE_HANDLER
      * @see FailureHandler
      */
     String failureHandler() default "";

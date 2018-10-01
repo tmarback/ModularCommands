@@ -19,12 +19,9 @@ package com.github.thiagotgm.modular_commands.included;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
-import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.api.ICommand;
-import com.github.thiagotgm.modular_commands.command.annotation.FailureHandler;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
 import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
-import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
 
 /**
  * Command for disabling a command or registry.
@@ -34,11 +31,9 @@ import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
  * @since 2017-07-26
  */
 public class DisableCommand {
-    
+
     public static final String COMMAND_NAME = "Disable Command";
     private static final String SUBCOMMAND_NAME = "Disable Registry";
-    private static final String SUCCESS_HANDLER = "Success";
-    private static final String FAILURE_HANDLER = "Failure";
 
     @MainCommand(
             name = COMMAND_NAME,
@@ -51,11 +46,10 @@ public class DisableCommand {
             priority = Integer.MAX_VALUE,
             canModifySubCommands = false,
             subCommands = SUBCOMMAND_NAME,
-            successHandler = SUCCESS_HANDLER,
-            failureHandler = FAILURE_HANDLER
-            )
+            successHandler = ICommand.STANDARD_SUCCESS_HANDLER,
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean disableCommand( CommandContext context ) {
-        
+
         if ( context.getArgs().isEmpty() ) {
             context.setHelper( "A command must be specified." );
             return false; // No arguments given.
@@ -75,9 +69,9 @@ public class DisableCommand {
             return null;
 
         }, cl -> String.format( "Disabled command `%s`!", cl.get( cl.size() - 1 ).getName() ) );
-        
+
     }
-    
+
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },
@@ -85,17 +79,15 @@ public class DisableCommand {
                     + "The registry type and name (for both parent registries and the target registry "
                     + "itself) should be just as shown in the registry list. All parent "
                     + "registries must be included in order. If there is a space in a "
-                    + "registry name, put the whole qualified name (type:name) between "
-                    + "double-quotes.",
+                    + "registry name, put the whole qualified name (type:name) between " + "double-quotes.",
             usage = "{}disable registry [parent registries...] <registry type>:<registry name>",
             requiresOwner = true,
             essential = true,
             canModifySubCommands = false,
-            successHandler = SUCCESS_HANDLER,
-            failureHandler = FAILURE_HANDLER
-            )
+            successHandler = ICommand.STANDARD_SUCCESS_HANDLER,
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean disableRegistry( CommandContext context ) {
-        
+
         if ( context.getArgs().isEmpty() ) {
             context.setHelper( "A registry must be specified." );
             return false; // No arguments given.
@@ -114,30 +106,7 @@ public class DisableCommand {
             return null;
 
         }, r -> String.format( "Disabled registry `%s`!", r.getPath() ) );
-        
-    }
-    
-    @SuccessHandler( SUCCESS_HANDLER )
-    public void disabledSuccessFully( CommandContext context ) {
-        
-        context.getReplyBuilder().withContent( (String) context.getHelper().get() ).build();
-        
-    }
-    
-    @FailureHandler( FAILURE_HANDLER )
-    public void couldNotDisable( CommandContext context, FailureReason reason ) {
-        
-        switch ( reason ) {
-            
-            case COMMAND_OPERATION_FAILED:
-                context.getReplyBuilder().withContent( (String) context.getHelper().get() ).build();
-                break;
-                
-            default:
-                // Do nothing.
-            
-        }
-        
+
     }
 
 }

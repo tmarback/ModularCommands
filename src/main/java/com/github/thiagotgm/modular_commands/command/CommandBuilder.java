@@ -508,6 +508,7 @@ public class CommandBuilder {
      * @throws NullPointerException
      *             if the given operation is null.
      * @see ICommand#onSuccess(CommandContext)
+     * @see ICommand#standardOnSuccess(CommandContext)
      */
     public CommandBuilder onSuccess( Consumer<CommandContext> operation ) throws NullPointerException {
 
@@ -536,6 +537,7 @@ public class CommandBuilder {
      * @throws NullPointerException
      *             if the given operation is null.
      * @see ICommand#onFailure(CommandContext, FailureReason)
+     * @see ICommand#standardOnFailure(CommandContext, FailureReason)
      */
     public CommandBuilder onFailure( BiConsumer<CommandContext, FailureReason> operation ) throws NullPointerException {
 

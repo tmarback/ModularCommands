@@ -19,12 +19,9 @@ package com.github.thiagotgm.modular_commands.included;
 
 import com.github.thiagotgm.modular_commands.api.CommandContext;
 import com.github.thiagotgm.modular_commands.api.CommandRegistry;
-import com.github.thiagotgm.modular_commands.api.FailureReason;
 import com.github.thiagotgm.modular_commands.api.ICommand;
-import com.github.thiagotgm.modular_commands.command.annotation.FailureHandler;
 import com.github.thiagotgm.modular_commands.command.annotation.MainCommand;
 import com.github.thiagotgm.modular_commands.command.annotation.SubCommand;
-import com.github.thiagotgm.modular_commands.command.annotation.SuccessHandler;
 
 /**
  * Command for enabling a command or registry.
@@ -37,8 +34,6 @@ public class EnableCommand {
 
     public static final String COMMAND_NAME = "Enable Command";
     private static final String SUBCOMMAND_NAME = "Enable Registry";
-    private static final String SUCCESS_HANDLER = "Success";
-    private static final String FAILURE_HANDLER = "Failure";
 
     @MainCommand(
             name = COMMAND_NAME,
@@ -51,8 +46,8 @@ public class EnableCommand {
             priority = Integer.MAX_VALUE,
             canModifySubCommands = false,
             subCommands = SUBCOMMAND_NAME,
-            successHandler = SUCCESS_HANDLER,
-            failureHandler = FAILURE_HANDLER )
+            successHandler = ICommand.STANDARD_SUCCESS_HANDLER,
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean enableCommand( CommandContext context ) {
 
         if ( context.getArgs().isEmpty() ) {
@@ -86,8 +81,8 @@ public class EnableCommand {
             requiresOwner = true,
             essential = true,
             canModifySubCommands = false,
-            successHandler = SUCCESS_HANDLER,
-            failureHandler = FAILURE_HANDLER )
+            successHandler = ICommand.STANDARD_SUCCESS_HANDLER,
+            failureHandler = ICommand.STANDARD_FAILURE_HANDLER )
     public boolean enableRegistry( CommandContext context ) {
 
         if ( context.getArgs().isEmpty() ) {
@@ -105,29 +100,6 @@ public class EnableCommand {
             return null;
 
         }, r -> String.format( "Enabled registry `%s`!", r.getPath() ) );
-
-    }
-
-    @SuccessHandler( SUCCESS_HANDLER )
-    public void disabledSuccessFully( CommandContext context ) {
-
-        context.getReplyBuilder().withContent( (String) context.getHelper().get() ).build();
-
-    }
-
-    @FailureHandler( FAILURE_HANDLER )
-    public void couldNotDisable( CommandContext context, FailureReason reason ) {
-
-        switch ( reason ) {
-
-            case COMMAND_OPERATION_FAILED:
-                context.getReplyBuilder().withContent( (String) context.getHelper().get() ).build();
-                break;
-
-            default:
-                // Do nothing.
-
-        }
 
     }
 
