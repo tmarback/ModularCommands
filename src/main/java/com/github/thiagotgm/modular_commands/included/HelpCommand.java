@@ -637,10 +637,10 @@ public class HelpCommand {
     @MainCommand(
             name = MAIN_COMMAND_NAME,
             aliases = { "help" },
-            description = "Displays information about registered commands.\nIf a command "
-                    + "signature is specified, displays information about that command.\n"
+            description = "Displays information about registered commands.\n"
+                    + "If a command signature is specified, displays information about that command.\n"
                     + "Else, displays a list of all registered commands.",
-            usage = "{prefix}{aliases} [here] [command signature]",
+            usage = "{signature} [here] [command signature]",
             essential = true,
             replyPrivately = true,
             overrideable = false,
@@ -706,12 +706,13 @@ public class HelpCommand {
     @SubCommand(
             name = REGISTRY_DETAILS_SUBCOMMAND_NAME,
             aliases = { "registry" },
-            description = "Displays information about a particular registry.\nThe registry "
-                    + "type and name (for both parent registries and the target registry "
-                    + "itself) should be just as shown in the registry list. All parent "
-                    + "registries must be included in order. If there is a space in a "
-                    + "registry name, put the whole qualified name (type:name) between " + "double-quotes.",
-            usage = "{}help registry [here] [parent registries...] " + "<registry type>:<registry name>",
+            description = "Displays information about a particular registry.\n"
+                    + "The registry path may be specified either by a `" + CommandRegistry.PATH_SEPARATOR
+                    + "`-separated list of names, like how it is shown in the registry list (the leading `"
+                    + CommandRegistry.PATH_SEPARATOR + "` may be ommited), or by including the name of each "
+                    + "registry in the path as a separate argument (the root registry would be an empty list, "
+                    + "and is implied in any path specified in this manner).",
+            usage = "{signature} [here] <registry path>",
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
@@ -741,9 +742,9 @@ public class HelpCommand {
     @SubCommand(
             name = REGISTRY_LIST_SUBCOMMAND_NAME,
             aliases = { "registries" },
-            description = "Displays all the registered commands, categorized by "
-                    + "the subregistries that they are registered in.",
-            usage = "{}help registries [here]",
+            description = "Displays all the registered commands, categorized by the subregistries "
+                    + "that they are registered in.",
+            usage = "{signature} [here]",
             essential = true,
             replyPrivately = true,
             canModifySubCommands = false,
@@ -826,10 +827,10 @@ public class HelpCommand {
     @SubCommand(
             name = PUBLIC_HELP_SUBCOMMAND_NAME,
             aliases = { "here" },
-            description = "Modifies a help command to output the information to the current "
-                    + "channel instead of a private channel.\nThe information is the same "
-                    + "as calling without the \"here\" modifier.",
-            usage = "{}help [subcommand] here [arguments]",
+            description = "Sends the command output to the channel were the command was called "
+                    + "instead of a private channel.\n"
+                    + "The information is the same as calling without the \"here\" modifier.",
+            usage = "{signature[0]} [subcommand] {aliases} [arguments]",
             canModifySubCommands = false,
             executeParent = true,
             failureHandler = ICommand.STANDARD_FAILURE_HANDLER )

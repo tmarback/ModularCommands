@@ -48,8 +48,9 @@ public class DisableCommand {
     @MainCommand(
             name = COMMAND_NAME,
             aliases = { "disable" },
-            description = "Disables a command.\nOnly non-essential commands can be disabled.",
-            usage = "{}disable <command signature>",
+            description = "Disables a command.\n"
+                    + "A command that is marked as essential cannot be disabled.",
+            usage = "{signature} <command signature>",
             requiresOwner = true,
             essential = true,
             overrideable = false,
@@ -92,12 +93,14 @@ public class DisableCommand {
     @SubCommand(
             name = SUBCOMMAND_NAME,
             aliases = { "registry" },
-            description = "Disables a registry.\nA registry that is marked as essential cannot be disabled. "
-                    + "The registry type and name (for both parent registries and the target registry "
-                    + "itself) should be just as shown in the registry list. All parent "
-                    + "registries must be included in order. If there is a space in a "
-                    + "registry name, put the whole qualified name (type:name) between " + "double-quotes.",
-            usage = "{}disable registry [parent registries...] <registry type>:<registry name>",
+            description = "Disables a registry.\n" + "The registry path may be specified either by a `"
+                    + CommandRegistry.PATH_SEPARATOR
+                    + "`-separated list of names, like how it is shown in the registry list (the leading `"
+                    + CommandRegistry.PATH_SEPARATOR + "` may be ommited), or by including the name of each "
+                    + "registry in the path as a separate argument (the root registry would be an empty list, "
+                    + "and is implied in any path specified in this manner).\n"
+                    + "A registry that is marked as essential cannot be disabled.",
+            usage = "{signature} <registry path>",
             requiresOwner = true,
             essential = true,
             canModifySubCommands = false,
