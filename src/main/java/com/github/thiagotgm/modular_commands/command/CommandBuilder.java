@@ -387,6 +387,9 @@ public class CommandBuilder {
 
     /**
      * Sets the description of the command being built.
+     * <p>
+     * See {@link ICommand#getDescription()} for an explanation of how the default
+     * help command uses the description.
      *
      * @param description
      *            The description of the command.
@@ -408,6 +411,9 @@ public class CommandBuilder {
 
     /**
      * Sets the usage of the command being built.
+     * <p>
+     * See {@link ICommand#getUsage()} for an explanation of how the default help
+     * command uses the usage.
      *
      * @param usage
      *            The usage of the command.

@@ -111,6 +111,9 @@ public @interface MainCommand {
     /**
      * Retrieves the description of the command.
      * <p>
+     * See {@link ICommand#getDescription()} for an explanation of how the default
+     * help command uses the description.
+     * <p>
      * By default, returns an empty string.
      *
      * @return The description of the command.
@@ -120,6 +123,9 @@ public @interface MainCommand {
 
     /**
      * Retrieves the usage of the command.
+     * <p>
+     * See {@link ICommand#getUsage()} for an explanation of how the default help
+     * command uses the usage.
      * <p>
      * By default, returns an empty string.
      *

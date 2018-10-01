@@ -79,9 +79,6 @@ public class HelpCommand {
 
     private static final Color EMBED_COLOR = Color.WHITE;
 
-    private static final Pattern OPERATION_PATTERN = Pattern.compile( "(.+?)\\s*([+-])\\s*(.+)" );
-    private static final Pattern USAGE_PLACEHOLDER_PATTERN = Pattern
-            .compile( "((?:\\\\\\\\)*)(\\\\)?\\{\\s*(.+?)\\s*\\}" );
     private static final Map<Pattern, Function<Placeholder, String>> USAGE_PLACEHOLDERS;
 
     /**
@@ -181,6 +178,8 @@ public class HelpCommand {
         return aliases.size() > 1 ? String.format( "{%s}", aliasString ) : aliasString;
 
     }
+
+    private static final Pattern OPERATION_PATTERN = Pattern.compile( "(.+?)\\s*([+-])\\s*(.+)" );
 
     /**
      * Evaluates the string expression given as an algebraic expression.
@@ -377,6 +376,9 @@ public class HelpCommand {
         return builder.toString();
 
     }
+
+    private static final Pattern USAGE_PLACEHOLDER_PATTERN = Pattern
+            .compile( "((?:\\\\\\\\)*)(\\\\)??\\{\\s*(.+?)\\s*\\}" );
 
     /**
      * Parses the usage string.
@@ -818,7 +820,8 @@ public class HelpCommand {
     /**
      * Sends the reply in the calling channel instead of a private message.
      *
-     * @param context The context of execution.
+     * @param context
+     *            The context of execution.
      */
     @SubCommand(
             name = PUBLIC_HELP_SUBCOMMAND_NAME,

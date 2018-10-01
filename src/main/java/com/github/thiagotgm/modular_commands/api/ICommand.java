@@ -116,6 +116,14 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     /**
      * Retrieves the description of the command.
      * <p>
+     * The default help command will interpret the first line (i.e. up to the first
+     * line break) of the description as the <i>short description</i>, which is
+     * displayed in the command list (if this command is a main command). The other
+     * lines are the <i>long description</i>, and are only shown when showing the
+     * help for this specific command. In that case, all lines are printed
+     * (including the short description), with every line in the long description
+     * being indented.
+     * <p>
      * By default, returns an empty string.
      *
      * @return The description of the command.
@@ -127,6 +135,46 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
 
     /**
      * Retrieves the usage of the command.
+     * <p>
+     * The default help command supports a few placeholder expressions that are
+     * replaced when showing command information:
+     * <ul>
+     * <li><tt>{prefix}</tt> is replaced by the current effective prefix of the
+     * command (context-associated overrides taken into account).</li>
+     * <li><tt>{aliases[n]}</tt> is replaced by the aliases of the <tt>n</tt>-th
+     * command in the signature passed in to the help command.<br>
+     * The aliases are formatted as a comma-separated list, encased with curly
+     * braces. Only aliases that are not overridden (by other commands if a main
+     * command, or by other subcommands in the parent command if a subcommand) are
+     * included. If there is only one non-overriden alias, it is replaced as-is
+     * without braces.</li>
+     * <li><tt>{signature[n]}</tt> is replaced by the possible signatures of the
+     * <tt>n</tt>-th command in the signature passed in to the help command.<br>
+     * If a subcommand in the argument signature is registered in more than one
+     * parent, only the parent in the argument signature is included. However, for
+     * each command in the signature, all valid aliases are included, as given by
+     * the <tt>{aliases[n]}</tt> placeholder. That is, <tt>{signature[n]}</tt> is
+     * equivalent to
+     * <tt>{prefix}{aliases[0]} {aliases[1]} ... {aliases[n]}</tt>.</li>
+     * </ul>
+     * An expression that would be interpreted as a placeholder may be escaped by
+     * adding a backslash before the opening brace. A backslash before the opening
+     * brace may be itself escaped with a backslash to prevent escaping the
+     * expression, and so on.
+     * <p>
+     * <b>For any placeholder that takes an index <tt>n</tt>:</b><br>
+     * Each index is a command in the signature passed in to the help command to
+     * obtain this command. There is also the variable <tt>size</tt>, which is the
+     * number of commands (main command+sub commands) in the signature. For example,
+     * if the argument to the help command was <tt>?main sub1 sub2 sub3 sub4</tt>,
+     * then the index 0 would be the command <tt>?main</tt>, index 1 would be
+     * <tt>?main sub1</tt>, index 2 would be <tt>?main sub1 sub2</tt>, and so on,
+     * and <tt>size</tt> would be 5. This implies that index 0 is always the main
+     * command, and <tt>size - 1</tt> is this command.<br>
+     * <tt>n</tt> is an expression that supports decimal numbers, the <tt>size</tt>
+     * variable, and the operators <tt>+</tt> and <tt>-</tt>. If the index specifier
+     * is omitted, defaults to this command. i.e., for a placeholder
+     * <tt>{p[n]}</tt>, <tt>{p}</tt> is the same as <tt>{p[size-1]}</tt>).
      * <p>
      * By default, returns an empty string.
      *
