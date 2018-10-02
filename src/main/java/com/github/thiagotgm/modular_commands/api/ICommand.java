@@ -244,6 +244,12 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
             throws RateLimitException, MissingPermissionsException, DiscordException {}
 
     /**
+     * Zero-width space character. Should be used at the start of messages to avoid
+     * triggering other bots.
+     */
+    static final char ZERO_WIDTH_SPACE = '\u200B';
+
+    /**
      * The identifier of the {@link #standardOnSuccess(CommandContext) standard
      * success handler} to use it with annotated commands.
      */
@@ -252,7 +258,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
     /**
      * A standard {@link #onSuccess(CommandContext)} operation. If the context has a
      * helper object, sends it in the reply message (using
-     * {@link Object#toString()}). Else, does nothing.
+     * {@link Object#toString()}), with a {@link #ZERO_WIDTH_SPACE zero-width space}
+     * prepended.. Else, does nothing.
      *
      * @param context
      *            Context where the command was called from.
@@ -268,7 +275,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
             throws RateLimitException, MissingPermissionsException, DiscordException {
 
         if ( context.getHelper().isPresent() ) {
-            context.getReplyBuilder().withContent( context.getHelper().get().toString() ).build();
+            context.getReplyBuilder().withContent( ZERO_WIDTH_SPACE + context.getHelper().get().toString() ).build();
         }
 
     }
@@ -309,7 +316,8 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
      * command execution failed by returning <tt>false</tt>, then if the context has
      * a helper object, sends it in the reply message (using
      * {@link Object#toString()}), else does nothing. For any other failure reason,
-     * sends a reply that indicates the type of error that occurred.
+     * sends a reply that indicates the type of error that occurred. A
+     * {@link #ZERO_WIDTH_SPACE zero-width space} is prepended to the message.
      *
      * @param context
      *            Context where the command was called from.
@@ -366,7 +374,7 @@ public interface ICommand extends Disableable, Prefixed, Comparable<ICommand> {
                 break;
 
         }
-        context.getReplyBuilder().withContent( message ).build();
+        context.getReplyBuilder().withContent( ZERO_WIDTH_SPACE + message ).build();
 
     }
 
